@@ -5,6 +5,7 @@ import {
   ImagePlus,
   Maximize2,
   Minus,
+  Pencil,
   Plus,
   RefreshCw,
   Settings,
@@ -216,6 +217,8 @@ export default function App() {
   const [itemHeight, setItemHeight] = useState(AUTO_SIZE);
   const [imagePreviewSize, setImagePreviewSize] = useState<{ width: number; height: number }>();
   const [contextItem, setContextItem] = useState<{ item: BoardItem; x: number; y: number }>();
+  const [editItem, setEditItem] = useState<BoardItem>();
+  const [editTextDraft, setEditTextDraft] = useState("");
   const [dragState, setDragState] = useState<DragState>();
   const [resizeItemState, setResizeItemState] = useState<ResizeItemState>();
   const [panning, setPanning] = useState<{ x: number; y: number }>();
@@ -488,6 +491,26 @@ export default function App() {
         ? { ...current, item: { ...current.item, borderColor } }
         : current,
     );
+  }
+
+  function openTextEditor(item: BoardItem) {
+    setContextItem(undefined);
+    setEditItem(item);
+    setEditTextDraft(item.text ?? "");
+  }
+
+  async function saveEditedText() {
+    if (!activeBoard || !editItem) return;
+    const text = editTextDraft.trim() || "New note";
+    await persistBoard({
+      ...activeBoard,
+      items: activeBoard.items.map((item) =>
+        item.id === editItem.id ? { ...item, text, updatedAt: nowIso() } : item,
+      ),
+      updatedAt: nowIso(),
+    });
+    setEditItem(undefined);
+    setEditTextDraft("");
   }
 
   async function resizeWindow(width: number, height: number) {
@@ -767,6 +790,7 @@ export default function App() {
               cellSize={activeBoard.cellSizePx}
               cellGap={activeBoard.cellGapPx ?? DEFAULT_CELL_GAP}
               onResizePointerDown={startItemResize}
+              onDoubleClick={openTextEditor}
             />
           ))}
         </div>
@@ -778,6 +802,9 @@ export default function App() {
 
       {contextItem && (
         <div className="contextMenu" style={{ left: contextItem.x, top: contextItem.y }}>
+          <button onClick={() => openTextEditor(contextItem.item)}>
+            <Pencil size={15} /> Edit text
+          </button>
           <label className="colorMenuItem">
             Border
             <input
@@ -789,6 +816,44 @@ export default function App() {
           <button onClick={() => void deleteItem(contextItem.item.id)}>
             <Trash2 size={15} /> Delete
           </button>
+        </div>
+      )}
+
+      {editItem && (
+        <div className="modalBackdrop" onPointerDown={() => setEditItem(undefined)}>
+          <section
+            className="editModal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Edit text"
+            onPointerDown={(event) => event.stopPropagation()}
+          >
+            <div className="modalHeader">
+              <strong>Edit text</strong>
+              <button title="Close" onClick={() => setEditItem(undefined)}>
+                <Minus size={16} />
+              </button>
+            </div>
+            <div className="editModalBody">
+              <label>
+                Text
+                <textarea
+                  value={editTextDraft}
+                  autoFocus
+                  onChange={(event) => setEditTextDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+                      event.preventDefault();
+                      void saveEditedText();
+                    }
+                  }}
+                />
+              </label>
+              <button className="primaryAction" title="Save text" onClick={() => void saveEditedText()}>
+                <Pencil size={16} /> Save
+              </button>
+            </div>
+          </section>
         </div>
       )}
 
@@ -912,11 +977,13 @@ function KanbanItem({
   cellSize,
   cellGap,
   onResizePointerDown,
+  onDoubleClick,
 }: {
   item: BoardItem;
   cellSize: number;
   cellGap: number;
   onResizePointerDown: (event: React.PointerEvent<HTMLElement>, item: BoardItem) => void;
+  onDoubleClick: (item: BoardItem) => void;
 }) {
   const inset = Math.min(cellGap, Math.max(0, (Math.min(item.gridWidth, item.gridHeight) * cellSize) / 2 - 4));
   return (
@@ -930,6 +997,10 @@ function KanbanItem({
         borderColor: item.borderColor ?? DEFAULT_ITEM_BORDER_COLOR,
       }}
       title={item.text}
+      onDoubleClick={(event) => {
+        event.stopPropagation();
+        onDoubleClick(item);
+      }}
     >
       {item.type === "image" && item.imageUrl ? (
         <img src={item.imageUrl} alt={item.text || "Kanban image"} />

@@ -37,7 +37,8 @@ body,
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
   color: var(--text);
 }
@@ -62,7 +63,8 @@ button:hover {
 
 button:focus-visible,
 input:focus-visible,
-select:focus-visible {
+select:focus-visible,
+textarea:focus-visible {
   outline: 2px solid rgba(187, 153, 255, 0.5);
   outline-offset: 2px;
 }
@@ -73,7 +75,8 @@ button:disabled {
 }
 
 select,
-input {
+input,
+textarea {
   min-height: 32px;
   min-width: 0;
   border: 1px solid var(--border);
@@ -365,6 +368,14 @@ input {
   box-shadow: 0 14px 34px var(--shadow);
 }
 
+.editModal {
+  width: min(460px, calc(100% - 28px));
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 14px 34px var(--shadow);
+}
+
 .modalHeader {
   display: flex;
   align-items: center;
@@ -401,6 +412,26 @@ input {
   gap: 8px;
   align-items: end;
   padding: 10px;
+}
+
+.editModalBody {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+}
+
+.editModalBody label {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.editModalBody textarea {
+  width: 100%;
+  min-height: 120px;
+  padding: 8px 10px;
+  resize: vertical;
 }
 
 .modalGrid .wideField {

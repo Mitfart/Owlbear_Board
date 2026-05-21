@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Kanban Grid">
+  <rect width="64" height="64" rx="14" fill="#17202a"/>
+  <path d="M16 16h10v32H16zM30 16h18v14H30zM30 34h18v14H30z" fill="#f2c14e"/>
+  <path d="M16 16h10v32H16zM30 16h18v14H30zM30 34h18v14H30z" fill="none" stroke="#ffffff" stroke-opacity=".55" stroke-width="2"/>
+</svg>

@@ -25,6 +25,7 @@ export type Board = {
   name: string;
   scope: BoardScope;
   cellSizePx: number;
+  cellGapPx: number;
   items: BoardItem[];
   createdAt: string;
   updatedAt: string;

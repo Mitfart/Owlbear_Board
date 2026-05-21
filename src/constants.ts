@@ -7,4 +7,7 @@ export const SCENE_KEY_METADATA = `${EXTENSION_ID}/scene-key`;
 export const DEFAULT_CELL_SIZE = 72;
 export const MIN_CELL_SIZE = 32;
 export const MAX_CELL_SIZE = 160;
+export const DEFAULT_CELL_GAP = 2;
+export const MIN_CELL_GAP = 0;
+export const MAX_CELL_GAP = 32;
 export const DEFAULT_WINDOW = { width: 960, height: 720 };

@@ -14,9 +14,12 @@ import {
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  DEFAULT_CELL_GAP,
   DEFAULT_CELL_SIZE,
   DEFAULT_WINDOW,
+  MAX_CELL_GAP,
   MAX_CELL_SIZE,
+  MIN_CELL_GAP,
   MIN_CELL_SIZE,
 } from "./constants";
 import { boardItemAt, collides, makeRectCells, updateBoardItemPosition, updateBoardItemRect } from "./grid";
@@ -167,8 +170,19 @@ function migrateItem(item: LegacyBoardItem): BoardItem {
 function migrateBoard(board: Board): Board {
   return {
     ...board,
+    cellGapPx: board.cellGapPx ?? DEFAULT_CELL_GAP,
     items: (board.items as LegacyBoardItem[]).map(migrateItem),
   };
+}
+
+function resizeItemsForGridSize(items: BoardItem[], previousCellSize: number, nextCellSize: number) {
+  return items.map((item) => {
+    const gridX = Math.max(0, Math.round((item.gridX * previousCellSize) / nextCellSize));
+    const gridY = Math.max(0, Math.round((item.gridY * previousCellSize) / nextCellSize));
+    const gridWidth = clampNumber(Math.round((item.gridWidth * previousCellSize) / nextCellSize), 1, 60);
+    const gridHeight = clampNumber(Math.round((item.gridHeight * previousCellSize) / nextCellSize), 1, 60);
+    return updateBoardItemRect(item, gridX, gridY, gridWidth, gridHeight);
+  });
 }
 
 function createBoard(scope: BoardScope, withSamples = false): Board {
@@ -178,6 +192,7 @@ function createBoard(scope: BoardScope, withSamples = false): Board {
     name: scope === "scene" ? "Scene Board" : "Room Board",
     scope,
     cellSizePx: DEFAULT_CELL_SIZE,
+    cellGapPx: DEFAULT_CELL_GAP,
     items: withSamples ? sampleItems() : [],
     createdAt: timestamp,
     updatedAt: timestamp,
@@ -310,6 +325,16 @@ export default function App() {
   async function updateActiveBoard(update: Partial<Board>) {
     if (!activeBoard) return;
     await persistBoard({ ...activeBoard, ...update, updatedAt: nowIso() });
+  }
+
+  async function updateGridSize(value: number) {
+    if (!activeBoard) return;
+    const cellSizePx = clampNumber(value, MIN_CELL_SIZE, MAX_CELL_SIZE);
+    if (cellSizePx === activeBoard.cellSizePx) return;
+    await updateActiveBoard({
+      cellSizePx,
+      items: resizeItemsForGridSize(activeBoard.items, activeBoard.cellSizePx, cellSizePx),
+    });
   }
 
   async function chooseBoard(id: string) {
@@ -645,20 +670,32 @@ export default function App() {
                 Name
                 <input value={activeBoard.name} onChange={(event) => void updateActiveBoard({ name: event.target.value })} />
               </label>
-              <label>
-                Cell
-                <input
-                  type="number"
-                  min={MIN_CELL_SIZE}
-                  max={MAX_CELL_SIZE}
-                  value={activeBoard.cellSizePx}
-                  onChange={(event) =>
-                    void updateActiveBoard({
-                      cellSizePx: clampNumber(Number(event.target.value), MIN_CELL_SIZE, MAX_CELL_SIZE),
-                    })
-                  }
-                />
-              </label>
+              <div className="boardInlineFields">
+                <label>
+                  <span>Grid size</span>
+                  <input
+                    type="number"
+                    min={MIN_CELL_SIZE}
+                    max={MAX_CELL_SIZE}
+                    value={activeBoard.cellSizePx}
+                    onChange={(event) => void updateGridSize(Number(event.target.value))}
+                  />
+                </label>
+                <label>
+                  <span>Grid cell gap</span>
+                  <input
+                    type="number"
+                    min={MIN_CELL_GAP}
+                    max={MAX_CELL_GAP}
+                    value={activeBoard.cellGapPx ?? DEFAULT_CELL_GAP}
+                    onChange={(event) =>
+                      void updateActiveBoard({
+                        cellGapPx: clampNumber(Number(event.target.value), MIN_CELL_GAP, MAX_CELL_GAP),
+                      })
+                    }
+                  />
+                </label>
+              </div>
               <div className="boardPanelActions">
                 <button title="Create scene board" onClick={() => void addBoard("scene")}>
                   <Plus size={16} /> Scene
@@ -728,6 +765,7 @@ export default function App() {
                   : item
               }
               cellSize={activeBoard.cellSizePx}
+              cellGap={activeBoard.cellGapPx ?? DEFAULT_CELL_GAP}
               onResizePointerDown={startItemResize}
             />
           ))}
@@ -872,20 +910,23 @@ export default function App() {
 function KanbanItem({
   item,
   cellSize,
+  cellGap,
   onResizePointerDown,
 }: {
   item: BoardItem;
   cellSize: number;
+  cellGap: number;
   onResizePointerDown: (event: React.PointerEvent<HTMLElement>, item: BoardItem) => void;
 }) {
+  const inset = Math.min(cellGap, Math.max(0, (Math.min(item.gridWidth, item.gridHeight) * cellSize) / 2 - 4));
   return (
     <article
       className={`kanbanItem ${item.type}`}
       style={{
-        left: item.gridX * cellSize,
-        top: item.gridY * cellSize,
-        width: item.gridWidth * cellSize,
-        height: item.gridHeight * cellSize,
+        left: item.gridX * cellSize + inset,
+        top: item.gridY * cellSize + inset,
+        width: Math.max(8, item.gridWidth * cellSize - inset * 2),
+        height: Math.max(8, item.gridHeight * cellSize - inset * 2),
         borderColor: item.borderColor ?? DEFAULT_ITEM_BORDER_COLOR,
       }}
       title={item.text}

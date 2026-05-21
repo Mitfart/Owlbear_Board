@@ -21,6 +21,7 @@ const board = (items: BoardItem[]): Board => ({
   name: "Board",
   scope: "scene",
   cellSizePx: 72,
+  cellGapPx: 0,
   items,
   createdAt: "",
   updatedAt: "",

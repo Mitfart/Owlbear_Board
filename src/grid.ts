@@ -1,4 +1,4 @@
-import type { Board, BoardItem, OccupiedCell, PendingPlacement } from "./types";
+import type { Board, BoardItem, OccupiedCell } from "./types";
 
 export function makeRectCells(
   gridX: number,
@@ -60,16 +60,20 @@ export function updateBoardItemPosition(
   };
 }
 
-export function pendingPlacementFromBounds(
-  sourceItemId: string,
-  snapshot: PendingPlacement["snapshot"],
-  bounds: { width: number; height: number },
-  cellSizePx: number,
-): PendingPlacement {
+export function updateBoardItemRect(
+  item: BoardItem,
+  gridX: number,
+  gridY: number,
+  gridWidth: number,
+  gridHeight: number,
+): BoardItem {
   return {
-    sourceItemId,
-    snapshot,
-    gridWidth: Math.max(1, Math.ceil(bounds.width / cellSizePx)),
-    gridHeight: Math.max(1, Math.ceil(bounds.height / cellSizePx)),
+    ...item,
+    gridX,
+    gridY,
+    gridWidth,
+    gridHeight,
+    occupiedCells: makeRectCells(gridX, gridY, gridWidth, gridHeight),
+    updatedAt: new Date().toISOString(),
   };
 }

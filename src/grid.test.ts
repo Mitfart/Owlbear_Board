@@ -1,26 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { collides, makeRectCells, updateBoardItemPosition } from "./grid";
+import { collides, makeRectCells, updateBoardItemPosition, updateBoardItemRect } from "./grid";
 import type { Board, BoardItem } from "./types";
 
 const item = (overrides: Partial<BoardItem>): BoardItem => ({
   id: "item_1",
-  sourceItemId: "source_1",
-  snapshot: {
-    id: "source_1",
-    type: "TEXT",
-    name: "Note",
-    visible: true,
-    locked: false,
-    createdUserId: "user",
-    zIndex: 0,
-    lastModified: "",
-    lastModifiedUserId: "",
-    position: { x: 0, y: 0 },
-    rotation: 0,
-    scale: { x: 1, y: 1 },
-    metadata: {},
-    layer: "TEXT",
-  },
+  type: "text",
+  text: "Note",
   gridX: 1,
   gridY: 1,
   gridWidth: 2,
@@ -67,5 +52,12 @@ describe("grid occupancy", () => {
     expect(moved.gridX).toBe(5);
     expect(moved.gridY).toBe(6);
     expect(moved.occupiedCells).toEqual(makeRectCells(5, 6, 2, 2));
+  });
+
+  it("recomputes occupied cells when resizing an item", () => {
+    const resized = updateBoardItemRect(item({}), 1, 1, 4, 3);
+    expect(resized.gridWidth).toBe(4);
+    expect(resized.gridHeight).toBe(3);
+    expect(resized.occupiedCells).toEqual(makeRectCells(1, 1, 4, 3));
   });
 });

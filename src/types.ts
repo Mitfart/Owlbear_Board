@@ -1,5 +1,3 @@
-import type { Item } from "@owlbear-rodeo/sdk";
-
 export type BoardScope = "scene" | "room";
 
 export type OccupiedCell = {
@@ -9,8 +7,9 @@ export type OccupiedCell = {
 
 export type BoardItem = {
   id: string;
-  sourceItemId: string;
-  snapshot: Item;
+  type: "text" | "image";
+  text?: string;
+  imageUrl?: string;
   gridX: number;
   gridY: number;
   gridWidth: number;
@@ -39,11 +38,4 @@ export type PersistedKanbanState = {
 export type WindowPreferences = {
   width: number;
   height: number;
-};
-
-export type PendingPlacement = {
-  sourceItemId: string;
-  snapshot: Item;
-  gridWidth: number;
-  gridHeight: number;
 };

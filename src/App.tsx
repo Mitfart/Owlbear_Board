@@ -64,28 +64,29 @@ const DEFAULT_PAN = { x: 260, y: 180 };
 const SAMPLE_IMAGE =
   "https://images.unsplash.com/photo-1549880338-65ddcdfd017b?auto=format&fit=crop&w=900&q=80";
 const AUTO_SIZE = "auto";
+const DEFAULT_ITEM_BORDER_COLOR = "#bb99ff";
 const FALLBACK_THEME: Theme = {
   mode: "DARK",
   primary: {
-    main: "#bb86fc",
-    light: "#d7b9ff",
-    dark: "#8f5cc2",
-    contrastText: "#000000",
+    main: "#bb99ff",
+    light: "#d2bdff",
+    dark: "#826bb2",
+    contrastText: "#ffffff",
   },
   secondary: {
     main: "#03dac6",
     light: "#66fff8",
     dark: "#00a896",
-    contrastText: "#000000",
+    contrastText: "#ffffff",
   },
   background: {
-    default: "#121212",
-    paper: "#1e1e1e",
+    default: "#1e2231",
+    paper: "#2c3042",
   },
   text: {
     primary: "#ffffff",
-    secondary: "rgba(255, 255, 255, 0.7)",
-    disabled: "rgba(255, 255, 255, 0.38)",
+    secondary: "#ffffff",
+    disabled: "#ffffff",
   },
 };
 
@@ -109,17 +110,20 @@ function sampleItems(): BoardItem[] {
       ...createItemBase(0, 0, 3, 1),
       type: "text",
       text: "Opening clue",
+      borderColor: DEFAULT_ITEM_BORDER_COLOR,
     },
     {
       ...createItemBase(3, 0, 2, 2),
       type: "image",
       imageUrl: SAMPLE_IMAGE,
       text: "Mountain pass",
+      borderColor: DEFAULT_ITEM_BORDER_COLOR,
     },
     {
       ...createItemBase(0, 2, 2, 1),
       type: "text",
       text: "NPC reaction",
+      borderColor: DEFAULT_ITEM_BORDER_COLOR,
     },
   ];
 }
@@ -131,6 +135,7 @@ function migrateItem(item: LegacyBoardItem): BoardItem {
       occupiedCells:
         item.occupiedCells ??
         makeRectCells(item.gridX ?? 0, item.gridY ?? 0, item.gridWidth ?? 1, item.gridHeight ?? 1),
+      borderColor: item.borderColor ?? DEFAULT_ITEM_BORDER_COLOR,
     };
   }
 
@@ -148,6 +153,7 @@ function migrateItem(item: LegacyBoardItem): BoardItem {
     type: imageUrl ? "image" : "text",
     text,
     imageUrl,
+    borderColor: item.borderColor ?? DEFAULT_ITEM_BORDER_COLOR,
     gridX,
     gridY,
     gridWidth,
@@ -190,6 +196,7 @@ export default function App() {
   const [addItemType, setAddItemType] = useState<BoardItem["type"]>("text");
   const [textDraft, setTextDraft] = useState("New note");
   const [imageDraft, setImageDraft] = useState("");
+  const [borderColorDraft, setBorderColorDraft] = useState(DEFAULT_ITEM_BORDER_COLOR);
   const [itemWidth, setItemWidth] = useState(AUTO_SIZE);
   const [itemHeight, setItemHeight] = useState(AUTO_SIZE);
   const [imagePreviewSize, setImagePreviewSize] = useState<{ width: number; height: number }>();
@@ -197,7 +204,7 @@ export default function App() {
   const [dragState, setDragState] = useState<DragState>();
   const [resizeItemState, setResizeItemState] = useState<ResizeItemState>();
   const [panning, setPanning] = useState<{ x: number; y: number }>();
-  const [theme, setTheme] = useState(FALLBACK_THEME);
+  const [, setTheme] = useState(FALLBACK_THEME);
   const gridRef = useRef<HTMLDivElement>(null);
 
   const activeBoard = useMemo(
@@ -207,25 +214,24 @@ export default function App() {
   const themeVars = useMemo(
     () =>
       ({
-        "--bg": theme.background.default,
-        "--panel": `color-mix(in srgb, ${theme.background.paper} 82%, transparent)`,
-        "--panel-raised": `color-mix(in srgb, ${
-          theme.mode === "DARK" ? theme.background.paper : "#ffffff"
-        } 88%, transparent)`,
-        "--panel-raised-solid": theme.mode === "DARK" ? theme.background.paper : "#ffffff",
-        "--panel-soft": `color-mix(in srgb, ${theme.mode === "DARK" ? "#121212" : "#f5f5f5"} 74%, transparent)`,
-        "--border": theme.text.disabled,
-        "--border-strong": theme.text.secondary,
-        "--text": theme.text.primary,
-        "--muted": theme.text.secondary,
-        "--muted-2": theme.text.disabled,
-        "--accent": theme.primary.main,
-        "--accent-strong": theme.primary.light,
-        "--accent-soft": "color-mix(in srgb, var(--accent) 16%, transparent)",
-        "--danger": "#f44336",
-        "--shadow": theme.mode === "DARK" ? "rgba(0, 0, 0, 0.48)" : "rgba(0, 0, 0, 0.18)",
+        "--bg": "#1e2231",
+        "--surface": "#202435",
+        "--panel": "#25293c",
+        "--panel-soft": "#1c2030",
+        "--panel-raised": "#2c3042",
+        "--border": "rgba(187, 153, 255, 0.14)",
+        "--border-strong": "rgba(187, 153, 255, 0.28)",
+        "--text": "#ffffff",
+        "--muted": "#ffffff",
+        "--muted-2": "#ffffff",
+        "--accent": "#bb99ff",
+        "--accent-strong": "#d2bdff",
+        "--accent-dark": "#826bb2",
+        "--accent-soft": "rgba(187, 153, 255, 0.16)",
+        "--danger": "#ff6b8a",
+        "--shadow": "rgba(4, 6, 14, 0.42)",
       }) as CSSProperties,
-    [theme],
+    [],
   );
 
   const persistBoard = useCallback(async (board: Board) => {
@@ -358,6 +364,7 @@ export default function App() {
   function resetAddItemFields() {
     setTextDraft("New note");
     setImageDraft("");
+    setBorderColorDraft(DEFAULT_ITEM_BORDER_COLOR);
     setItemWidth(AUTO_SIZE);
     setItemHeight(AUTO_SIZE);
     setImagePreviewSize(undefined);
@@ -375,6 +382,7 @@ export default function App() {
       type,
       text: type === "text" ? textDraft.trim() || "New note" : "Image",
       imageUrl: type === "image" ? source?.trim() || imageDraft.trim() : undefined,
+      borderColor: borderColorDraft,
       updatedAt: timestamp,
     };
 
@@ -439,6 +447,22 @@ export default function App() {
       updatedAt: nowIso(),
     });
     setContextItem(undefined);
+  }
+
+  async function updateItemBorderColor(itemId: string, borderColor: string) {
+    if (!activeBoard) return;
+    await persistBoard({
+      ...activeBoard,
+      items: activeBoard.items.map((item) =>
+        item.id === itemId ? { ...item, borderColor, updatedAt: nowIso() } : item,
+      ),
+      updatedAt: nowIso(),
+    });
+    setContextItem((current) =>
+      current?.item.id === itemId
+        ? { ...current, item: { ...current.item, borderColor } }
+        : current,
+    );
   }
 
   async function resizeWindow(width: number, height: number) {
@@ -716,6 +740,14 @@ export default function App() {
 
       {contextItem && (
         <div className="contextMenu" style={{ left: contextItem.x, top: contextItem.y }}>
+          <label className="colorMenuItem">
+            Border
+            <input
+              type="color"
+              value={contextItem.item.borderColor ?? DEFAULT_ITEM_BORDER_COLOR}
+              onChange={(event) => void updateItemBorderColor(contextItem.item.id, event.target.value)}
+            />
+          </label>
           <button onClick={() => void deleteItem(contextItem.item.id)}>
             <Trash2 size={15} /> Delete
           </button>
@@ -768,6 +800,14 @@ export default function App() {
                   value={itemHeight}
                   onChange={(event) => setItemHeight(event.target.value)}
                   onBlur={() => setItemHeight((value) => (value.trim() ? value : AUTO_SIZE))}
+                />
+              </label>
+              <label>
+                Border
+                <input
+                  type="color"
+                  value={borderColorDraft}
+                  onChange={(event) => setBorderColorDraft(event.target.value)}
                 />
               </label>
               {addItemType === "text" ? (
@@ -846,6 +886,7 @@ function KanbanItem({
         top: item.gridY * cellSize,
         width: item.gridWidth * cellSize,
         height: item.gridHeight * cellSize,
+        borderColor: item.borderColor ?? DEFAULT_ITEM_BORDER_COLOR,
       }}
       title={item.text}
     >

@@ -10,6 +10,7 @@ export type BoardItem = {
   type: "text" | "image";
   text?: string;
   imageUrl?: string;
+  borderColor?: string;
   gridX: number;
   gridY: number;
   gridWidth: number;

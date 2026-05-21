@@ -3,6 +3,7 @@ import {
   DEFAULT_WINDOW,
   PLAYER_STATE_KEY,
   PLAYER_WINDOW_KEY,
+  ROOM_STATE_KEY,
   SCENE_KEY_METADATA,
 } from "./constants";
 import { createId } from "./ids";
@@ -44,13 +45,42 @@ async function writeAllStates(states: StateByContext) {
   await OBR.player.setMetadata({ [PLAYER_STATE_KEY]: states });
 }
 
+function isPersistedKanbanState(value: unknown): value is PersistedKanbanState {
+  return (
+    !!value &&
+    typeof value === "object" &&
+    (value as PersistedKanbanState).version === 1 &&
+    Array.isArray((value as PersistedKanbanState).boards)
+  );
+}
+
+async function loadRoomBoardState() {
+  const metadata = await OBR.room.getMetadata();
+  const raw = metadata[ROOM_STATE_KEY];
+  if (isPersistedKanbanState(raw)) return raw;
+
+  const legacyPlayerStates = await readAllStates();
+  return legacyPlayerStates[`room:${OBR.room.id}`] ?? emptyState();
+}
+
+async function saveRoomBoardState(state: PersistedKanbanState) {
+  await OBR.room.setMetadata({ [ROOM_STATE_KEY]: state });
+}
+
 export async function loadBoardState(scope: BoardScope) {
+  if (scope === "room") return loadRoomBoardState();
+
   const key = await getContextKey(scope);
   const states = await readAllStates();
   return states[key] ?? emptyState();
 }
 
 export async function saveBoardState(scope: BoardScope, state: PersistedKanbanState) {
+  if (scope === "room") {
+    await saveRoomBoardState(state);
+    return;
+  }
+
   const key = await getContextKey(scope);
   const states = await readAllStates();
   states[key] = state;

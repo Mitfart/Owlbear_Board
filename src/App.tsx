@@ -399,7 +399,7 @@ export default function App() {
 
   async function pickOwlbearImage() {
     if (!OBR.isAvailable) return;
-    const images = await OBR.assets.downloadImages(false, undefined, "PROP");
+    const images = await OBR.assets.downloadImages(false, undefined, "NOTE");
     const image = images[0]?.image;
     if (!image?.url) return;
     setImageDraft(image.url);

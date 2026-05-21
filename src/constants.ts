@@ -1,6 +1,7 @@
 export const EXTENSION_ID = "com.owlbear-kanban.grid";
 export const PLAYER_STATE_KEY = `${EXTENSION_ID}/state`;
 export const PLAYER_WINDOW_KEY = `${EXTENSION_ID}/window`;
+export const ROOM_STATE_KEY = `${EXTENSION_ID}/room-state`;
 export const SCENE_KEY_METADATA = `${EXTENSION_ID}/scene-key`;
 
 export const DEFAULT_CELL_SIZE = 72;

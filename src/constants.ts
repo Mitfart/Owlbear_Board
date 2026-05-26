@@ -1,7 +1,10 @@
-export const EXTENSION_ID = "com.owlbear-kanban.grid";
-export const PLAYER_STATE_KEY = `${EXTENSION_ID}/state`;
-export const PLAYER_WINDOW_KEY = `${EXTENSION_ID}/window`;
-export const ROOM_STATE_KEY = `${EXTENSION_ID}/room-state`;
+export const EXTENSION_ID = "com.owlbear-board.grid";
+export const PLAYER_PREFERENCES_KEY = `${EXTENSION_ID}/preferences`;
+export const PRIVATE_SCENE_STATES_KEY = `${EXTENSION_ID}/private-scene-states`;
+export const PRIVATE_ROOM_STATE_KEY = `${EXTENSION_ID}/private-room-state`;
+export const SHARED_SCENE_STATE_KEY = `${EXTENSION_ID}/shared-scene-state`;
+export const SHARED_ROOM_STATE_KEY = `${EXTENSION_ID}/shared-room-state`;
+export const ROOM_OWNER_KEY = `${EXTENSION_ID}/room-owner`;
 export const SCENE_KEY_METADATA = `${EXTENSION_ID}/scene-key`;
 
 export const DEFAULT_CELL_SIZE = 72;

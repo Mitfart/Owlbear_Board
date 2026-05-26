@@ -253,7 +253,7 @@ textarea {
   transform-origin: 0 0;
 }
 
-.kanbanItem {
+.boardItem {
   position: absolute;
   display: grid;
   place-items: stretch;
@@ -266,8 +266,8 @@ textarea {
   user-select: none;
 }
 
-.kanbanItem.dragging {
-  z-index: 2;
+.boardItem.selected {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.28), 0 10px 22px var(--shadow);
 }
 
 .itemResizeHandle {
@@ -284,7 +284,7 @@ textarea {
   cursor: nwse-resize;
 }
 
-.kanbanItem img {
+.boardItem img {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -492,6 +492,84 @@ input[type="color"] {
   border-color: var(--danger);
   color: var(--text);
   background: rgba(255, 107, 138, 0.14);
+}
+
+.boardGroups {
+  display: grid;
+  gap: 6px;
+}
+
+.boardGroups strong {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.boardGroups button {
+  justify-content: flex-start;
+}
+
+.boardGroups button.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.emptyState {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  place-content: center;
+  gap: 10px;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(30, 34, 49, 0.2), rgba(30, 34, 49, 0.72));
+}
+
+.emptyState button {
+  pointer-events: auto;
+}
+
+.inlineEditor {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 10px;
+  border: 0;
+  border-radius: 0;
+  resize: none;
+  background: var(--panel-soft);
+}
+
+.markdown {
+  width: 100%;
+  text-align: left;
+}
+
+.markdown :is(p, h1, h2, h3, ul, blockquote, pre) {
+  margin: 0 0 6px;
+}
+
+.markdown ul {
+  padding-left: 18px;
+}
+
+.markdown a {
+  color: var(--accent-strong);
+}
+
+.markdown code,
+.markdown pre {
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.markdown code {
+  padding: 1px 3px;
+}
+
+.markdown pre {
+  padding: 6px;
+  overflow: auto;
 }
 
 .resizeGrip {

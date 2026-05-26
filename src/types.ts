@@ -1,4 +1,6 @@
 export type BoardScope = "scene" | "room";
+export type BoardVisibility = "private" | "shared";
+export type BoardItemType = "text" | "image";
 
 export type OccupiedCell = {
   x: number;
@@ -7,7 +9,7 @@ export type OccupiedCell = {
 
 export type BoardItem = {
   id: string;
-  type: "text" | "image";
+  type: BoardItemType;
   text?: string;
   imageUrl?: string;
   borderColor?: string;
@@ -24,6 +26,9 @@ export type Board = {
   id: string;
   name: string;
   scope: BoardScope;
+  visibility: BoardVisibility;
+  ownerId?: string;
+  revision: number;
   cellSizePx: number;
   cellGapPx: number;
   items: BoardItem[];
@@ -31,10 +36,22 @@ export type Board = {
   updatedAt: string;
 };
 
-export type PersistedKanbanState = {
+export type PersistedBoardState = {
   version: 1;
   boards: Board[];
-  activeBoardId?: string;
+};
+
+export type ViewportPreference = {
+  pan: { x: number; y: number };
+  zoom: number;
+};
+
+export type PlayerPreferences = {
+  version: 1;
+  privateSceneOpenOrder: Record<string, string[]>;
+  privateRoomOpenOrder: Record<string, string[]>;
+  viewportByBoardId: Record<string, ViewportPreference>;
+  previewDismissed?: boolean;
 };
 
 export type WindowPreferences = {

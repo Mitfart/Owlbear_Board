@@ -1,12 +1,12 @@
 {
-  "name": "Kanban Grid",
+  "name": "Board",
   "version": "0.1.0",
   "manifest_version": 1,
-  "author": "Owlbear Kanban",
+  "author": "Owlbear Board",
   "homepage_url": "https://github.com/Mitfart/Owlbear_Kanban",
   "icon": "https://mitfart.github.io/Owlbear_Kanban/icon.svg",
   "action": {
-    "title": "Kanban Grid",
+    "title": "Board",
     "icon": "https://mitfart.github.io/Owlbear_Kanban/icon.svg",
     "popover": "https://mitfart.github.io/Owlbear_Kanban/",
     "height": 720,

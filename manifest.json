@@ -3,12 +3,12 @@
   "version": "0.1.0",
   "manifest_version": 1,
   "author": "Owlbear Board",
-  "homepage_url": "https://github.com/Mitfart/Owlbear_Kanban",
-  "icon": "https://mitfart.github.io/Owlbear_Kanban/icon.svg",
+  "homepage_url": "https://github.com/Mitfart/Owlbear_Board",
+  "icon": "https://mitfart.github.io/Owlbear_Board/icon.svg",
   "action": {
     "title": "Board",
-    "icon": "https://mitfart.github.io/Owlbear_Kanban/icon.svg",
-    "popover": "https://mitfart.github.io/Owlbear_Kanban/",
+    "icon": "https://mitfart.github.io/Owlbear_Board/icon.svg",
+    "popover": "https://mitfart.github.io/Owlbear_Board/",
     "height": 720,
     "width": 960
   }

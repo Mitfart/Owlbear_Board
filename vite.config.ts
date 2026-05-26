@@ -2,7 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
 export default defineConfig({
-  base: "/Owlbear_Kanban/",
+  base: "/Owlbear_Board/",
   plugins: [react()],
   build: {
     outDir: "dist",

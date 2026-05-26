@@ -20,6 +20,8 @@ const board = (items: BoardItem[]): Board => ({
   id: "board_1",
   name: "Board",
   scope: "scene",
+  visibility: "private",
+  revision: 0,
   cellSizePx: 72,
   cellGapPx: 0,
   items,

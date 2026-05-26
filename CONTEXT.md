@@ -40,6 +40,10 @@ _Avoid_: Selected item
 The single board currently displayed and editable in the board surface.
 _Avoid_: Visible board, current project
 
+**Board Session**:
+The per-user working state used to render the extension for the current Owlbear room and active scene. It includes the board picker rows, the active board when one is available, and whether the preview board should be shown.
+_Avoid_: App state, storage state
+
 **Board Open Order**:
 A per-user ordering of boards by most recent activation. The first available board in the order becomes active automatically, and preview boards are never included.
 _Avoid_: Last active scene, global recent board

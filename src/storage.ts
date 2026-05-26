@@ -11,6 +11,7 @@ import {
 } from "./constants";
 import { createId } from "./ids";
 import type { Board, BoardScope, PlayerPreferences, PersistedBoardState, ViewportPreference, WindowPreferences } from "./types";
+export { orderPrivateBoards } from "./boardSession";
 
 type PrivateSceneStates = Record<string, PersistedBoardState>;
 
@@ -159,13 +160,6 @@ export async function savePreferences(preferences: PlayerPreferences) {
 export async function saveViewport(boardId: string, viewport: ViewportPreference) {
   const preferences = await loadPreferences();
   await savePreferences({ ...preferences, viewportByBoardId: { ...preferences.viewportByBoardId, [boardId]: viewport } });
-}
-
-export function orderPrivateBoards(boards: Board[], scope: BoardScope, preferences: PlayerPreferences, sceneKey: string) {
-  const key = scope === "scene" ? sceneKey : "room";
-  const order = scope === "scene" ? preferences.privateSceneOpenOrder[key] ?? [] : preferences.privateRoomOpenOrder[key] ?? [];
-  const rank = new Map(order.map((id, index) => [id, index]));
-  return [...boards].sort((a, b) => (rank.get(a.id) ?? 9999) - (rank.get(b.id) ?? 9999) || b.updatedAt.localeCompare(a.updatedAt) || a.name.localeCompare(b.name));
 }
 
 export async function markPrivateBoardOpened(board: Board) {

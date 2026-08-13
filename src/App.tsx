@@ -142,7 +142,6 @@ export default function App() {
   useEffect(() => { if (!activeBoard || isPreview) return; const id = window.setTimeout(() => void saveViewport(activeBoard.id, { pan, zoom }), 250); return () => window.clearTimeout(id); }, [activeBoard, isPreview, pan, zoom]);
 
   async function persistBoard(board: Board, pushHistory = true) {
-    if (isPreview) return;
     if (pushHistory && activeBoard && activeBoard.id === board.id) setHistory((current) => ({ ...current, [board.id]: { undo: [activeBoard, ...(current[board.id]?.undo ?? [])].slice(0, MAX_HISTORY), redo: [] } }));
     const saved = await saveBoard({ ...board, updatedAt: nowIso() });
     setBoards((current) => current.some((candidate) => candidate.id === saved.id) ? current.map((candidate) => candidate.id === saved.id ? saved : candidate) : [saved, ...current]);

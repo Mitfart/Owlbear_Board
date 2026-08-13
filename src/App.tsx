@@ -73,6 +73,7 @@ export default function App() {
   const [sceneKey, setSceneKey] = useState("scene");
   const [activeBoardId, setActiveBoardId] = useState<string>();
   const [previewDismissed, setPreviewDismissed] = useState(false);
+  const [error, setError] = useState<string>();
   const [pan, setPan] = useState(DEFAULT_PAN);
   const [zoom, setZoom] = useState(DEFAULT_ZOOM);
   const [windowSize, setWindowSize] = useState(DEFAULT_WINDOW);
@@ -142,10 +143,15 @@ export default function App() {
   useEffect(() => { if (!activeBoard || isPreview) return; const id = window.setTimeout(() => void saveViewport(activeBoard.id, { pan, zoom }), 250); return () => window.clearTimeout(id); }, [activeBoard, isPreview, pan, zoom]);
 
   async function persistBoard(board: Board, pushHistory = true) {
-    if (pushHistory && activeBoard && activeBoard.id === board.id) setHistory((current) => ({ ...current, [board.id]: { undo: [activeBoard, ...(current[board.id]?.undo ?? [])].slice(0, MAX_HISTORY), redo: [] } }));
-    const saved = await saveBoard({ ...board, updatedAt: nowIso() });
-    setBoards((current) => current.some((candidate) => candidate.id === saved.id) ? current.map((candidate) => candidate.id === saved.id ? saved : candidate) : [saved, ...current]);
-    setActiveBoardId(saved.id);
+    try {
+      if (pushHistory && activeBoard && activeBoard.id === board.id) setHistory((current) => ({ ...current, [board.id]: { undo: [activeBoard, ...(current[board.id]?.undo ?? [])].slice(0, MAX_HISTORY), redo: [] } }));
+      const saved = await saveBoard({ ...board, updatedAt: nowIso() });
+      setBoards((current) => current.some((candidate) => candidate.id === saved.id) ? current.map((candidate) => candidate.id === saved.id ? saved : candidate) : [saved, ...current]);
+      setActiveBoardId(saved.id);
+      setError(undefined);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    }
   }
 
   async function chooseBoard(board: Board) {
@@ -257,8 +263,9 @@ export default function App() {
 
     <div ref={gridRef} className="gridSurface" onDoubleClick={(event) => { if (!activeBoard) return; const grid = pointerToGrid(event.clientX, event.clientY); if (!boardItemAt(activeBoard, grid.x, grid.y)) void createTextAt(grid); }} onPointerDown={handleGridPointerDown} onPointerMove={handleGridPointerMove} onPointerUp={(event) => void handleGridPointerUp(event)} onWheel={(event) => { event.preventDefault(); setZoom((value) => clampNumber(value + (event.deltaY < 0 ? 0.05 : -0.05), MIN_ZOOM, MAX_ZOOM)); }} onContextMenu={(event) => { event.preventDefault(); if (!displayBoard) return; const grid = pointerToGrid(event.clientX, event.clientY); const item = boardItemAt(displayBoard, grid.x, grid.y); if (item) setContextItem({ item, x: event.clientX, y: event.clientY }); else setEmptyContext({ gridX: grid.x, gridY: grid.y, x: event.clientX, y: event.clientY }); }} style={{ backgroundSize: `${cellSize}px ${cellSize}px`, backgroundPosition: `${pan.x}px ${pan.y}px` }}>
       <div className="gridPlane" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>{displayBoard?.items.map((item) => <BoardItemView key={item.id} item={resizeItemState?.itemId === item.id ? { ...item, gridWidth: resizeItemState.gridWidth, gridHeight: resizeItemState.gridHeight } : item} selected={selectedItemId === item.id} focused={focusedItemId === item.id} focusDraft={focusDraft} cellSize={displayBoard.cellSizePx} cellGap={displayBoard.cellGapPx} onFocusDraft={setFocusDraft} onSave={() => void saveFocusedText()} onCancel={() => void cancelFocusedText()} onResizePointerDown={startItemResize} onDoubleClick={(target) => { if (target.type === "text") { setFocusedItemId(target.id); setFocusDraft(target.text ?? ""); } }} />)}</div>
-      {showPreview && <div className="emptyState"><strong>Preview Board</strong><button className="primaryAction" onClick={() => setCreateOpen(true)}><Plus size={16} /> Create Private Board</button><button onClick={async () => { const prefs = preferences ?? await loadPreferences(); await savePreferences({ ...prefs, previewDismissed: true }); setPreviewDismissed(true); }}>Dismiss</button></div>}
-      {!displayBoard && !showPreview && <div className="emptyState"><strong>No boards</strong><button className="primaryAction" onClick={() => setCreateOpen(true)}><Plus size={16} /> Create Private Board</button></div>}
+      {showPreview && <div className="emptyState" onPointerDown={(event) => event.stopPropagation()}><strong>Preview Board</strong><button className="primaryAction" onClick={() => setCreateOpen(true)}><Plus size={16} /> Create Private Board</button><button onClick={async () => { const prefs = preferences ?? await loadPreferences(); await savePreferences({ ...prefs, previewDismissed: true }); setPreviewDismissed(true); }}>Dismiss</button></div>}
+      {!displayBoard && !showPreview && <div className="emptyState" onPointerDown={(event) => event.stopPropagation()}><strong>No boards</strong><button className="primaryAction" onClick={() => setCreateOpen(true)}><Plus size={16} /> Create Private Board</button></div>}
+      {error && <div className="saveError">Could not save Board: {error}</div>}
       <div className="surfaceHud"><span>{displayBoard?.items.length ?? 0} items</span><span>{Math.round(cellSize)} px cells</span></div>
     </div>
 

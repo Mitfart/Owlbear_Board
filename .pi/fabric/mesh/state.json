@@ -1,67 +1,67 @@
 {
   "format": 1,
   "entries": {
-    "topology/hosts/ebff881be88719c6f7df77d1c280961858c23178d2bfd84a4e48cfe1cc7d1bf9": {
-      "key": "topology/hosts/ebff881be88719c6f7df77d1c280961858c23178d2bfd84a4e48cfe1cc7d1bf9",
+    "topology/hosts/bf5c0e696c14c419e987e486d6f9e2976e4af4decffc8d91dae7da1a4367beb6": {
+      "key": "topology/hosts/bf5c0e696c14c419e987e486d6f9e2976e4af4decffc8d91dae7da1a4367beb6",
       "value": {
         "format": 1,
-        "id": "session:019ffc71-958e-7c08-a46a-3051ff61db44",
-        "rootId": "session:019ffc71-958e-7c08-a46a-3051ff61db44",
+        "id": "session:019ffc87-0186-7a16-9427-36d8707f2d20",
+        "rootId": "session:019ffc87-0186-7a16-9427-36d8707f2d20",
         "identity": {
-          "id": "session:019ffc71-958e-7c08-a46a-3051ff61db44",
+          "id": "session:019ffc87-0186-7a16-9427-36d8707f2d20",
           "name": "main",
           "kind": "main",
-          "sessionId": "019ffc71-958e-7c08-a46a-3051ff61db44"
+          "sessionId": "019ffc87-0186-7a16-9427-36d8707f2d20"
         },
-        "startedAt": 1786646732311,
-        "updatedAt": 1786646983106,
-        "expiresAt": 1786646998106
+        "startedAt": 1786648135025,
+        "updatedAt": 1786649341968,
+        "expiresAt": 1786649356968
       },
-      "version": 86,
-      "updatedAt": 1786646983109,
+      "version": 242,
+      "updatedAt": 1786649341971,
       "updatedBy": {
-        "id": "session:019ffc71-958e-7c08-a46a-3051ff61db44",
+        "id": "session:019ffc87-0186-7a16-9427-36d8707f2d20",
         "name": "main",
         "kind": "main",
-        "sessionId": "019ffc71-958e-7c08-a46a-3051ff61db44"
+        "sessionId": "019ffc87-0186-7a16-9427-36d8707f2d20"
       }
     },
-    "sessions/019ffc71-958e-7c08-a46a-3051ff61db44": {
-      "key": "sessions/019ffc71-958e-7c08-a46a-3051ff61db44",
+    "sessions/019ffc87-0186-7a16-9427-36d8707f2d20": {
+      "key": "sessions/019ffc87-0186-7a16-9427-36d8707f2d20",
       "value": {
-        "id": "session:019ffc71-958e-7c08-a46a-3051ff61db44",
-        "name": "Peer 019ffc71",
+        "id": "session:019ffc87-0186-7a16-9427-36d8707f2d20",
+        "name": "Peer 019ffc87",
         "kind": "peer",
         "status": "idle",
         "runner": "pi",
         "transport": "host",
         "cwd": "D:\\Projects\\AI\\Owlbear_Board",
-        "sessionId": "019ffc71-958e-7c08-a46a-3051ff61db44",
+        "sessionId": "019ffc87-0186-7a16-9427-36d8707f2d20",
         "model": "openai-codex/gpt-5.6-terra",
         "thinking": "medium",
-        "startedAt": 1786646732309,
-        "updatedAt": 1786646983106,
+        "startedAt": 1786648135025,
+        "updatedAt": 1786649341968,
         "pendingMessages": false,
         "local": false
       },
-      "version": 86,
-      "updatedAt": 1786646983137,
+      "version": 242,
+      "updatedAt": 1786649341997,
       "updatedBy": {
-        "id": "session:019ffc71-958e-7c08-a46a-3051ff61db44",
+        "id": "session:019ffc87-0186-7a16-9427-36d8707f2d20",
         "name": "main",
         "kind": "main",
-        "sessionId": "019ffc71-958e-7c08-a46a-3051ff61db44"
+        "sessionId": "019ffc87-0186-7a16-9427-36d8707f2d20"
       }
     },
-    "topology/participants/ebff881be88719c6f7df77d1c280961858c23178d2bfd84a4e48cfe1cc7d1bf9": {
-      "key": "topology/participants/ebff881be88719c6f7df77d1c280961858c23178d2bfd84a4e48cfe1cc7d1bf9",
+    "topology/participants/bf5c0e696c14c419e987e486d6f9e2976e4af4decffc8d91dae7da1a4367beb6": {
+      "key": "topology/participants/bf5c0e696c14c419e987e486d6f9e2976e4af4decffc8d91dae7da1a4367beb6",
       "value": {
         "format": 1,
-        "id": "session:019ffc71-958e-7c08-a46a-3051ff61db44",
+        "id": "session:019ffc87-0186-7a16-9427-36d8707f2d20",
         "kind": "root",
-        "rootId": "session:019ffc71-958e-7c08-a46a-3051ff61db44",
-        "ownerHostId": "session:019ffc71-958e-7c08-a46a-3051ff61db44",
-        "ownerIdentityId": "session:019ffc71-958e-7c08-a46a-3051ff61db44",
+        "rootId": "session:019ffc87-0186-7a16-9427-36d8707f2d20",
+        "ownerHostId": "session:019ffc87-0186-7a16-9427-36d8707f2d20",
+        "ownerIdentityId": "session:019ffc87-0186-7a16-9427-36d8707f2d20",
         "name": "main",
         "status": "idle",
         "runner": "pi",
@@ -72,21 +72,21 @@
           "fabric"
         ],
         "cwd": "D:\\Projects\\AI\\Owlbear_Board",
-        "sessionId": "019ffc71-958e-7c08-a46a-3051ff61db44",
+        "sessionId": "019ffc87-0186-7a16-9427-36d8707f2d20",
         "model": "openai-codex/gpt-5.6-terra",
         "thinking": "medium",
-        "startedAt": 1786646732309,
-        "updatedAt": 1786646983106,
+        "startedAt": 1786648135025,
+        "updatedAt": 1786649341968,
         "pendingMessages": false,
         "controlProtocol": "v1"
       },
-      "version": 86,
-      "updatedAt": 1786646983160,
+      "version": 242,
+      "updatedAt": 1786649342026,
       "updatedBy": {
-        "id": "session:019ffc71-958e-7c08-a46a-3051ff61db44",
+        "id": "session:019ffc87-0186-7a16-9427-36d8707f2d20",
         "name": "main",
         "kind": "main",
-        "sessionId": "019ffc71-958e-7c08-a46a-3051ff61db44"
+        "sessionId": "019ffc87-0186-7a16-9427-36d8707f2d20"
       }
     }
   },
@@ -99,9 +99,12 @@
     "topology/participants/964e4e63a85f677f3f7bb0ac5723ca4c7b6cf9f9827a1252b801f99799e5ab10": 854,
     "topology/participants/522aa31cb7105529a8669d313e207e619482b4604ef6d8ceed528e472a85a3f2": 20,
     "topology/hosts/adff9ce8b232d75df34b2f11f8b6eca150c1f099fa98fcabd385be1a68763abd": 54,
-    "topology/hosts/ebff881be88719c6f7df77d1c280961858c23178d2bfd84a4e48cfe1cc7d1bf9": 86,
-    "sessions/019ffc71-958e-7c08-a46a-3051ff61db44": 86,
-    "topology/participants/ebff881be88719c6f7df77d1c280961858c23178d2bfd84a4e48cfe1cc7d1bf9": 86
+    "topology/hosts/ebff881be88719c6f7df77d1c280961858c23178d2bfd84a4e48cfe1cc7d1bf9": 316,
+    "sessions/019ffc71-958e-7c08-a46a-3051ff61db44": 315,
+    "topology/participants/ebff881be88719c6f7df77d1c280961858c23178d2bfd84a4e48cfe1cc7d1bf9": 316,
+    "topology/hosts/bf5c0e696c14c419e987e486d6f9e2976e4af4decffc8d91dae7da1a4367beb6": 242,
+    "sessions/019ffc87-0186-7a16-9427-36d8707f2d20": 242,
+    "topology/participants/bf5c0e696c14c419e987e486d6f9e2976e4af4decffc8d91dae7da1a4367beb6": 242
   },
   "tombstoneOrder": [
     "sessions/019ffc38-a933-748f-b750-aa1982b24194",
@@ -111,6 +114,9 @@
     "sessions/019ffc3d-91c3-726f-91ae-f08ab7a79a27",
     "topology/participants/522aa31cb7105529a8669d313e207e619482b4604ef6d8ceed528e472a85a3f2",
     "topology/participants/964e4e63a85f677f3f7bb0ac5723ca4c7b6cf9f9827a1252b801f99799e5ab10",
-    "topology/hosts/964e4e63a85f677f3f7bb0ac5723ca4c7b6cf9f9827a1252b801f99799e5ab10"
+    "topology/hosts/964e4e63a85f677f3f7bb0ac5723ca4c7b6cf9f9827a1252b801f99799e5ab10",
+    "sessions/019ffc71-958e-7c08-a46a-3051ff61db44",
+    "topology/participants/ebff881be88719c6f7df77d1c280961858c23178d2bfd84a4e48cfe1cc7d1bf9",
+    "topology/hosts/ebff881be88719c6f7df77d1c280961858c23178d2bfd84a4e48cfe1cc7d1bf9"
   ]
 }

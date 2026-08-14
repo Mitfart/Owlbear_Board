@@ -151,6 +151,15 @@ export async function deleteBoard(board: Board) {
   await save(board.scope, { version: 1, boards: state.boards.filter((candidate) => candidate.id !== board.id) });
 }
 
+export async function movePrivateRoomBoardToScene(board: Board) {
+  if (board.visibility !== "private" || board.scope !== "room") return board;
+  const scene = await loadPrivateBoardState("scene");
+  const moved = { ...board, scope: "scene" as const, revision: board.revision + 1 };
+  await savePrivateBoardState("scene", { version: 1, boards: [...scene.boards.filter((candidate) => candidate.id !== board.id), moved] });
+  await deleteBoard(board);
+  return moved;
+}
+
 export async function loadPreferences() {
   return readPlayerMetadata<PlayerPreferences>(PLAYER_PREFERENCES_KEY, emptyPreferences());
 }

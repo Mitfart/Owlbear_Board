@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SHARED_SCENE_STATE_KEY } from "./constants";
-import { getSceneKey, loadPrivateBoardState, savePrivateBoardState, saveSharedBoardState } from "./storage";
+import { getSceneKey, loadPrivateBoardState, movePrivateRoomBoardToScene, savePrivateBoardState, saveSharedBoardState } from "./storage";
 
 const obr = vi.hoisted(() => ({
   isAvailable: true,
@@ -38,6 +38,16 @@ describe("storage", () => {
     await savePrivateBoardState("room", privateState);
 
     await expect(loadPrivateBoardState("room")).resolves.toEqual(privateState);
+  });
+
+  it("moves a private room board into the current scene", async () => {
+    obr.isAvailable = false;
+    await savePrivateBoardState("room", privateState);
+
+    await movePrivateRoomBoardToScene(privateState.boards[0]);
+
+    await expect(loadPrivateBoardState("room")).resolves.toEqual(state);
+    await expect(loadPrivateBoardState("scene")).resolves.toMatchObject({ boards: [{ id: "saved", scope: "scene", revision: 2 }] });
   });
 
   it("uses the demo scene key without Owlbear", async () => {

@@ -1,6 +1,6 @@
 import OBR from "@owlbear-rodeo/sdk";
 import type { Theme } from "@owlbear-rodeo/sdk";
-import { Grip, ImagePlus, Maximize2, Minus, Pencil, Plus, RefreshCw, Save, Settings, Trash2, Type } from "lucide-react";
+import { ChevronDown, Grip, ImagePlus, Maximize2, Minus, Pencil, Plus, RefreshCw, Save, Settings, Trash2, Type, X } from "lucide-react";
 import type React from "react";
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -10,7 +10,7 @@ import { createId, nowIso } from "./ids";
 import { MarkdownView } from "./markdown";
 import { resizeAction } from "./owlbear";
 import { autoImageSize, autoTextSize, clampNumber, parseItemSize } from "./sizing";
-import { deleteBoard, getRoomOwnerId, getSceneKey, loadAllVisibleBoards, loadPreferences, loadWindowPreferences, markPrivateBoardOpened, saveBoard, savePreferences, saveViewport, saveWindowPreferences } from "./storage";
+import { deleteBoard, getRoomOwnerId, getSceneKey, loadAllVisibleBoards, loadPreferences, loadWindowPreferences, markPrivateBoardOpened, movePrivateRoomBoardToScene, saveBoard, savePreferences, saveViewport, saveWindowPreferences } from "./storage";
 import { buildBoardPickerRows } from "./boardSession";
 import type { Board, BoardItem, BoardScope, BoardVisibility, PlayerPreferences } from "./types";
 
@@ -51,10 +51,6 @@ function makeBoard(scope: BoardScope, visibility: BoardVisibility, name?: string
   return { id: createId("board"), name: visibility === "shared" ? `Shared ${scope === "scene" ? "Scene" : "Room"} Board` : name || `New ${scope === "scene" ? "Scene" : "Room"} Board`, scope, visibility, ownerId, revision: 0, cellSizePx: DEFAULT_CELL_SIZE, cellGapPx: DEFAULT_CELL_GAP, items: [], createdAt: timestamp, updatedAt: timestamp };
 }
 
-function groupLabel(board: Board) {
-  return `${board.visibility === "shared" ? "Shared" : "Private"} · ${board.scope === "scene" ? "Scene" : "Room"}`;
-}
-
 function firstFreeNear(board: Board, gridX: number, gridY: number, gridWidth: number, gridHeight: number) {
   if (!collides(board, gridX, gridY, gridWidth, gridHeight)) return { x: gridX, y: gridY };
   for (let radius = 1; radius < 80; radius += 1) {
@@ -80,6 +76,9 @@ export default function App() {
   const [zoom, setZoom] = useState(DEFAULT_ZOOM);
   const [windowSize, setWindowSize] = useState(DEFAULT_WINDOW);
   const [boardPanelOpen, setBoardPanelOpen] = useState(false);
+  const [boardPickerOpen, setBoardPickerOpen] = useState(false);
+  const [openBoardIds, setOpenBoardIds] = useState<string[]>([]);
+  const tabsInitialized = useRef(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [createName, setCreateName] = useState("New Board");
   const [createScope, setCreateScope] = useState<BoardScope>("scene");
@@ -104,8 +103,6 @@ export default function App() {
   const [history, setHistory] = useState<Record<string, History>>({});
   const [, setTheme] = useState(FALLBACK_THEME);
   const gridRef = useRef<HTMLDivElement>(null);
-  const saveStatusTimeout = useRef<number | undefined>(undefined);
-
   const activeBoard = useMemo(() => boards.find((board) => board.id === activeBoardId), [activeBoardId, boards]);
   const showPreview = !activeBoard && boards.length === 0 && !previewDismissed;
   const displayBoard = activeBoard ?? (showPreview ? sampleBoard() : undefined);
@@ -123,16 +120,19 @@ export default function App() {
       sceneKey: key,
     }).flatMap((row) => row.kind === "board" ? [row.board] : []);
     setSceneKey(key); setPreferences(prefs); setPreviewDismissed(!!prefs.previewDismissed); setBoards(ordered); setWindowSize(win); await resizeAction(win.width, win.height);
+    setOpenBoardIds((ids) => ids.filter((id) => ordered.some((board) => board.id === id)));
     setActiveBoardId((current) => {
       const preserved = ordered.find((board) => board.id === current);
-      const next = preserved ?? ordered[0];
+      const next = preserved ?? (tabsInitialized.current ? undefined : ordered[0]);
       if (next && !preserved) {
+        setOpenBoardIds((ids) => ids.includes(next.id) ? ids.filter((id) => ordered.some((board) => board.id === id)) : [...ids.filter((id) => ordered.some((board) => board.id === id)), next.id]);
         void markPrivateBoardOpened(next);
         const viewport = prefs.viewportByBoardId[next.id];
         setPan(viewport?.pan ?? DEFAULT_PAN); setZoom(viewport?.zoom ?? DEFAULT_ZOOM);
       }
       return next?.id;
     });
+    tabsInitialized.current = true;
   }, []);
 
   useEffect(() => { if (!OBR.isAvailable) { void refresh(); return; } OBR.onReady(() => { setReady(true); void refresh(); void OBR.theme.getTheme().then(setTheme); }); }, [refresh]);
@@ -153,26 +153,39 @@ export default function App() {
       setBoards((current) => current.some((candidate) => candidate.id === saved.id) ? current.map((candidate) => candidate.id === saved.id ? saved : candidate) : [saved, ...current]);
       setActiveBoardId(saved.id);
       setError(undefined);
-      if (reportSave) {
-        window.clearTimeout(saveStatusTimeout.current);
-        setSaveStatus("Saved");
-        saveStatusTimeout.current = window.setTimeout(() => setSaveStatus(undefined), 2000);
-      }
+      setSaveStatus(reportSave ? "Saved" : undefined);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
     }
   }
 
   async function chooseBoard(board: Board) {
-    setActiveBoardId(board.id); setBoardPanelOpen(false); await markPrivateBoardOpened(board);
+    setActiveBoardId(board.id); setBoardPickerOpen(false); setOpenBoardIds((ids) => ids.includes(board.id) ? ids : [...ids, board.id]); await markPrivateBoardOpened(board);
     const viewport = preferences?.viewportByBoardId[board.id]; setPan(viewport?.pan ?? DEFAULT_PAN); setZoom(viewport?.zoom ?? DEFAULT_ZOOM);
+  }
+
+  function closeBoardTab(boardId: string) {
+    const index = openBoardIds.indexOf(boardId);
+    const nextId = openBoardIds[index + 1] ?? openBoardIds[index - 1];
+    setOpenBoardIds((ids) => ids.filter((id) => id !== boardId));
+    if (activeBoardId === boardId) {
+      const next = boards.find((board) => board.id === nextId);
+      if (next) void chooseBoard(next);
+      else setActiveBoardId(undefined);
+    }
+  }
+
+  async function moveActiveBoardToScene() {
+    if (!activeBoard || activeBoard.visibility !== "private" || activeBoard.scope !== "room") return;
+    await movePrivateRoomBoardToScene({ ...activeBoard, updatedAt: nowIso() });
+    await refresh();
   }
 
   async function createShared(scope: BoardScope) {
     const existing = boards.find((b) => b.visibility === "shared" && b.scope === scope);
     if (existing) return chooseBoard(existing);
     const board = makeBoard(scope, "shared", undefined, await getRoomOwnerId());
-    await persistBoard(board, false); await refresh();
+    await persistBoard(board, false); await refresh(); await chooseBoard(board);
   }
 
   async function createPrivateBoard() {
@@ -181,7 +194,7 @@ export default function App() {
     const duplicate = boards.some((b) => b.visibility === "private" && b.scope === createScope && b.name.trim().toLowerCase() === name.toLowerCase());
     if (duplicate) return;
     const board = makeBoard(createScope, "private", name);
-    await persistBoard(board, false); await markPrivateBoardOpened(board); setCreateOpen(false); await refresh();
+    await persistBoard(board, false); await markPrivateBoardOpened(board); setCreateOpen(false); await refresh(); await chooseBoard(board);
   }
 
   function pointerToGrid(clientX: number, clientY: number) {
@@ -257,18 +270,16 @@ export default function App() {
   }
   async function handleGridPointerUp(event: React.PointerEvent<HTMLDivElement>) { if (resizeItemState) await updateItemRect(resizeItemState.itemId, resizeItemState.gridX, resizeItemState.gridY, resizeItemState.gridWidth, resizeItemState.gridHeight); if (dragState && activeBoard) { const item = activeBoard.items.find((candidate) => candidate.id === dragState.itemId); if (item) await updateItemRect(item.id, item.gridX, item.gridY, item.gridWidth, item.gridHeight); } setDragState(undefined); setResizeItemState(undefined); setPanning(undefined); }
   function startItemResize(event: React.PointerEvent<HTMLElement>, item: BoardItem) { event.preventDefault(); event.stopPropagation(); setSelectedItemId(item.id); setResizeItemState({ itemId: item.id, gridX: item.gridX, gridY: item.gridY, gridWidth: item.gridWidth, gridHeight: item.gridHeight }); gridRef.current?.setPointerCapture(event.pointerId); }
-  async function resizeWindow(width: number, height: number) { const next = { width: Math.max(520, Math.round(width)), height: Math.max(420, Math.round(height)) }; setWindowSize(next); await saveWindowPreferences(next); await resizeAction(next.width, next.height); }
-  function startResize(event: React.PointerEvent<HTMLElement>) { const startX = event.clientX; const startY = event.clientY; const start = { ...windowSize }; const move = (moveEvent: PointerEvent) => void resizeWindow(start.width + moveEvent.clientX - startX, start.height + moveEvent.clientY - startY); const up = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); }; window.addEventListener("pointermove", move); window.addEventListener("pointerup", up); }
+  async function resizeWindow(width: number, height: number) { const next = { width: Math.max(1, Math.round(width)), height: Math.max(1, Math.round(height)) }; setWindowSize(next); await saveWindowPreferences(next); await resizeAction(next.width, next.height); }
+  function startResize(event: React.PointerEvent<HTMLElement>) { const target = event.currentTarget; const startX = event.clientX; const startY = event.clientY; const start = { ...windowSize }; target.setPointerCapture(event.pointerId); const move = (moveEvent: PointerEvent) => void resizeWindow(start.width + moveEvent.clientX - startX, start.height + moveEvent.clientY - startY); const up = () => { target.releasePointerCapture(event.pointerId); target.removeEventListener("pointermove", move); target.removeEventListener("pointerup", up); }; target.addEventListener("pointermove", move); target.addEventListener("pointerup", up); }
 
   const cellSize = (displayBoard?.cellSizePx ?? DEFAULT_CELL_SIZE) * zoom;
   if (!ready) return <div className="loading">Loading Board...</div>;
 
   return <main className="app" style={{ width: windowSize.width, height: windowSize.height, ...themeVars }}>
-    <header className="toolbar"><div className="boardTitle"><button className="boardToggle" title="Board settings" onClick={() => setBoardPanelOpen((value) => !value)}><Settings size={16} /></button><div><strong>{displayBoard?.name ?? "No board"}</strong><span>{isPreview ? "Preview" : displayBoard ? groupLabel(displayBoard) : "Create a board"}</span></div>{boardPanelOpen && <section className="boardPanel">
-      <div className="boardGroups"><strong>Private Scene Boards</strong>{boards.filter((b) => b.visibility === "private" && b.scope === "scene").map((b) => <button key={b.id} className={b.id === activeBoardId ? "active" : undefined} onClick={() => void chooseBoard(b)}>{b.name}</button>)}<strong>Private Room Boards</strong>{boards.filter((b) => b.visibility === "private" && b.scope === "room").map((b) => <button key={b.id} className={b.id === activeBoardId ? "active" : undefined} onClick={() => void chooseBoard(b)}>{b.name}</button>)}<strong>Shared Boards</strong>{boards.filter((b) => b.visibility === "shared").map((b) => <button key={b.id} className={b.id === activeBoardId ? "active" : undefined} onClick={() => void chooseBoard(b)}>{b.name}</button>)}{!boards.some((b) => b.visibility === "shared" && b.scope === "scene") && <button onClick={() => void createShared("scene")}>Shared Scene Board</button>}{!boards.some((b) => b.visibility === "shared" && b.scope === "room") && <button onClick={() => void createShared("room")}>Shared Room Board</button>}</div>
-      {activeBoard && <><label>Name<input disabled={activeBoard.visibility === "shared"} value={activeBoard.name} onChange={(event) => void updateActiveBoard({ name: event.target.value.slice(0, 60) })} /></label><div className="boardInlineFields"><label><span>Grid size</span><input type="number" min={MIN_CELL_SIZE} max={MAX_CELL_SIZE} value={activeBoard.cellSizePx} onChange={(event) => void updateGridSize(Number(event.target.value))} /></label><label><span>Grid cell gap</span><input type="number" min={MIN_CELL_GAP} max={MAX_CELL_GAP} value={activeBoard.cellGapPx} onChange={(event) => void updateActiveBoard({ cellGapPx: clampNumber(Number(event.target.value), MIN_CELL_GAP, MAX_CELL_GAP) })} /></label></div><button title="Delete board" onClick={() => { if (confirm(`Delete ${activeBoard.name}? This cannot be undone.`)) void deleteBoard(activeBoard).then(refresh); }}><Trash2 size={16} /> Delete Board</button></>}
-      <button className="primaryAction" onClick={() => setCreateOpen(true)}><Plus size={16} /> Create Private Board</button>
-    </section>}</div><div className="tools"><button title="Save board" disabled={!activeBoard} onClick={() => activeBoard && void persistBoard(activeBoard, false, true)}><Save size={16} /> Save</button>{saveStatus && <span>{saveStatus}</span>}<button title="Add item" disabled={!activeBoard} onClick={() => { setAddTarget(viewportCenterGrid()); setAddModalOpen(true); }}><Plus size={16} /> Add</button><button title="Zoom out" onClick={() => setZoom((value) => clampNumber(value - 0.1, MIN_ZOOM, MAX_ZOOM))}><Minus size={16} /></button><span className="zoom">{Math.round(zoom * 100)}%</span><button title="Zoom in" onClick={() => setZoom((value) => clampNumber(value + 0.1, MIN_ZOOM, MAX_ZOOM))}><Plus size={16} /></button><button title="Reset view" onClick={() => { setPan(DEFAULT_PAN); setZoom(DEFAULT_ZOOM); }}><RefreshCw size={16} /></button></div></header>
+    <header className="toolbar"><div className="boardTitle"><button className="boardToggle" title="Board settings" onClick={() => { setBoardPanelOpen((value) => !value); setBoardPickerOpen(false); }}><Settings size={16} /></button><button className="boardToggle" title="Boards" onClick={() => { setBoardPickerOpen((value) => !value); setBoardPanelOpen(false); }}><ChevronDown size={16} /></button>{openBoardIds.flatMap((id) => boards.filter((board) => board.id === id)).map((board) => <button key={board.id} className={`boardTab ${board.id === activeBoardId ? "active" : ""}`} onClick={() => void chooseBoard(board)}>{board.name}<X size={13} onClick={(event) => { event.stopPropagation(); closeBoardTab(board.id); }} /></button>)}{boardPanelOpen && <section className="boardPanel">
+      {activeBoard && <><label>Name<input disabled={activeBoard.visibility === "shared"} value={activeBoard.name} onChange={(event) => void updateActiveBoard({ name: event.target.value.slice(0, 60) })} /></label><div className="boardInlineFields"><label><span>Grid size</span><input type="number" min={MIN_CELL_SIZE} max={MAX_CELL_SIZE} value={activeBoard.cellSizePx} onChange={(event) => void updateGridSize(Number(event.target.value))} /></label><label><span>Grid cell gap</span><input type="number" min={MIN_CELL_GAP} max={MAX_CELL_GAP} value={activeBoard.cellGapPx} onChange={(event) => void updateActiveBoard({ cellGapPx: clampNumber(Number(event.target.value), MIN_CELL_GAP, MAX_CELL_GAP) })} /></label></div>{activeBoard.visibility === "private" && activeBoard.scope === "room" && <button onClick={() => void moveActiveBoardToScene()}>Move to Scene</button>}<button title="Delete board" onClick={() => { if (confirm(`Delete ${activeBoard.name}? This cannot be undone.`)) void deleteBoard(activeBoard).then(refresh); }}><Trash2 size={16} /> Delete Board</button></>}
+    </section>}{boardPickerOpen && <section className="boardPanel boardPicker"><button className="primaryAction" onClick={() => { setCreateOpen(true); setBoardPickerOpen(false); }}><Plus size={16} /> Create Private Board</button><div className="boardGroups"><strong>Shared Boards</strong>{boards.filter((board) => board.visibility === "shared").map((board) => <button key={board.id} onClick={() => void chooseBoard(board)}>{board.name}</button>)}{!boards.some((board) => board.visibility === "shared" && board.scope === "scene") && <button onClick={() => void createShared("scene")}>Shared Scene Board</button>}{!boards.some((board) => board.visibility === "shared" && board.scope === "room") && <button onClick={() => void createShared("room")}>Shared Room Board</button>}<strong>Private Scene Boards</strong>{boards.filter((board) => board.visibility === "private" && board.scope === "scene").map((board) => <button key={board.id} onClick={() => void chooseBoard(board)}>{board.name}</button>)}{!boards.some((board) => board.visibility === "private" && board.scope === "scene") && <span className="emptyBoardGroup">Empty</span>}<strong>Private Room Boards</strong>{boards.filter((board) => board.visibility === "private" && board.scope === "room").map((board) => <button key={board.id} onClick={() => void chooseBoard(board)}>{board.name}</button>)}{!boards.some((board) => board.visibility === "private" && board.scope === "room") && <span className="emptyBoardGroup">Empty</span>}</div></section>}</div><div className="tools"><button title="Save board" disabled={!activeBoard} onClick={() => activeBoard && void persistBoard(activeBoard, false, true)}><Save size={16} /> {saveStatus ?? "Save"}</button><button title="Add item" disabled={!activeBoard} onClick={() => { setAddTarget(viewportCenterGrid()); setAddModalOpen(true); }}><Plus size={16} /> Add</button><button title="Zoom out" onClick={() => setZoom((value) => clampNumber(value - 0.1, MIN_ZOOM, MAX_ZOOM))}><Minus size={16} /></button><span className="zoom">{Math.round(zoom * 100)}%</span><button title="Zoom in" onClick={() => setZoom((value) => clampNumber(value + 0.1, MIN_ZOOM, MAX_ZOOM))}><Plus size={16} /></button><button title="Reset view" onClick={() => { setPan(DEFAULT_PAN); setZoom(DEFAULT_ZOOM); }}><RefreshCw size={16} /></button></div></header>
 
     <div ref={gridRef} className="gridSurface" onDoubleClick={(event) => { if (!activeBoard) return; const grid = pointerToGrid(event.clientX, event.clientY); if (!boardItemAt(activeBoard, grid.x, grid.y)) void createTextAt(grid); }} onPointerDown={handleGridPointerDown} onPointerMove={handleGridPointerMove} onPointerUp={(event) => void handleGridPointerUp(event)} onWheel={(event) => { event.preventDefault(); setZoom((value) => clampNumber(value + (event.deltaY < 0 ? 0.05 : -0.05), MIN_ZOOM, MAX_ZOOM)); }} onContextMenu={(event) => { event.preventDefault(); if (!displayBoard) return; const grid = pointerToGrid(event.clientX, event.clientY); const item = boardItemAt(displayBoard, grid.x, grid.y); if (item) setContextItem({ item, x: event.clientX, y: event.clientY }); else setEmptyContext({ gridX: grid.x, gridY: grid.y, x: event.clientX, y: event.clientY }); }} style={{ backgroundSize: `${cellSize}px ${cellSize}px`, backgroundPosition: `${pan.x}px ${pan.y}px` }}>
       <div className="gridPlane" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>{displayBoard?.items.map((item) => <BoardItemView key={item.id} item={resizeItemState?.itemId === item.id ? { ...item, gridWidth: resizeItemState.gridWidth, gridHeight: resizeItemState.gridHeight } : item} selected={selectedItemId === item.id} focused={focusedItemId === item.id} focusDraft={focusDraft} cellSize={displayBoard.cellSizePx} cellGap={displayBoard.cellGapPx} onFocusDraft={setFocusDraft} onSave={() => void saveFocusedText()} onCancel={() => void cancelFocusedText()} onResizePointerDown={startItemResize} onDoubleClick={(target) => { if (target.type === "text") { setFocusedItemId(target.id); setFocusDraft(target.text ?? ""); } }} />)}</div>

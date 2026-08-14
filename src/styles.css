@@ -124,30 +124,27 @@ textarea {
 
 .boardTitle {
   position: relative;
+  flex: 1;
+  overflow: hidden;
 }
 
-.boardTitle > div {
-  display: grid;
-  gap: 1px;
+.boardTab {
   min-width: 0;
-}
-
-.boardTitle strong,
-.boardTitle span {
+  max-width: 140px;
+  padding: 6px 8px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.boardTitle strong {
-  color: var(--text);
-  font-size: 14px;
+.boardTab.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
 }
 
-.boardTitle span {
-  color: var(--muted-2);
-  font-size: 12px;
-  text-transform: capitalize;
+.boardTab svg {
+  margin-left: 5px;
+  vertical-align: middle;
 }
 
 .boardToggle {
@@ -512,6 +509,11 @@ input[type="color"] {
 .boardGroups button.active {
   border-color: var(--accent);
   background: var(--accent-soft);
+}
+
+.emptyBoardGroup {
+  color: var(--muted-2);
+  font-size: 12px;
 }
 
 .emptyState {

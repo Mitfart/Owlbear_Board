@@ -105,7 +105,7 @@ export default function App() {
   const gridRef = useRef<HTMLDivElement>(null);
   const tabDrag = useRef<{ x: number; scrollLeft: number; moved: boolean; pointerId: number } | undefined>(undefined);
   const activeBoard = useMemo(() => boards.find((board) => board.id === activeBoardId), [activeBoardId, boards]);
-  const showPreview = !activeBoard && boards.length === 0 && !previewDismissed;
+  const showPreview = !activeBoard && !previewDismissed;
   const displayBoard = activeBoard ?? (showPreview ? sampleBoard() : undefined);
   const isPreview = displayBoard?.id === "preview";
   const themeVars = useMemo(() => ({ "--bg": "#1e2231", "--surface": "#202435", "--panel": "#25293c", "--panel-soft": "#1c2030", "--panel-raised": "#2c3042", "--border": "rgba(187, 153, 255, 0.14)", "--border-strong": "rgba(187, 153, 255, 0.28)", "--text": "#ffffff", "--muted": "#ffffff", "--muted-2": "#ffffff", "--accent": "#bb99ff", "--accent-strong": "#d2bdff", "--accent-dark": "#826bb2", "--accent-soft": "rgba(187, 153, 255, 0.16)", "--danger": "#ff6b8a", "--shadow": "rgba(4, 6, 14, 0.42)" }) as CSSProperties, []);
@@ -160,9 +160,13 @@ export default function App() {
     }
   }
 
+  function clearBoardUi() {
+    setContextItem(undefined); setEmptyContext(undefined); setFocusedItemId(undefined); setFocusDraft(""); setNewFocusedItemId(undefined); setSelectedItemId(undefined); setDragState(undefined); setResizeItemState(undefined); setAddModalOpen(false); setAddTarget(undefined);
+  }
+
   async function chooseBoard(board: Board) {
-    setActiveBoardId(board.id); setBoardPickerOpen(false); setOpenBoardIds((ids) => ids.includes(board.id) ? ids : [...ids, board.id]); await markPrivateBoardOpened(board);
-    const viewport = preferences?.viewportByBoardId[board.id]; setPan(viewport?.pan ?? DEFAULT_PAN); setZoom(viewport?.zoom ?? DEFAULT_ZOOM);
+    const viewport = preferences?.viewportByBoardId[board.id];
+    clearBoardUi(); setActiveBoardId(board.id); setPan(viewport?.pan ?? DEFAULT_PAN); setZoom(viewport?.zoom ?? DEFAULT_ZOOM); setBoardPickerOpen(false); setOpenBoardIds((ids) => ids.includes(board.id) ? ids : [...ids, board.id]); await markPrivateBoardOpened(board);
   }
 
   function closeBoardTab(boardId: string) {
@@ -172,7 +176,7 @@ export default function App() {
     if (activeBoardId === boardId) {
       const next = boards.find((board) => board.id === nextId);
       if (next) void chooseBoard(next);
-      else setActiveBoardId(undefined);
+      else { clearBoardUi(); setActiveBoardId(undefined); setPan(DEFAULT_PAN); setZoom(DEFAULT_ZOOM); }
     }
   }
 

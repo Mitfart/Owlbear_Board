@@ -134,13 +134,21 @@ textarea {
 
 .boardTabs {
   display: flex;
+  flex: 1;
   min-width: 0;
   overflow-x: auto;
+  cursor: grab;
+  mask-image: linear-gradient(to right, transparent, #000 10px, #000 calc(100% - 10px), transparent);
+}
+
+.boardTabs:active {
+  cursor: grabbing;
 }
 
 .boardTab {
+  flex: 0 0 auto;
   min-width: 0;
-  max-width: 140px;
+  max-width: 210px;
   padding: 6px 8px;
   overflow: hidden;
   text-overflow: ellipsis;

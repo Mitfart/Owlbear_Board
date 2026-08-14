@@ -190,11 +190,11 @@
           "sessionId": "01a00164-eb0f-7ccd-969f-f5d69056d67d"
         },
         "startedAt": 1786730025271,
-        "updatedAt": 1786732013462,
-        "expiresAt": 1786732028462
+        "updatedAt": 1786732819740,
+        "expiresAt": 1786732834740
       },
-      "version": 484,
-      "updatedAt": 1786732013465,
+      "version": 656,
+      "updatedAt": 1786732819743,
       "updatedBy": {
         "id": "session:01a00164-eb0f-7ccd-969f-f5d69056d67d",
         "name": "main",
@@ -216,12 +216,12 @@
         "model": "openai-codex/gpt-5.6-terra",
         "thinking": "medium",
         "startedAt": 1786730025270,
-        "updatedAt": 1786732013462,
+        "updatedAt": 1786732819740,
         "pendingMessages": false,
         "local": false
       },
-      "version": 484,
-      "updatedAt": 1786732013490,
+      "version": 656,
+      "updatedAt": 1786732819781,
       "updatedBy": {
         "id": "session:01a00164-eb0f-7ccd-969f-f5d69056d67d",
         "name": "main",
@@ -252,12 +252,12 @@
         "model": "openai-codex/gpt-5.6-terra",
         "thinking": "medium",
         "startedAt": 1786730025270,
-        "updatedAt": 1786732013462,
+        "updatedAt": 1786732819740,
         "pendingMessages": false,
         "controlProtocol": "v1"
       },
-      "version": 484,
-      "updatedAt": 1786732013516,
+      "version": 656,
+      "updatedAt": 1786732819807,
       "updatedBy": {
         "id": "session:01a00164-eb0f-7ccd-969f-f5d69056d67d",
         "name": "main",
@@ -292,9 +292,9 @@
     "topology/hosts/264b4eb7ab84423f2a620cff4fdcc88284c5f1c608e8df5b58f26775fa66c8e6": 176,
     "sessions/019fffed-6299-799e-8a19-4753fb3df8a1": 175,
     "topology/participants/264b4eb7ab84423f2a620cff4fdcc88284c5f1c608e8df5b58f26775fa66c8e6": 176,
-    "topology/hosts/287deef0fe9c1b9fbca0c4deed75682fa8ee3c0294100893aa6e49c77c094fbf": 484,
-    "sessions/01a00164-eb0f-7ccd-969f-f5d69056d67d": 484,
-    "topology/participants/287deef0fe9c1b9fbca0c4deed75682fa8ee3c0294100893aa6e49c77c094fbf": 484
+    "topology/hosts/287deef0fe9c1b9fbca0c4deed75682fa8ee3c0294100893aa6e49c77c094fbf": 656,
+    "sessions/01a00164-eb0f-7ccd-969f-f5d69056d67d": 656,
+    "topology/participants/287deef0fe9c1b9fbca0c4deed75682fa8ee3c0294100893aa6e49c77c094fbf": 656
   },
   "tombstoneOrder": [
     "sessions/019ffc38-a933-748f-b750-aa1982b24194",

@@ -103,7 +103,7 @@ export default function App() {
   const [history, setHistory] = useState<Record<string, History>>({});
   const [, setTheme] = useState(FALLBACK_THEME);
   const gridRef = useRef<HTMLDivElement>(null);
-  const tabDrag = useRef<{ x: number; scrollLeft: number; moved: boolean }>();
+  const tabDrag = useRef<{ x: number; scrollLeft: number; moved: boolean } | undefined>(undefined);
   const suppressTabClick = useRef(false);
   const activeBoard = useMemo(() => boards.find((board) => board.id === activeBoardId), [activeBoardId, boards]);
   const showPreview = !activeBoard && boards.length === 0 && !previewDismissed;

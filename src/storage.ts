@@ -47,6 +47,7 @@ function writeLocal<T>(key: string, value: T) {
 }
 
 export async function getSceneKey() {
+  if (!OBR.isAvailable) return "demo";
   const ready = await OBR.scene.isReady();
   if (!ready) return "no-scene";
 
@@ -117,7 +118,10 @@ export async function saveSharedBoardState(scope: BoardScope, state: PersistedBo
     return;
   }
   if (scope === "room") await OBR.room.setMetadata({ [SHARED_ROOM_STATE_KEY]: state });
-  else await OBR.scene.setMetadata({ [SHARED_SCENE_STATE_KEY]: state });
+  else {
+    const metadata = await OBR.scene.getMetadata();
+    await OBR.scene.setMetadata({ ...metadata, [SHARED_SCENE_STATE_KEY]: state });
+  }
 }
 
 export async function loadAllVisibleBoards() {

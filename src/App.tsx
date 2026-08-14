@@ -104,7 +104,7 @@ export default function App() {
   const [history, setHistory] = useState<Record<string, History>>({});
   const [, setTheme] = useState(FALLBACK_THEME);
   const gridRef = useRef<HTMLDivElement>(null);
-  const saveStatusTimeout = useRef<number>();
+  const saveStatusTimeout = useRef<number | undefined>(undefined);
 
   const activeBoard = useMemo(() => boards.find((board) => board.id === activeBoardId), [activeBoardId, boards]);
   const showPreview = !activeBoard && boards.length === 0 && !previewDismissed;

@@ -30,3 +30,4 @@ Thumbs.db
 
 # Pi agent files
 .pi/
+/.pi

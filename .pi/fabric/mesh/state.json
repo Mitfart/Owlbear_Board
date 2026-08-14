@@ -102,11 +102,11 @@
           "sessionId": "019ffefb-d078-7fb5-8779-37f35170893b"
         },
         "startedAt": 1786689473687,
-        "updatedAt": 1786695709291,
-        "expiresAt": 1786695724291
+        "updatedAt": 1786696440017,
+        "expiresAt": 1786696455017
       },
-      "version": 1313,
-      "updatedAt": 1786695709310,
+      "version": 1467,
+      "updatedAt": 1786696440031,
       "updatedBy": {
         "id": "session:019ffefb-d078-7fb5-8779-37f35170893b",
         "name": "main",
@@ -128,12 +128,12 @@
         "model": "openai-codex/gpt-5.6-terra",
         "thinking": "medium",
         "startedAt": 1786689473686,
-        "updatedAt": 1786695709291,
+        "updatedAt": 1786696440017,
         "pendingMessages": false,
         "local": false
       },
-      "version": 1313,
-      "updatedAt": 1786695709343,
+      "version": 1467,
+      "updatedAt": 1786696440103,
       "updatedBy": {
         "id": "session:019ffefb-d078-7fb5-8779-37f35170893b",
         "name": "main",
@@ -164,12 +164,12 @@
         "model": "openai-codex/gpt-5.6-terra",
         "thinking": "medium",
         "startedAt": 1786689473686,
-        "updatedAt": 1786695709291,
+        "updatedAt": 1786696440017,
         "pendingMessages": false,
         "controlProtocol": "v1"
       },
-      "version": 1313,
-      "updatedAt": 1786695709368,
+      "version": 1467,
+      "updatedAt": 1786696440155,
       "updatedBy": {
         "id": "session:019ffefb-d078-7fb5-8779-37f35170893b",
         "name": "main",
@@ -236,9 +236,9 @@
     "topology/hosts/bf5c0e696c14c419e987e486d6f9e2976e4af4decffc8d91dae7da1a4367beb6": 244,
     "sessions/019ffc87-0186-7a16-9427-36d8707f2d20": 244,
     "topology/participants/bf5c0e696c14c419e987e486d6f9e2976e4af4decffc8d91dae7da1a4367beb6": 244,
-    "topology/hosts/39e1ba5c38a85fcc5b79c125f8186d670dcaa1ca40afb8bb6b13ee2345c64cf3": 1313,
-    "sessions/019ffefb-d078-7fb5-8779-37f35170893b": 1313,
-    "topology/participants/39e1ba5c38a85fcc5b79c125f8186d670dcaa1ca40afb8bb6b13ee2345c64cf3": 1313,
+    "topology/hosts/39e1ba5c38a85fcc5b79c125f8186d670dcaa1ca40afb8bb6b13ee2345c64cf3": 1467,
+    "sessions/019ffefb-d078-7fb5-8779-37f35170893b": 1467,
+    "topology/participants/39e1ba5c38a85fcc5b79c125f8186d670dcaa1ca40afb8bb6b13ee2345c64cf3": 1467,
     "topology/participants/9baf6512b31f617924e40a796636a716a46cc6e757605d8f534b37d3d25c71a9": 14,
     "topology/hosts/01d6d80c1c0fbddd12dddd9512ef1c45c6017852dc2a2ba1fd79f08ec883c0b4": 31
   },

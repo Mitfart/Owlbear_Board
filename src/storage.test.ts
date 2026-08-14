@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SHARED_SCENE_STATE_KEY } from "./constants";
-import { getSceneKey, saveSharedBoardState } from "./storage";
+import { getSceneKey, loadPrivateBoardState, savePrivateBoardState, saveSharedBoardState } from "./storage";
 
 const obr = vi.hoisted(() => ({
   isAvailable: true,
@@ -12,9 +12,15 @@ const obr = vi.hoisted(() => ({
 vi.mock("@owlbear-rodeo/sdk", () => ({ default: obr }));
 
 const state = { version: 1 as const, boards: [] };
+const privateState = { version: 1 as const, boards: [{ id: "saved", name: "Saved", scope: "room" as const, visibility: "private" as const, revision: 1, cellSizePx: 72, cellGapPx: 2, items: [], createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" }] };
 
 describe("storage", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    obr.isAvailable = true;
+    obr.player.getMetadata.mockResolvedValue({});
+  });
 
   it("preserves unrelated scene metadata when saving a shared scene board", async () => {
     obr.isAvailable = true;
@@ -26,6 +32,12 @@ describe("storage", () => {
       "other-extension/key": "keep",
       [SHARED_SCENE_STATE_KEY]: state,
     });
+  });
+
+  it("restores a private room board from the local backup when Owlbear returns no player metadata", async () => {
+    await savePrivateBoardState("room", privateState);
+
+    await expect(loadPrivateBoardState("room")).resolves.toEqual(privateState);
   });
 
   it("uses the demo scene key without Owlbear", async () => {

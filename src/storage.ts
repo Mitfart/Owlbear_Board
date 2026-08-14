@@ -68,10 +68,8 @@ async function readPlayerMetadata<T>(key: string, fallback: T): Promise<T> {
 }
 
 async function writePlayerMetadata<T>(key: string, value: T) {
-  if (!OBR.isAvailable) {
-    writeLocal(key, value);
-    return;
-  }
+  writeLocal(key, value);
+  if (!OBR.isAvailable) return;
   await OBR.player.setMetadata({ [key]: value });
 }
 

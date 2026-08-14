@@ -103,7 +103,7 @@ export default function App() {
   const [history, setHistory] = useState<Record<string, History>>({});
   const [, setTheme] = useState(FALLBACK_THEME);
   const gridRef = useRef<HTMLDivElement>(null);
-  const tabDrag = useRef<{ x: number; scrollLeft: number; moved: boolean } | undefined>(undefined);
+  const tabDrag = useRef<{ x: number; scrollLeft: number; moved: boolean; pointerId: number } | undefined>(undefined);
   const activeBoard = useMemo(() => boards.find((board) => board.id === activeBoardId), [activeBoardId, boards]);
   const showPreview = !activeBoard && boards.length === 0 && !previewDismissed;
   const displayBoard = activeBoard ?? (showPreview ? sampleBoard() : undefined);
@@ -178,15 +178,14 @@ export default function App() {
 
   function startTabDrag(event: React.PointerEvent<HTMLDivElement>) {
     if (event.button !== 0) return;
-    tabDrag.current = { x: event.clientX, scrollLeft: event.currentTarget.scrollLeft, moved: false };
-    event.currentTarget.setPointerCapture(event.pointerId);
+    tabDrag.current = { x: event.clientX, scrollLeft: event.currentTarget.scrollLeft, moved: false, pointerId: event.pointerId };
   }
 
   function moveTabDrag(event: React.PointerEvent<HTMLDivElement>) {
     const drag = tabDrag.current;
     if (!drag) return;
     const distance = event.clientX - drag.x;
-    drag.moved ||= Math.abs(distance) > 3;
+    if (!drag.moved && Math.abs(distance) > 3) { drag.moved = true; event.currentTarget.setPointerCapture(drag.pointerId); }
     event.currentTarget.scrollLeft = drag.scrollLeft - distance;
   }
 

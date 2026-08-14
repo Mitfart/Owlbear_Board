@@ -111,12 +111,15 @@ textarea {
 }
 
 .toolbar {
+  position: relative;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   padding: 10px;
   background: linear-gradient(180deg, #2c3042 0%, #24283a 100%);
+  box-shadow: 0 4px 12px var(--shadow);
 }
 
 .boardTitle,
@@ -138,8 +141,14 @@ textarea {
   flex: 1;
   min-width: 0;
   width: 100%;
+  padding: 0 10px;
   overflow: hidden;
+  scrollbar-width: none;
   cursor: grab;
+}
+
+.boardTabs::-webkit-scrollbar {
+  display: none;
 }
 
 .boardTabs:active {

@@ -364,13 +364,25 @@ textarea {
 
 .textPreviewPane {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 6px;
+  grid-template-rows: minmax(0, 1fr);
   min-width: 0;
   min-height: 0;
 }
 
+.imageEditBody {
+  gap: 20px;
+}
+
+.previewPlaceholder {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  color: rgba(255, 255, 255, 0.45);
+  pointer-events: none;
+}
+
 .textLivePreview {
+  position: relative;
   display: grid;
   grid-template-rows: minmax(0, 1fr);
   gap: 6px;

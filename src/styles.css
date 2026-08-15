@@ -315,6 +315,26 @@ textarea {
   pointer-events: none;
 }
 
+.textEditModal {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: min(900px, calc(100% - 28px));
+  height: min(620px, calc(100% - 70px));
+}
+
+.textEditLayout {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+}
+
+.textEditControls {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  min-width: 0;
+  min-height: 0;
+}
+
 .textEditToolbar {
   display: flex;
   flex-wrap: wrap;
@@ -332,14 +352,94 @@ textarea {
 
 .editorTextarea {
   width: 100%;
-  min-height: 180px;
+  min-height: 0;
+  height: 100%;
+  max-height: 100%;
   padding: 8px 10px;
-  resize: vertical;
+  resize: none;
+  overflow: auto;
+}
+
+.textLivePreview {
+  min-width: 0;
+  min-height: 0;
+  padding: 10px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel-soft);
+}
+
+.editorTextarea,
+.textLivePreview {
+  scrollbar-color: var(--accent) var(--panel-soft);
+  scrollbar-width: thin;
+}
+
+.editorTextarea::-webkit-scrollbar,
+.textLivePreview::-webkit-scrollbar {
+  width: 10px;
+}
+
+.editorTextarea::-webkit-scrollbar-track,
+.textLivePreview::-webkit-scrollbar-track {
+  background: var(--panel-soft);
+}
+
+.editorTextarea::-webkit-scrollbar-thumb,
+.textLivePreview::-webkit-scrollbar-thumb {
+  border: 2px solid var(--panel-soft);
+  border-radius: 8px;
+  background: var(--accent);
+}
+
+.imageUrlRow,
+.imageOptionRow {
+  display: grid;
+  gap: 8px;
+  align-items: end;
+}
+
+.imageUrlRow {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.imageUrlRow label {
+  min-width: 0;
+}
+
+.imageUrlRow input {
+  width: 100%;
+}
+
+.imageOptionRow {
+  grid-template-columns: 1fr 1fr;
+}
+
+.imageOption {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.imageOption select {
+  width: 96px;
+}
+
+.imageOption input[type="color"] {
+  border-color: var(--accent);
+  border-radius: 6px;
+  background: var(--panel-soft);
 }
 
 .editModalBody .editorActions {
   display: flex;
   justify-content: flex-end;
+}
+
+.fullSave {
+  width: 100%;
 }
 
 .textPreview {
@@ -659,5 +759,13 @@ input[type="color"] {
 
   .tools {
     margin-left: auto;
+  }
+
+  .textEditLayout {
+    grid-template-columns: 1fr;
+  }
+
+  .textLivePreview {
+    min-height: 150px;
   }
 }

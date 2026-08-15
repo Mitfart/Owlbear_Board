@@ -15,6 +15,7 @@ export type BoardItem = {
   borderColor?: string;
   imageFit?: "cover" | "contain";
   counterLabel?: string;
+  counterLabelPosition?: "top-left" | "top-center" | "top-right" | "bottom-left" | "bottom-center" | "bottom-right";
   counterValue?: number;
   counterMax?: number;
   counterZeroColorEnabled?: boolean;

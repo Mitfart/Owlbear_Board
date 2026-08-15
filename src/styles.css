@@ -324,18 +324,20 @@ textarea {
 
 .textEditLayout {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   height: 100%;
   min-height: 0;
 }
 
 .textEditControls {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr);
   min-width: 0;
   min-height: 0;
 }
 
 .textEditToolbar {
+  grid-column: 1 / -1;
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
@@ -360,9 +362,17 @@ textarea {
   overflow: auto;
 }
 
-.textLivePreview {
+.textPreviewPane {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
+  gap: 6px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.textLivePreview {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
   gap: 6px;
   min-width: 0;
   min-height: 0;
@@ -407,28 +417,25 @@ textarea {
   grid-template-columns: minmax(0, 1fr) auto;
 }
 
-.imageUrlRow label {
-  min-width: 0;
-}
-
 .imageUrlRow input {
   width: 100%;
 }
 
 .imageOptionRow {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 16px;
+  gap: 24px;
 }
 
 .imageOption {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 1fr 1fr;
   align-items: center;
   gap: 8px;
 }
 
-.imageOption select {
-  width: 96px;
+.imageOption select,
+.imageOption input[type="color"] {
+  width: 100%;
 }
 
 .imageOption input[type="color"] {

@@ -86,6 +86,17 @@ textarea {
   padding: 0 10px;
 }
 
+input[type="checkbox"],
+input[type="radio"] {
+  width: 16px;
+  min-width: 16px;
+  height: 16px;
+  min-height: 16px;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--accent);
+}
+
 .loading {
   display: grid;
   height: 100%;
@@ -411,16 +422,6 @@ textarea {
   gap: 10px;
 }
 
-.counterMaxField { display: grid; gap: 4px; }
-.counterMaxField > strong { color: var(--muted); font-size: 12px; font-weight: 400; }
-.counterMaxField > label,
-.counterAddMax > label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 28px;
-  color: var(--text);
-}
 
 .counterOption,
 .counterColorField {
@@ -438,15 +439,6 @@ textarea {
 .counterColorField { grid-template-columns: minmax(0, 1fr) auto; }
 .counterOption input[type="checkbox"] { margin: 0; }
 .counterOption input[type="color"]:disabled { opacity: 0.35; }
-
-.counterAddOptions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(110px, 1fr));
-  gap: 8px;
-}
-
-.counterAddMax { display: grid; gap: 4px; }
-.counterAddMax input[type="number"] { width: 100%; }
 
 
 .boardItem img {
@@ -935,10 +927,6 @@ input[type="color"] {
   }
 
   .counterEditLayout {
-    grid-template-columns: 1fr;
-  }
-
-  .counterAddOptions {
     grid-template-columns: 1fr;
   }
 

@@ -318,7 +318,7 @@ textarea {
 .textEditModal {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  width: min(900px, calc(100% - 28px));
+  width: min(1100px, calc(100% - 28px));
   height: min(620px, calc(100% - 70px));
 }
 
@@ -361,33 +361,36 @@ textarea {
 }
 
 .textLivePreview {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 6px;
   min-width: 0;
   min-height: 0;
   padding: 10px;
-  overflow: auto;
+  overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--panel-soft);
 }
 
 .editorTextarea,
-.textLivePreview {
+.textPreviewContent {
   scrollbar-color: var(--accent) var(--panel-soft);
   scrollbar-width: thin;
 }
 
 .editorTextarea::-webkit-scrollbar,
-.textLivePreview::-webkit-scrollbar {
+.textPreviewContent::-webkit-scrollbar {
   width: 10px;
 }
 
 .editorTextarea::-webkit-scrollbar-track,
-.textLivePreview::-webkit-scrollbar-track {
+.textPreviewContent::-webkit-scrollbar-track {
   background: var(--panel-soft);
 }
 
 .editorTextarea::-webkit-scrollbar-thumb,
-.textLivePreview::-webkit-scrollbar-thumb {
+.textPreviewContent::-webkit-scrollbar-thumb {
   border: 2px solid var(--panel-soft);
   border-radius: 8px;
   background: var(--accent);
@@ -413,7 +416,8 @@ textarea {
 }
 
 .imageOptionRow {
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
 }
 
 .imageOption {
@@ -538,6 +542,16 @@ textarea {
 
 .modalHeader strong {
   color: var(--text);
+}
+
+.modalHeaderActions {
+  display: flex;
+  gap: 6px;
+}
+
+.textPreviewContent {
+  min-height: 0;
+  overflow: auto;
 }
 
 .itemTypeTabs {
@@ -761,11 +775,4 @@ input[type="color"] {
     margin-left: auto;
   }
 
-  .textEditLayout {
-    grid-template-columns: 1fr;
-  }
-
-  .textLivePreview {
-    min-height: 150px;
-  }
 }

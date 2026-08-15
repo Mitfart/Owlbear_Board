@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { autoImageSize, autoTextSize, parseItemSize } from "./sizing";
+import { autoImageSize, autoTextSize, normalizeCounterValue, parseItemSize } from "./sizing";
+
+describe("counter values", () => {
+  it("normalizes invalid, fractional, and capped values", () => {
+    expect(normalizeCounterValue(-1)).toBe(0);
+    expect(normalizeCounterValue(2.8)).toBe(2);
+    expect(normalizeCounterValue(9, 4)).toBe(4);
+  });
+});
 
 describe("item auto sizing", () => {
   it("treats blank and invalid dimensions as auto", () => {

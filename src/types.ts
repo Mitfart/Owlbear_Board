@@ -1,6 +1,6 @@
 export type BoardScope = "scene" | "room";
 export type BoardVisibility = "private" | "shared";
-export type BoardItemType = "text" | "image";
+export type BoardItemType = "text" | "image" | "counter";
 
 export type OccupiedCell = {
   x: number;
@@ -14,6 +14,14 @@ export type BoardItem = {
   imageUrl?: string;
   borderColor?: string;
   imageFit?: "cover" | "contain";
+  counterLabel?: string;
+  counterValue?: number;
+  counterMax?: number;
+  counterZeroColorEnabled?: boolean;
+  counterZeroColor?: string;
+  counterMaxColorEnabled?: boolean;
+  counterMaxColor?: string;
+  counterDimAtZero?: boolean;
   gridX: number;
   gridY: number;
   gridWidth: number;

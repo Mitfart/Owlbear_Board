@@ -6,6 +6,10 @@ export function clampNumber(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
+export function normalizeCounterValue(value: number, max?: number) {
+  return Math.min(max ?? Infinity, Math.max(0, Number.isFinite(value) ? Math.floor(value) : 0));
+}
+
 export function parseItemSize(value: string): ItemSizeDraft {
   const trimmed = value.trim().toLowerCase();
   if (!trimmed || trimmed === AUTO_SIZE) return AUTO_SIZE;

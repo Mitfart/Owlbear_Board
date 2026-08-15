@@ -309,6 +309,59 @@ textarea {
   cursor: nwse-resize;
 }
 
+
+.boardItem.counter {
+  grid-template-columns: minmax(0, 22%) minmax(0, 1fr) minmax(0, 22%);
+  container-type: size;
+}
+
+.counterContent {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  place-content: center;
+  text-align: center;
+}
+
+.counterLabel {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: clamp(10px, min(9cqw, 18cqh), 20px);
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.counterNumbers {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  min-width: 0;
+  font-size: clamp(12px, min(24cqw, 48cqh), 72px);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.counterNumbers strong { overflow: hidden; text-overflow: ellipsis; }
+.counterNumbers span { margin-left: 0.18em; color: var(--muted); font-size: 0.55em; opacity: 0.65; }
+
+.counterControl {
+  align-self: center;
+  justify-self: center;
+  width: min(64px, 18cqw);
+  min-width: 0;
+  height: min(64px, 40cqh);
+  min-height: 0;
+  padding: 0;
+}
+
+.counterControl svg { width: min(32px, 12cqw); height: min(32px, 24cqh); }
+.boardItem.counter.zeroDim { background: color-mix(in srgb, var(--panel) 55%, var(--bg)); }
+.boardItem.counter.zeroDim .counterContent { opacity: 0.55; }
+
+.counterEditNumbers { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.counterOption { display: flex; align-items: center; gap: 8px; }
+
 .boardItem img {
   width: 100%;
   height: 100%;

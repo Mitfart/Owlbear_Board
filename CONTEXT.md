@@ -17,8 +17,20 @@ A board tied to a single Owlbear scene. It is relevant only while that scene is 
 _Avoid_: Sceen board, project board
 
 **Board Item**:
-A text or image element placed on a board at a grid position. A board item occupies one or more grid cells and is independent from Owlbear scene objects.
+An element placed on a board at a grid position. A board item occupies one or more grid cells and is independent from Owlbear scene objects.
 _Avoid_: Kanban item, card, token, note
+
+**Counter Board Item**:
+A Board Item that displays and changes a numeric value.
+_Avoid_: Token counter, tracker
+
+**Counter Value**:
+The non-negative whole number displayed by a Counter Board Item.
+_Avoid_: Count, actual number
+
+**Counter Maximum**:
+The optional upper bound on a Counter Value.
+_Avoid_: Max value, limit
 
 **Text Board Item**:
 A board item whose content is Markdown text rendered for display.

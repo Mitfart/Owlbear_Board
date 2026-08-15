@@ -345,7 +345,8 @@ textarea {
   align-items: center;
   padding: 0 8px;
   border-radius: 6px;
-  color: var(--muted-2);
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 11px;
   background: rgba(32, 36, 53, 0.62);
 }
 

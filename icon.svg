@@ -1,7 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Board">
-  <rect width="64" height="64" rx="14" fill="#1e2231"/>
-  <path d="M14 14h36v36H14z" fill="#25293c" stroke="#bb99ff" stroke-width="3"/>
-  <path d="M26 14v36M38 14v36M14 26h36M14 38h36" stroke="#bb99ff" stroke-opacity=".45" stroke-width="2"/>
-  <rect x="18" y="18" width="16" height="8" rx="2" fill="#03dac6"/>
-  <rect x="30" y="34" width="16" height="10" rx="2" fill="#bb99ff"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 8 8"><path fill="currentColor" d="M4 8V3h4v5M0 8V5h3v3m1-6V0h4v2M0 4V0h3v4"/></svg>

@@ -1,6 +1,6 @@
 import OBR from "@owlbear-rodeo/sdk";
 import type { Theme } from "@owlbear-rodeo/sdk";
-import { ChevronDown, Grip, ImagePlus, Maximize2, Minus, Pencil, Plus, RefreshCw, Save, Settings, Trash2, Type, X } from "lucide-react";
+import { AlignCenter, AlignJustify, AlignLeft, AlignRight, Bold, ChevronDown, Grip, ImagePlus, Italic, Maximize2, Minus, Pencil, Plus, RefreshCw, Save, Settings, Trash2, Type, X } from "lucide-react";
 import type React from "react";
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -19,6 +19,7 @@ type DragState = { itemId: string; offsetX: number; offsetY: number };
 type ResizeItemState = { itemId: string; gridX: number; gridY: number; gridWidth: number; gridHeight: number };
 type AddTarget = { x: number; y: number } | undefined;
 type History = { undo: Board[]; redo: Board[] };
+type ImageEdit = { itemId: string; url: string; borderColor: string; imageFit: "cover" | "contain" };
 
 const DEFAULT_ZOOM = 0.6;
 const MIN_ZOOM = 0.05;
@@ -96,6 +97,8 @@ export default function App() {
   const [emptyContext, setEmptyContext] = useState<{ gridX: number; gridY: number; x: number; y: number }>();
   const [focusedItemId, setFocusedItemId] = useState<string>();
   const [focusDraft, setFocusDraft] = useState("");
+  const [hasTextSelection, setHasTextSelection] = useState(false);
+  const [imageEdit, setImageEdit] = useState<ImageEdit>();
   const [newFocusedItemId, setNewFocusedItemId] = useState<string>();
   const [selectedItemId, setSelectedItemId] = useState<string>();
   const [dragState, setDragState] = useState<DragState>();
@@ -104,6 +107,7 @@ export default function App() {
   const [history, setHistory] = useState<Record<string, History>>({});
   const [, setTheme] = useState(FALLBACK_THEME);
   const gridRef = useRef<HTMLDivElement>(null);
+  const focusTextarea = useRef<HTMLTextAreaElement>(null);
   const tabDrag = useRef<{ x: number; scrollLeft: number; moved: boolean; pointerId: number } | undefined>(undefined);
   const activeBoard = useMemo(() => boards.find((board) => board.id === activeBoardId), [activeBoardId, boards]);
   const showPreview = !activeBoard && !previewDismissed;
@@ -184,7 +188,7 @@ export default function App() {
   }
 
   function clearBoardUi() {
-    setContextItem(undefined); setEmptyContext(undefined); setFocusedItemId(undefined); setFocusDraft(""); setNewFocusedItemId(undefined); setSelectedItemId(undefined); setDragState(undefined); setResizeItemState(undefined); setAddModalOpen(false); setAddTarget(undefined);
+    setContextItem(undefined); setEmptyContext(undefined); setFocusedItemId(undefined); setFocusDraft(""); setImageEdit(undefined); setHasTextSelection(false); setNewFocusedItemId(undefined); setSelectedItemId(undefined); setDragState(undefined); setResizeItemState(undefined); setAddModalOpen(false); setAddTarget(undefined);
   }
 
   async function chooseBoard(board: Board) {
@@ -272,7 +276,8 @@ export default function App() {
     const position = firstFreeNear(activeBoard, target.x, target.y, 2, 1);
     const item: BoardItem = { ...createItemBase(position.x, position.y, 2, 1), type: "text", text: "", borderColor: DEFAULT_ITEM_BORDER_COLOR };
     await persistBoard({ ...activeBoard, items: [...activeBoard.items, item] });
-    setFocusedItemId(item.id); setNewFocusedItemId(item.id); setFocusDraft("");
+    const alignment = preferences?.textAlignment ?? 0;
+    setFocusedItemId(item.id); setNewFocusedItemId(item.id); setFocusDraft(alignment ? `^${alignment} ` : "");
   }
 
   async function addImage(source?: string, imageSize?: { width: number; height: number }) {
@@ -285,6 +290,18 @@ export default function App() {
 
   async function pickOwlbearImage() { if (!OBR.isAvailable) return; const images = await OBR.assets.downloadImages(false, undefined, "NOTE"); const image = images[0]?.image; if (image?.url) await addImage(image.url, { width: image.width, height: image.height }); }
 
+  function openItemEditor(item: BoardItem) {
+    setFocusedItemId(item.id);
+    if (item.type === "text") { setFocusDraft(item.text ?? ""); setHasTextSelection(false); setImageEdit(undefined); }
+    else setImageEdit({ itemId: item.id, url: item.imageUrl ?? "", borderColor: item.borderColor ?? DEFAULT_ITEM_BORDER_COLOR, imageFit: item.imageFit ?? "cover" });
+  }
+
+  async function pickOwlbearEditImage() {
+    if (!OBR.isAvailable) return;
+    const image = (await OBR.assets.downloadImages(false, undefined, "NOTE"))[0]?.image;
+    if (image?.url) setImageEdit((current) => current && { ...current, url: image.url });
+  }
+
   async function updateItemRect(itemId: string, gridX: number, gridY: number, gridWidth: number, gridHeight: number) {
     if (!activeBoard) return; if (collides(activeBoard, gridX, gridY, gridWidth, gridHeight, itemId)) return;
     await persistBoard({ ...activeBoard, items: activeBoard.items.map((item) => item.id === itemId ? updateBoardItemRect(item, gridX, gridY, gridWidth, gridHeight) : item) });
@@ -293,10 +310,50 @@ export default function App() {
   async function deleteItem(itemId: string) { if (!activeBoard) return; await persistBoard({ ...activeBoard, items: activeBoard.items.filter((item) => item.id !== itemId) }); setContextItem(undefined); setSelectedItemId(undefined); }
   async function saveFocusedText() {
     if (!activeBoard || !focusedItemId) return; const item = activeBoard.items.find((candidate) => candidate.id === focusedItemId); if (!item) return; const text = focusDraft.trim();
-    if (!text) { if (newFocusedItemId === focusedItemId) await deleteItem(focusedItemId); setFocusedItemId(undefined); setNewFocusedItemId(undefined); return; }
-    await persistBoard({ ...activeBoard, items: activeBoard.items.map((candidate) => candidate.id === focusedItemId ? { ...candidate, text, updatedAt: nowIso() } : candidate) }); setFocusedItemId(undefined); setNewFocusedItemId(undefined);
+    if (!text || /^\^[1-3]\s*$/.test(text)) { if (newFocusedItemId === focusedItemId) await deleteItem(focusedItemId); setFocusedItemId(undefined); setNewFocusedItemId(undefined); return; }
+    await persistBoard({ ...activeBoard, items: activeBoard.items.map((candidate) => candidate.id === focusedItemId ? { ...candidate, text, updatedAt: nowIso() } : candidate) }); setFocusedItemId(undefined); setNewFocusedItemId(undefined); setHasTextSelection(false);
   }
-  async function cancelFocusedText() { if (newFocusedItemId && activeBoard) await deleteItem(newFocusedItemId); setFocusedItemId(undefined); setNewFocusedItemId(undefined); setFocusDraft(""); }
+  async function cancelFocusedText() { if (newFocusedItemId && activeBoard) await deleteItem(newFocusedItemId); setFocusedItemId(undefined); setNewFocusedItemId(undefined); setFocusDraft(""); setHasTextSelection(false); }
+
+  async function saveFocusedImage() {
+    if (!activeBoard || !imageEdit) return;
+    try { const url = new URL(imageEdit.url.trim()); if (!["http:", "https:"].includes(url.protocol)) return; } catch { return; }
+    await persistBoard({ ...activeBoard, items: activeBoard.items.map((item) => item.id === imageEdit.itemId ? { ...item, imageUrl: imageEdit.url.trim(), borderColor: imageEdit.borderColor, imageFit: imageEdit.imageFit, updatedAt: nowIso() } : item) });
+    setImageEdit(undefined); setFocusedItemId(undefined);
+  }
+
+  function cancelFocusedImage() { setImageEdit(undefined); setFocusedItemId(undefined); }
+
+  function restoreTextSelection(start: number, end: number) {
+    requestAnimationFrame(() => { focusTextarea.current?.focus(); focusTextarea.current?.setSelectionRange(start, end); });
+  }
+
+  function toggleTextStyle(marker: "*" | "**") {
+    const input = focusTextarea.current; if (!input || input.selectionStart === input.selectionEnd) return;
+    const { selectionStart: start, selectionEnd: end } = input;
+    const selected = focusDraft.slice(start, end);
+    const wrapped = selected.startsWith(marker) && selected.endsWith(marker);
+    const replacement = wrapped ? selected.slice(marker.length, -marker.length) : `${marker}${selected}${marker}`;
+    setFocusDraft(`${focusDraft.slice(0, start)}${replacement}${focusDraft.slice(end)}`);
+    restoreTextSelection(start + (wrapped ? -marker.length : marker.length), end + (wrapped ? -marker.length : marker.length));
+  }
+
+  async function alignTextBlocks(alignment: 0 | 1 | 2 | 3) {
+    const input = focusTextarea.current; if (!input) return;
+    const start = input.selectionStart; const end = input.selectionEnd; const lines = focusDraft.split("\n");
+    const startLine = focusDraft.slice(0, start).split("\n").length - 1;
+    const endLine = focusDraft.slice(0, Math.max(start, end - (end > start ? 1 : 0))).split("\n").length - 1;
+    const targets = new Set<number>(); let codeStart = -1;
+    for (let index = 0; index < lines.length; index += 1) {
+      const plain = lines[index].replace(/^\^[1-3]\s+/, "");
+      if (plain.trim().startsWith("```")) { if (codeStart < 0) codeStart = index; else { if (codeStart <= endLine && index >= startLine) targets.add(codeStart); codeStart = -1; } }
+      else if (codeStart < 0 && index >= startLine && index <= endLine && plain.trim()) targets.add(index);
+    }
+    if (codeStart >= 0 && codeStart <= endLine) targets.add(codeStart);
+    setFocusDraft(lines.map((line, index) => targets.has(index) ? `${alignment ? `^${alignment} ` : ""}${line.replace(/^\^[1-3]\s+/, "")}` : line).join("\n"));
+    const next = { ...(preferences ?? await loadPreferences()), textAlignment: alignment };
+    setPreferences(next); await savePreferences(next); restoreTextSelection(start, end);
+  }
 
   async function undo() { if (!activeBoard) return; const entry = history[activeBoard.id]; const previous = entry?.undo[0]; if (!previous) return; setHistory((current) => ({ ...current, [activeBoard.id]: { undo: entry.undo.slice(1), redo: [activeBoard, ...entry.redo].slice(0, MAX_HISTORY) } })); await persistBoard(previous, false); }
   async function redo() { if (!activeBoard) return; const entry = history[activeBoard.id]; const next = entry?.redo[0]; if (!next) return; setHistory((current) => ({ ...current, [activeBoard.id]: { undo: [activeBoard, ...entry.undo].slice(0, MAX_HISTORY), redo: entry.redo.slice(1) } })); await persistBoard(next, false); }
@@ -322,6 +379,7 @@ export default function App() {
   function startResize(event: React.PointerEvent<HTMLElement>) { const target = event.currentTarget; const startX = event.clientX; const startY = event.clientY; const start = { ...windowSize }; target.setPointerCapture(event.pointerId); const move = (moveEvent: PointerEvent) => void resizeWindow(start.width + moveEvent.clientX - startX, start.height + moveEvent.clientY - startY); const up = () => { target.releasePointerCapture(event.pointerId); target.removeEventListener("pointermove", move); target.removeEventListener("pointerup", up); }; target.addEventListener("pointermove", move); target.addEventListener("pointerup", up); }
 
   const cellSize = (displayBoard?.cellSizePx ?? DEFAULT_CELL_SIZE) * zoom;
+  const focusedItem = activeBoard?.items.find((item) => item.id === focusedItemId);
   if (!ready) return <div className="loading">Loading Board...</div>;
 
   return <main className="app" style={{ width: windowSize.width, height: windowSize.height, ...themeVars }}>
@@ -330,13 +388,15 @@ export default function App() {
     </section>}{boardPickerOpen && <section className="boardPanel boardPicker"><button className="primaryAction" onClick={() => { setCreateOpen(true); setBoardPickerOpen(false); }}><Plus size={16} /> Create Private Board</button><div className="boardGroups"><strong>Shared Boards</strong>{boards.filter((board) => board.visibility === "shared").map((board) => <button key={board.id} onClick={() => void chooseBoard(board)}>{board.name}</button>)}{!boards.some((board) => board.visibility === "shared" && board.scope === "scene") && <button onClick={() => void createShared("scene")}>Shared Scene Board</button>}{!boards.some((board) => board.visibility === "shared" && board.scope === "room") && <button onClick={() => void createShared("room")}>Shared Room Board</button>}<strong>Private Scene Boards</strong>{boards.filter((board) => board.visibility === "private" && board.scope === "scene").map((board) => <button key={board.id} onClick={() => void chooseBoard(board)}>{board.name}</button>)}{!boards.some((board) => board.visibility === "private" && board.scope === "scene") && <span className="emptyBoardGroup">Empty</span>}<strong>Private Room Boards</strong>{boards.filter((board) => board.visibility === "private" && board.scope === "room").map((board) => <button key={board.id} onClick={() => void chooseBoard(board)}>{board.name}</button>)}{!boards.some((board) => board.visibility === "private" && board.scope === "room") && <span className="emptyBoardGroup">Empty</span>}</div></section>}</div><div className="tools"><button title={activeBoard ? "Save board" : "Create board"} onClick={() => activeBoard ? void persistBoard(activeBoard, false, true) : setCreateOpen(true)}><Save size={16} /> {activeBoard ? saveStatus ?? "Save" : "Create"}</button><button title={activeBoard ? "Add item" : "Create board"} onClick={() => activeBoard ? (setAddTarget(viewportCenterGrid()), setAddModalOpen(true)) : setCreateOpen(true)}><Plus size={16} /> {activeBoard ? "Add" : "Create"}</button><button title="Zoom out" onClick={() => setZoom((value) => clampNumber(value - 0.1, MIN_ZOOM, MAX_ZOOM))}><Minus size={16} /></button><span className="zoom">{Math.round(zoom * 100)}%</span><button title="Zoom in" onClick={() => setZoom((value) => clampNumber(value + 0.1, MIN_ZOOM, MAX_ZOOM))}><Plus size={16} /></button><button title="Reset view" onClick={() => { setPan(DEFAULT_PAN); setZoom(DEFAULT_ZOOM); }}><RefreshCw size={16} /></button></div></header>
 
     <div ref={gridRef} className="gridSurface" onDoubleClick={(event) => { if (!activeBoard) return; const grid = pointerToGrid(event.clientX, event.clientY); if (!boardItemAt(activeBoard, grid.x, grid.y)) void createTextAt(grid); }} onPointerDown={handleGridPointerDown} onPointerMove={handleGridPointerMove} onPointerUp={(event) => void handleGridPointerUp(event)} onContextMenu={(event) => { event.preventDefault(); if (!activeBoard) { setCreateOpen(true); return; } const grid = pointerToGrid(event.clientX, event.clientY); const item = boardItemAt(activeBoard, grid.x, grid.y); if (item) setContextItem({ item, x: event.clientX, y: event.clientY }); else setEmptyContext({ gridX: grid.x, gridY: grid.y, x: event.clientX, y: event.clientY }); }} style={{ backgroundSize: `${cellSize}px ${cellSize}px`, backgroundPosition: `${pan.x}px ${pan.y}px` }}>
-      <div key={displayBoard?.id ?? "empty"} className="gridPlane" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>{displayBoard?.items.map((item) => <BoardItemView key={item.id} item={resizeItemState?.itemId === item.id ? { ...item, gridWidth: resizeItemState.gridWidth, gridHeight: resizeItemState.gridHeight } : item} selected={selectedItemId === item.id} focused={focusedItemId === item.id} focusDraft={focusDraft} cellSize={displayBoard.cellSizePx} cellGap={displayBoard.cellGapPx} onFocusDraft={setFocusDraft} onSave={() => void saveFocusedText()} onCancel={() => void cancelFocusedText()} onResizePointerDown={startItemResize} onDoubleClick={(target) => { if (target.type === "text") { setFocusedItemId(target.id); setFocusDraft(target.text ?? ""); } }} />)}</div>
+      <div key={displayBoard?.id ?? "empty"} className="gridPlane" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>{displayBoard?.items.map((item) => <BoardItemView key={item.id} item={resizeItemState?.itemId === item.id ? { ...item, gridWidth: resizeItemState.gridWidth, gridHeight: resizeItemState.gridHeight } : item} selected={selectedItemId === item.id} cellSize={displayBoard.cellSizePx} cellGap={displayBoard.cellGapPx} onResizePointerDown={startItemResize} onDoubleClick={openItemEditor} />)}</div>
       {showPreview && <div className="emptyState" onPointerDown={(event) => event.stopPropagation()} onContextMenu={(event) => { event.preventDefault(); event.stopPropagation(); }}><strong>Preview Board</strong><button className="primaryAction" onClick={() => setCreateOpen(true)}><Plus size={16} /> Create Private Board</button><button onClick={async () => { const prefs = preferences ?? await loadPreferences(); await savePreferences({ ...prefs, previewDismissed: true }); setPreviewDismissed(true); }}>Dismiss</button></div>}
       {error && <div className="saveError">Could not save Board: {error}</div>}
       <div className="surfaceHud"><span>{displayBoard?.items.length ?? 0} items</span><span>{Math.round(cellSize)} px cells</span></div>
     </div>
 
-    {contextItem && <div className="contextMenu" style={{ left: contextItem.x, top: contextItem.y }}><button onClick={() => { setFocusedItemId(contextItem.item.id); setFocusDraft(contextItem.item.text ?? ""); setContextItem(undefined); }}><Pencil size={15} /> Edit</button><label className="colorMenuItem">Border<input type="color" value={contextItem.item.borderColor ?? DEFAULT_ITEM_BORDER_COLOR} onChange={(event) => activeBoard && void persistBoard({ ...activeBoard, items: activeBoard.items.map((item) => item.id === contextItem.item.id ? { ...item, borderColor: event.target.value } : item) })} /></label><button onClick={() => void deleteItem(contextItem.item.id)}><Trash2 size={15} /> Delete</button></div>}
+    {focusedItem?.type === "text" && <div className="modalBackdrop" onPointerDown={() => void saveFocusedText()}><section className="editModal" onPointerDown={(event) => event.stopPropagation()}><div className="modalHeader"><strong>Edit text</strong><button title="Cancel" onClick={() => void cancelFocusedText()}><X size={16} /></button></div><div className="editModalBody"><div className="textEditToolbar"><button title="Bold selected text" disabled={!hasTextSelection} onMouseDown={(event) => event.preventDefault()} onClick={() => toggleTextStyle("**")}><Bold size={16} /></button><button title="Italic selected text" disabled={!hasTextSelection} onMouseDown={(event) => event.preventDefault()} onClick={() => toggleTextStyle("*")}><Italic size={16} /></button><button title="Align left" onMouseDown={(event) => event.preventDefault()} onClick={() => void alignTextBlocks(0)}><AlignLeft size={16} /></button><button title="Align center" onMouseDown={(event) => event.preventDefault()} onClick={() => void alignTextBlocks(1)}><AlignCenter size={16} /></button><button title="Align right" onMouseDown={(event) => event.preventDefault()} onClick={() => void alignTextBlocks(2)}><AlignRight size={16} /></button><button title="Justify" onMouseDown={(event) => event.preventDefault()} onClick={() => void alignTextBlocks(3)}><AlignJustify size={16} /></button></div><textarea ref={focusTextarea} className="editorTextarea" value={focusDraft} autoFocus onChange={(event) => { setFocusDraft(event.target.value); setHasTextSelection(event.currentTarget.selectionStart !== event.currentTarget.selectionEnd); }} onSelect={(event) => setHasTextSelection(event.currentTarget.selectionStart !== event.currentTarget.selectionEnd)} onKeyUp={(event) => setHasTextSelection(event.currentTarget.selectionStart !== event.currentTarget.selectionEnd)} onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); void cancelFocusedText(); } if ((event.ctrlKey || event.metaKey) && event.key === "Enter") { event.preventDefault(); void saveFocusedText(); } }} /><div className="editorActions"><button className="primaryAction" onClick={() => void saveFocusedText()}><Save size={16} /> Save</button></div></div></section></div>}
+    {imageEdit && <div className="modalBackdrop" onPointerDown={() => void saveFocusedImage()}><section className="editModal" onPointerDown={(event) => event.stopPropagation()} onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); cancelFocusedImage(); } if ((event.ctrlKey || event.metaKey) && event.key === "Enter") { event.preventDefault(); void saveFocusedImage(); } }}><div className="modalHeader"><strong>Edit image</strong><button title="Cancel" onClick={cancelFocusedImage}><X size={16} /></button></div><div className="editModalBody"><label>Image URL<input value={imageEdit.url} onChange={(event) => setImageEdit({ ...imageEdit, url: event.target.value })} /></label><label>Border<input type="color" value={imageEdit.borderColor} onChange={(event) => setImageEdit({ ...imageEdit, borderColor: event.target.value })} /></label><label>Fit<select value={imageEdit.imageFit} onChange={(event) => setImageEdit({ ...imageEdit, imageFit: event.target.value as ImageEdit["imageFit"] })}><option value="cover">Cover</option><option value="contain">Contain</option></select></label><button onClick={() => void pickOwlbearEditImage()} disabled={!OBR.isAvailable}><ImagePlus size={16} /> Owlbear</button><div className="editorActions"><button className="primaryAction" onClick={() => void saveFocusedImage()}><Save size={16} /> Save</button></div></div></section></div>}
+    {contextItem && <div className="contextMenu" style={{ left: contextItem.x, top: contextItem.y }}><button onClick={() => { openItemEditor(contextItem.item); setContextItem(undefined); }}><Pencil size={15} /> Edit</button><label className="colorMenuItem">Border<input type="color" value={contextItem.item.borderColor ?? DEFAULT_ITEM_BORDER_COLOR} onChange={(event) => activeBoard && void persistBoard({ ...activeBoard, items: activeBoard.items.map((item) => item.id === contextItem.item.id ? { ...item, borderColor: event.target.value } : item) })} /></label><button onClick={() => void deleteItem(contextItem.item.id)}><Trash2 size={15} /> Delete</button></div>}
     {emptyContext && <div className="contextMenu" style={{ left: emptyContext.x, top: emptyContext.y }}><button onClick={() => { void createTextAt({ x: emptyContext.gridX, y: emptyContext.gridY }); setEmptyContext(undefined); }}><Type size={15} /> Add Text Here</button><button onClick={() => { setAddTarget({ x: emptyContext.gridX, y: emptyContext.gridY }); setAddItemType("image"); setAddModalOpen(true); setEmptyContext(undefined); }}><ImagePlus size={15} /> Add Image Here</button></div>}
     {createOpen && <div className="modalBackdrop" onPointerDown={() => setCreateOpen(false)}><section className="editModal" onPointerDown={(event) => event.stopPropagation()}><div className="modalHeader"><strong>Create Private Board</strong><button onClick={() => setCreateOpen(false)}><Minus size={16} /></button></div><div className="editModalBody"><label>Name<input value={createName} maxLength={60} onChange={(event) => setCreateName(event.target.value)} /></label><label>Scope<select value={createScope} onChange={(event) => setCreateScope(event.target.value as BoardScope)}><option value="scene">Scene</option><option value="room">Room</option></select></label><button className="primaryAction" onClick={() => void createPrivateBoard()}><Plus size={16} /> Create</button></div></section></div>}
     {addModalOpen && <div className="modalBackdrop" onPointerDown={() => setAddModalOpen(false)}><section className="addModal" onPointerDown={(event) => event.stopPropagation()}><div className="modalHeader"><strong>Add item</strong><button onClick={() => setAddModalOpen(false)}><Minus size={16} /></button></div><div className="itemTypeTabs"><button className={addItemType === "text" ? "active" : undefined} onClick={() => setAddItemType("text")}><Type size={16} /> Text</button><button className={addItemType === "image" ? "active" : undefined} onClick={() => setAddItemType("image")}><ImagePlus size={16} /> Image</button></div><div className="modalGrid"><label>W<input value={itemWidth} onChange={(event) => setItemWidth(event.target.value)} /></label><label>H<input value={itemHeight} onChange={(event) => setItemHeight(event.target.value)} /></label><label>Border<input type="color" value={borderColorDraft} onChange={(event) => setBorderColorDraft(event.target.value)} /></label>{addItemType === "text" ? <button className="primaryAction" onClick={() => { if (activeBoard) void createTextAt(addTarget ?? viewportCenterGrid()).then(() => setAddModalOpen(false)); }}><Type size={16} /> Add text</button> : <><label className="wideField">Image URL<input value={imageDraft} onChange={(event) => { setImageDraft(event.target.value); setImagePreviewSize(undefined); }} /></label><button onClick={() => void pickOwlbearImage()} disabled={!OBR.isAvailable}><ImagePlus size={16} /> Owlbear</button><button className="primaryAction" onClick={() => void addImage()}><ImagePlus size={16} /> Add</button>{imageDraft.trim() && <div className="imagePreviewPanel"><img src={imageDraft.trim()} alt="Image preview" onLoad={(event) => setImagePreviewSize({ width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight })} onError={() => setImagePreviewSize(undefined)} /></div>}</>}</div></section></div>}
@@ -344,10 +404,10 @@ export default function App() {
   </main>;
 }
 
-function BoardItemView({ item, selected, focused, focusDraft, cellSize, cellGap, onFocusDraft, onSave, onCancel, onResizePointerDown, onDoubleClick }: { item: BoardItem; selected: boolean; focused: boolean; focusDraft: string; cellSize: number; cellGap: number; onFocusDraft: (value: string) => void; onSave: () => void; onCancel: () => void; onResizePointerDown: (event: React.PointerEvent<HTMLElement>, item: BoardItem) => void; onDoubleClick: (item: BoardItem) => void }) {
+function BoardItemView({ item, selected, cellSize, cellGap, onResizePointerDown, onDoubleClick }: { item: BoardItem; selected: boolean; cellSize: number; cellGap: number; onResizePointerDown: (event: React.PointerEvent<HTMLElement>, item: BoardItem) => void; onDoubleClick: (item: BoardItem) => void }) {
   const inset = Math.min(cellGap, Math.max(0, (Math.min(item.gridWidth, item.gridHeight) * cellSize) / 2 - 4));
   return <article className={`boardItem ${item.type} ${selected ? "selected" : ""}`} style={{ left: item.gridX * cellSize + inset, top: item.gridY * cellSize + inset, width: Math.max(8, item.gridWidth * cellSize - inset * 2), height: Math.max(8, item.gridHeight * cellSize - inset * 2), borderColor: item.borderColor ?? DEFAULT_ITEM_BORDER_COLOR }} onDoubleClick={(event) => { event.stopPropagation(); onDoubleClick(item); }}>
-    {item.type === "image" && item.imageUrl ? <img src={item.imageUrl} alt="Board item" /> : focused ? <textarea className="inlineEditor" value={focusDraft} autoFocus onChange={(event) => onFocusDraft(event.target.value)} onBlur={onSave} onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); onCancel(); } if ((event.ctrlKey || event.metaKey) && event.key === "Enter") { event.preventDefault(); onSave(); } }} /> : <div className="textPreview"><MarkdownView value={item.text || ""} /></div>}
+    {item.type === "image" && item.imageUrl ? <img src={item.imageUrl} alt="Board item" style={{ objectFit: item.imageFit ?? "cover" }} /> : <div className="textPreview"><MarkdownView value={item.text || ""} /></div>}
     <button className="itemResizeHandle" title="Resize item" onPointerDown={(event) => onResizePointerDown(event, item)}><Maximize2 size={13} /></button>
   </article>;
 }

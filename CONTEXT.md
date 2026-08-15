@@ -22,11 +22,23 @@ _Avoid_: Kanban item, card, token, note
 
 **Text Board Item**:
 A board item whose content is Markdown text rendered for display.
-_Avoid_: Card, note, rich text item
+_Avoid_: Card, note, rich text item, node
+
+**Text Formatting**:
+Markdown-compatible emphasis choices that control the presentation of selected text in a Text Board Item.
+_Avoid_: Rich text, node style
+
+**Text Block**:
+A rendered Markdown unit within a Text Board Item, such as a heading, paragraph, list item, quote, or code block. A Text Block has its own alignment.
+_Avoid_: Row, node, line
 
 **Image Board Item**:
 A board item whose content is an image.
 _Avoid_: Token, scene object
+
+**Image Fit**:
+The presentation choice that either crops an Image Board Item to fill its bounds or contains it entirely within them.
+_Avoid_: Resize mode, stretch
 
 **Selected Board Item**:
 The board item currently targeted for movement, resizing, or item actions.

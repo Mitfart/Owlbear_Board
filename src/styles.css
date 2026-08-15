@@ -312,8 +312,34 @@ textarea {
 .boardItem img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
   pointer-events: none;
+}
+
+.textEditToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.textEditToolbar button {
+  min-width: 34px;
+  padding: 0 8px;
+}
+
+.align-1 { text-align: center; }
+.align-2 { text-align: right; }
+.align-3 { text-align: justify; }
+
+.editorTextarea {
+  width: 100%;
+  min-height: 180px;
+  padding: 8px 10px;
+  resize: vertical;
+}
+
+.editModalBody .editorActions {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .textPreview {

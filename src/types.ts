@@ -13,6 +13,7 @@ export type BoardItem = {
   text?: string;
   imageUrl?: string;
   borderColor?: string;
+  imageFit?: "cover" | "contain";
   gridX: number;
   gridY: number;
   gridWidth: number;
@@ -52,6 +53,7 @@ export type PlayerPreferences = {
   privateRoomOpenOrder: Record<string, string[]>;
   viewportByBoardId: Record<string, ViewportPreference>;
   previewDismissed?: boolean;
+  textAlignment?: 0 | 1 | 2 | 3;
 };
 
 export type WindowPreferences = {

@@ -14,7 +14,8 @@ function safeHref(href: string) {
 }
 
 function inlineMarkdown(text: string) {
-  let html = escapeHtml(text);
+  const escaped: string[] = [];
+  let html = escapeHtml(text.replace(/\\(.)/g, (_match, character: string) => `\uE000${escaped.push(character) - 1}\uE001`));
   html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
   html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
   html = html.replace(/\*([^*]+)\*/g, "<em>$1</em>");
@@ -23,7 +24,16 @@ function inlineMarkdown(text: string) {
     const safe = safeHref(href.trim());
     return safe ? `<a href="${escapeHtml(safe)}" target="_blank" rel="noreferrer">${label}</a>` : label;
   });
-  return html;
+  return html.replace(/\uE000(\d+)\uE001/g, (_match, index: string) => escapeHtml(escaped[Number(index)]));
+}
+
+function aligned(line: string) {
+  const match = line.match(/^\^([1-3])\s+/);
+  return { align: match?.[1], text: match ? line.slice(match[0].length) : line };
+}
+
+function className(align?: string) {
+  return align ? ` class="align-${align}"` : "";
 }
 
 export function renderMarkdown(markdown: string) {
@@ -31,16 +41,18 @@ export function renderMarkdown(markdown: string) {
   const html: string[] = [];
   let inList = false;
   let inCode = false;
+  let codeAlign: string | undefined;
 
-  for (const line of lines) {
+  for (const source of lines) {
+    const { align, text: line } = aligned(source);
     if (line.trim().startsWith("```")) {
       if (inCode) html.push("</code></pre>");
-      else html.push("<pre><code>");
+      else { codeAlign = align; html.push(`<pre${className(codeAlign)}><code>`); }
       inCode = !inCode;
       continue;
     }
     if (inCode) {
-      html.push(`${escapeHtml(line)}\n`);
+      html.push(`${escapeHtml(source)}\n`);
       continue;
     }
 
@@ -48,7 +60,7 @@ export function renderMarkdown(markdown: string) {
     if (bullet) {
       if (!inList) html.push("<ul>");
       inList = true;
-      html.push(`<li>${inlineMarkdown(bullet[1])}</li>`);
+      html.push(`<li${className(align)}>${inlineMarkdown(bullet[1])}</li>`);
       continue;
     }
     if (inList) {
@@ -59,11 +71,11 @@ export function renderMarkdown(markdown: string) {
     const heading = line.match(/^(#{1,3})\s+(.+)/);
     if (heading) {
       const level = heading[1].length;
-      html.push(`<h${level}>${inlineMarkdown(heading[2])}</h${level}>`);
+      html.push(`<h${level}${className(align)}>${inlineMarkdown(heading[2])}</h${level}>`);
     } else if (line.startsWith("> ")) {
-      html.push(`<blockquote>${inlineMarkdown(line.slice(2))}</blockquote>`);
+      html.push(`<blockquote${className(align)}>${inlineMarkdown(line.slice(2))}</blockquote>`);
     } else if (line.trim()) {
-      html.push(`<p>${inlineMarkdown(line)}</p>`);
+      html.push(`<p${className(align)}>${inlineMarkdown(line)}</p>`);
     } else {
       html.push("<br />");
     }

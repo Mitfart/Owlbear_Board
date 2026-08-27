@@ -113,17 +113,25 @@ function sharedSceneRecord(item: SceneDataItem): SharedSceneDataRecord | undefin
     ? candidate as SharedSceneDataRecord : undefined;
 }
 
-async function getSharedSceneDataItem() {
-  if (!OBR.isAvailable || !(OBR.scene as unknown as { items?: unknown }).items) return undefined;
+type SharedSceneDataEntry = { item: SceneDataItem; record: SharedSceneDataRecord };
+
+async function getSharedSceneDataItems(): Promise<SharedSceneDataEntry[]> {
+  if (!OBR.isAvailable || !(OBR.scene as unknown as { items?: unknown }).items) return [];
   const items = await (OBR.scene as unknown as { items: { getItems(): Promise<SceneDataItem[]> } }).items.getItems();
-  return items.filter((item) => item.type === "DATA").map((item) => ({ item, record: sharedSceneRecord(item) })).filter((entry): entry is { item: SceneDataItem; record: SharedSceneDataRecord } => !!entry.record)
-    .sort((a, b) => Math.max(...b.record.state.boards.map((board) => board.revision), -1) - Math.max(...a.record.state.boards.map((board) => board.revision), -1))[0];
+  return items.filter((item) => item.type === "DATA").map((item) => ({ item, record: sharedSceneRecord(item) })).filter((entry): entry is SharedSceneDataEntry => !!entry.record);
+}
+
+async function getSharedSceneDataItem() {
+  return (await getSharedSceneDataItems()).sort((a, b) => Math.max(...b.record.state.boards.map((board) => board.revision), -1) - Math.max(...a.record.state.boards.map((board) => board.revision), -1))[0];
+}
+
+async function getSharedSceneDataItemForBoard(board: Board) {
+  return (await getSharedSceneDataItems()).find(({ record }) => record.state.boards.some((candidate) => candidate.id === board.id && candidate.scope === board.scope && candidate.visibility === board.visibility && candidate.revision === board.revision));
 }
 
 export async function trackActiveSharedBoard(state: PersistedBoardState, sceneKey: string) {
   if (!OBR.isAvailable || sceneKey === "no-scene") return;
-  const existing = await getSharedSceneDataItem();
-  activeSharedRoom = { sceneKey, state: normalizeBoardState(state), itemIds: existing?.item.id ? [existing.item.id] : [] };
+  activeSharedRoom = { sceneKey, state: normalizeBoardState(state), itemIds: [] };
 }
 
 export function beginSharedSceneTransition() {
@@ -191,10 +199,10 @@ export async function saveSharedBoardState(scope: BoardScope, state: PersistedBo
     type: "DATA", data, visible: false, locked: true, disableHit: true,
     position: { x: 0, y: 0 }, rotation: 0, scale: { x: 1, y: 1 }, layer: "FOREGROUND",
   };
-  const items = (OBR.scene as unknown as { items: { addItems(items: unknown[]): Promise<unknown>; updateItems(ids: string[], update: (item: SceneDataItem) => SceneDataItem): Promise<unknown> } }).items;
-  if (existing?.item.id) await items.updateItems([existing.item.id], (draft) => {
-    Object.assign(draft, item);
-    return draft;
+  const items = (OBR.scene as unknown as { items: { addItems(items: SceneDataItem[]): Promise<void>; updateItems(ids: string[], update: (draft: SceneDataItem[]) => void): Promise<void> } }).items;
+  if (existing?.item.id) await items.updateItems([existing.item.id], (drafts) => {
+    const draft = drafts.find((candidate) => candidate.id === existing.item.id);
+    if (draft) Object.assign(draft, item);
   });
   else await items.addItems([item]);
 }
@@ -230,7 +238,7 @@ async function deleteBoardFromMetadata(board: Board) {
   if (board.visibility === "gm-shared") return;
   if (board.visibility === "shared" && board.scope === "scene") {
     if (!OBR.isAvailable) return;
-    const existing = await getSharedSceneDataItem();
+    const existing = await getSharedSceneDataItemForBoard(board);
     if (existing?.item.id) await (OBR.scene as unknown as { items: { deleteItems(ids: string[]): Promise<unknown> } }).items.deleteItems([existing.item.id]);
     return;
   }

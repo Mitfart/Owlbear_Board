@@ -151,7 +151,7 @@ export async function carrySharedBoardAcrossSceneTransition() {
     return;
   }
   const destination = await loadSharedBoardState("room");
-  if (boardRevision(pendingSharedRoomTransition.state) >= boardRevision(destination)) {
+  if (boardRevision(pendingSharedRoomTransition.state) > boardRevision(destination)) {
     await saveSharedBoardState("room", pendingSharedRoomTransition.state);
   }
   pendingSharedRoomTransition.destinationSceneKey = destinationKey;

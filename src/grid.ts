@@ -50,12 +50,17 @@ export function boardItemAt(board: Board, gridX: number, gridY: number) {
   );
 }
 
+function removeDerivedOccupancy(item: BoardItem) {
+  const { occupiedCells: _legacyOccupiedCells, ...withoutDerivedOccupancy } = item as BoardItem & { occupiedCells?: unknown };
+  return withoutDerivedOccupancy;
+}
+
 export function updateBoardItemPosition(
   item: BoardItem,
   gridX: number,
   gridY: number,
 ): BoardItem {
-  const { occupiedCells: _legacyOccupiedCells, ...withoutDerivedOccupancy } = item as BoardItem & { occupiedCells?: unknown };
+  const withoutDerivedOccupancy = removeDerivedOccupancy(item);
   return {
     ...withoutDerivedOccupancy,
     gridX,
@@ -71,7 +76,7 @@ export function updateBoardItemRect(
   gridWidth: number,
   gridHeight: number,
 ): BoardItem {
-  const { occupiedCells: _legacyOccupiedCells, ...withoutDerivedOccupancy } = item as BoardItem & { occupiedCells?: unknown };
+  const withoutDerivedOccupancy = removeDerivedOccupancy(item);
   return {
     ...withoutDerivedOccupancy,
     gridX,

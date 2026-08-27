@@ -26,7 +26,7 @@ export function normalizeBoardState(state: PersistedBoardState): PersistedBoardS
       ...board,
       items: board.items.map((item) => {
         const { occupiedCells: _legacyOccupiedCells, ...normalizedItem } = item as BoardItem & { occupiedCells?: unknown };
-        return normalizedItem;
+        return { ...normalizedItem, gridWidth: Math.max(1, Number(normalizedItem.gridWidth) || 1), gridHeight: Math.max(1, Number(normalizedItem.gridHeight) || 1) };
       }),
     })),
   };
@@ -143,7 +143,10 @@ export async function saveSharedBoardState(scope: BoardScope, state: PersistedBo
     writeLocal(scope === "room" ? SHARED_ROOM_STATE_KEY : SHARED_SCENE_STATE_KEY, normalizeBoardState(state));
     return;
   }
-  if (scope === "room") await OBR.room.setMetadata({ [SHARED_ROOM_STATE_KEY]: normalizeBoardState(state) });
+  if (scope === "room") {
+    const metadata = await OBR.room.getMetadata();
+    await OBR.room.setMetadata({ ...metadata, [SHARED_ROOM_STATE_KEY]: normalizeBoardState(state) });
+  }
   else {
     const metadata = await OBR.scene.getMetadata();
     await OBR.scene.setMetadata({ ...metadata, [SHARED_SCENE_STATE_KEY]: normalizeBoardState(state) });

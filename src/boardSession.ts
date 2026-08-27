@@ -13,6 +13,17 @@ export type SharedBoardPlaceholderPickerRow = {
 
 export type BoardPickerRow = ExistingBoardPickerRow | SharedBoardPlaceholderPickerRow;
 
+export type PlayerBoardGroup = { playerName: string; boards: Board[] };
+
+export function groupPlayerBoards(boards: Board[]): PlayerBoardGroup[] {
+  const groups = new Map<string, Board[]>();
+  for (const board of boards) {
+    const name = board.ownerName || board.ownerId || "Unknown player";
+    groups.set(name, [...(groups.get(name) ?? []), board]);
+  }
+  return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([playerName, grouped]) => ({ playerName, boards: grouped.sort((a, b) => a.name.localeCompare(b.name)) }));
+}
+
 export type BoardSessionModel = {
   rows: BoardPickerRow[];
   activeBoard?: Board;

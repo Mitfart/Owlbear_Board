@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SHARED_SCENE_STATE_KEY } from "./constants";
-import { getSceneKey, loadPrivateBoardState, movePrivateRoomBoardToScene, savePrivateBoardState, saveSharedBoardState } from "./storage";
+import { getSceneKey, loadAllVisibleBoards, loadGmSharedBoardState, loadPrivateBoardState, movePrivateRoomBoardToScene, saveBoard, savePrivateBoardState, saveSharedBoardState } from "./storage";
 
 const obr = vi.hoisted(() => ({
   isAvailable: true,
@@ -13,6 +13,7 @@ vi.mock("@owlbear-rodeo/sdk", () => ({ default: obr }));
 
 const state = { version: 1 as const, boards: [] };
 const privateState = { version: 1 as const, boards: [{ id: "saved", name: "Saved", scope: "room" as const, visibility: "private" as const, revision: 1, cellSizePx: 72, cellGapPx: 2, items: [], createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" }] };
+const shareableBoard = { id: "shareable", name: "Shareable", scope: "room" as const, visibility: "private" as const, ownerId: "owner", ownerName: "Owner", revision: 0, cellSizePx: 72, cellGapPx: 2, items: [], createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" };
 
 describe("storage", () => {
   beforeEach(() => {
@@ -48,6 +49,25 @@ describe("storage", () => {
 
     await expect(loadPrivateBoardState("room")).resolves.toEqual(state);
     await expect(loadPrivateBoardState("scene")).resolves.toMatchObject({ boards: [{ id: "saved", scope: "scene", revision: 2 }] });
+  });
+
+  it("persists default-off sharing and revocation", async () => {
+    obr.isAvailable = false;
+
+    await saveBoard(shareableBoard);
+    await expect(loadGmSharedBoardState()).resolves.toEqual(state);
+    await saveBoard({ ...shareableBoard, showToGM: true });
+    await expect(loadGmSharedBoardState()).resolves.toMatchObject({ boards: [{ id: "shareable", visibility: "gm-shared" }] });
+    await saveBoard({ ...shareableBoard, showToGM: false });
+    await expect(loadGmSharedBoardState()).resolves.toEqual(state);
+  });
+
+  it("only exposes enabled boards to GMs", async () => {
+    obr.isAvailable = false;
+    await saveBoard({ ...shareableBoard, showToGM: true });
+
+    await expect(loadAllVisibleBoards("PLAYER", "other")).resolves.toMatchObject({ gmShared: { boards: [] } });
+    await expect(loadAllVisibleBoards("GM", "gm")).resolves.toMatchObject({ gmShared: { boards: [{ id: "shareable" }] } });
   });
 
   it("uses the demo scene key without Owlbear", async () => {

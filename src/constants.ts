@@ -4,6 +4,7 @@ export const PRIVATE_SCENE_STATES_KEY = `${EXTENSION_ID}/private-scene-states`;
 export const PRIVATE_ROOM_STATE_KEY = `${EXTENSION_ID}/private-room-state`;
 export const SHARED_SCENE_STATE_KEY = `${EXTENSION_ID}/shared-scene-state`;
 export const SHARED_ROOM_STATE_KEY = `${EXTENSION_ID}/shared-room-state`;
+export const GM_SHARED_BOARD_STATE_KEY = `${EXTENSION_ID}/gm-shared-board-state`;
 export const ROOM_OWNER_KEY = `${EXTENSION_ID}/room-owner`;
 export const SCENE_KEY_METADATA = `${EXTENSION_ID}/scene-key`;
 

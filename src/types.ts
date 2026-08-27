@@ -1,5 +1,5 @@
 export type BoardScope = "scene" | "room";
-export type BoardVisibility = "private" | "shared";
+export type BoardVisibility = "private" | "shared" | "gm-shared";
 export type BoardItemType = "text" | "image" | "counter";
 
 export type OccupiedCell = {
@@ -42,6 +42,9 @@ export type Board = {
   scope: BoardScope;
   visibility: BoardVisibility;
   ownerId?: string;
+  ownerName?: string;
+  showToGM?: boolean;
+  sceneKey?: string;
   revision: number;
   cellSizePx: number;
   cellGapPx: number;

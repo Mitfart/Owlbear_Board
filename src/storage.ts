@@ -8,9 +8,11 @@ import {
   SCENE_KEY_METADATA,
   SHARED_ROOM_STATE_KEY,
   SHARED_SCENE_STATE_KEY,
+  GM_SHARED_BOARD_STATE_KEY,
 } from "./constants";
 import { createId } from "./ids";
 import type { Board, BoardScope, PlayerPreferences, PersistedBoardState, ViewportPreference, WindowPreferences } from "./types";
+import type { PlayerRole } from "./boardPermissions";
 export { orderPrivateBoards } from "./boardSession";
 
 type PrivateSceneStates = Record<string, PersistedBoardState>;
@@ -110,6 +112,18 @@ export async function loadSharedBoardState(scope: BoardScope) {
   return isPersistedBoardState(raw) ? raw : emptyState();
 }
 
+export async function loadGmSharedBoardState() {
+  if (!OBR.isAvailable) return readLocal(GM_SHARED_BOARD_STATE_KEY, emptyState());
+  const metadata = await OBR.room.getMetadata();
+  return isPersistedBoardState(metadata[GM_SHARED_BOARD_STATE_KEY]) ? metadata[GM_SHARED_BOARD_STATE_KEY] as PersistedBoardState : emptyState();
+}
+
+export async function saveGmSharedBoardState(state: PersistedBoardState) {
+  if (!OBR.isAvailable) { writeLocal(GM_SHARED_BOARD_STATE_KEY, state); return; }
+  const metadata = await OBR.room.getMetadata();
+  await OBR.room.setMetadata({ ...metadata, [GM_SHARED_BOARD_STATE_KEY]: state });
+}
+
 export async function saveSharedBoardState(scope: BoardScope, state: PersistedBoardState) {
   if (!OBR.isAvailable) {
     writeLocal(scope === "room" ? SHARED_ROOM_STATE_KEY : SHARED_SCENE_STATE_KEY, state);
@@ -122,21 +136,26 @@ export async function saveSharedBoardState(scope: BoardScope, state: PersistedBo
   }
 }
 
-export async function loadAllVisibleBoards() {
-  const [privateScene, privateRoom, sharedScene, sharedRoom] = await Promise.all([
-    loadPrivateBoardState("scene"),
-    loadPrivateBoardState("room"),
-    loadSharedBoardState("scene"),
-    loadSharedBoardState("room"),
+export async function loadAllVisibleBoards(role: PlayerRole = "GM", playerId?: string) {
+  const [privateScene, privateRoom, sharedScene, sharedRoom, gmShared] = await Promise.all([
+    loadPrivateBoardState("scene"), loadPrivateBoardState("room"), loadSharedBoardState("scene"), loadSharedBoardState("room"), loadGmSharedBoardState(),
   ]);
-  return { privateScene, privateRoom, sharedScene, sharedRoom, boards: [...privateScene.boards, ...privateRoom.boards, ...sharedScene.boards, ...sharedRoom.boards] };
+  const sceneKey = await getSceneKey();
+  const visibleGm = gmShared.boards.filter((board) => (board.scope === "room" || board.sceneKey === sceneKey) && role === "GM");
+  return { privateScene, privateRoom, sharedScene, sharedRoom, gmShared: { version: 1 as const, boards: visibleGm }, boards: [...privateScene.boards, ...privateRoom.boards, ...sharedScene.boards, ...sharedRoom.boards, ...visibleGm] };
 }
 
 export async function saveBoard(board: Board) {
+  if (board.visibility === "gm-shared") return board;
   const load = board.visibility === "shared" ? loadSharedBoardState : loadPrivateBoardState;
   const save = board.visibility === "shared" ? saveSharedBoardState : savePrivateBoardState;
   const state = await load(board.scope);
   const nextBoard = { ...board, revision: board.revision + 1 };
+  if (nextBoard.visibility === "private") {
+    const published = (await loadGmSharedBoardState()).boards.filter((candidate) => candidate.id !== nextBoard.id);
+    if (nextBoard.showToGM) published.push({ ...nextBoard, visibility: "gm-shared", sceneKey: nextBoard.scope === "scene" ? await getSceneKey() : undefined });
+    await saveGmSharedBoardState({ version: 1, boards: published });
+  }
   const boards = state.boards.some((candidate) => candidate.id === board.id)
     ? state.boards.map((candidate) => (candidate.id === board.id ? nextBoard : candidate))
     : [...state.boards, nextBoard];
@@ -145,10 +164,12 @@ export async function saveBoard(board: Board) {
 }
 
 export async function deleteBoard(board: Board) {
+  if (board.visibility === "gm-shared") return;
   const load = board.visibility === "shared" ? loadSharedBoardState : loadPrivateBoardState;
   const save = board.visibility === "shared" ? saveSharedBoardState : savePrivateBoardState;
   const state = await load(board.scope);
   await save(board.scope, { version: 1, boards: state.boards.filter((candidate) => candidate.id !== board.id) });
+  if (board.visibility === "private") await saveGmSharedBoardState({ version: 1, boards: (await loadGmSharedBoardState()).boards.filter((candidate) => candidate.id !== board.id) });
 }
 
 export async function movePrivateRoomBoardToScene(board: Board) {
@@ -181,6 +202,16 @@ export async function markPrivateBoardOpened(board: Board) {
   const current = source[sceneKey] ?? [];
   const next = [board.id, ...current.filter((id) => id !== board.id)];
   await savePreferences({ ...preferences, [board.scope === "scene" ? "privateSceneOpenOrder" : "privateRoomOpenOrder"]: { ...source, [sceneKey]: next } });
+}
+
+export async function getPlayerId() {
+  if (!OBR.isAvailable) return "demo-player";
+  return OBR.player.getId();
+}
+
+export async function getPlayerName() {
+  if (!OBR.isAvailable) return "Demo Player";
+  return OBR.player.getName();
 }
 
 export async function getRoomOwnerId() {

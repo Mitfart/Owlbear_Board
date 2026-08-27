@@ -11,9 +11,9 @@ import { MarkdownView } from "./markdown";
 import { resizeAction } from "./owlbear";
 import { autoImageSize, autoTextSize, clampNumber, normalizeCounterValue, parseItemSize, textBaselineSize, textFillScale } from "./sizing";
 import { zoomPanToCursor } from "./viewport";
-import { deleteBoard, getRoomOwnerId, getSceneKey, loadAllVisibleBoards, loadPreferences, loadWindowPreferences, markPrivateBoardOpened, movePrivateRoomBoardToScene, saveBoard, savePreferences, saveViewport, saveWindowPreferences } from "./storage";
-import { buildBoardPickerRows } from "./boardSession";
-import { canRenameBoard, shouldShowBoardNameControl, type PlayerRole } from "./boardPermissions";
+import { deleteBoard, getPlayerId, getPlayerName, getRoomOwnerId, getSceneKey, loadAllVisibleBoards, loadPreferences, loadWindowPreferences, markPrivateBoardOpened, movePrivateRoomBoardToScene, saveBoard, savePreferences, saveViewport, saveWindowPreferences } from "./storage";
+import { buildBoardPickerRows, groupPlayerBoards } from "./boardSession";
+import { canEditBoard, canRenameBoard, shouldShowBoardNameControl, type PlayerRole } from "./boardPermissions";
 import type { Board, BoardItem, BoardScope, BoardVisibility, PlayerPreferences } from "./types";
 
 type DragState = { itemId: string; offsetX: number; offsetY: number; startX: number; startY: number; moved: boolean };
@@ -74,6 +74,7 @@ export default function App() {
   const [boards, setBoards] = useState<Board[]>([]);
   const [preferences, setPreferences] = useState<PlayerPreferences>();
   const [playerRole, setPlayerRole] = useState<PlayerRole>("GM");
+  const [playerId, setPlayerId] = useState("demo-player");
   const [sceneKey, setSceneKey] = useState("scene");
   const [activeBoardId, setActiveBoardId] = useState<string>();
   const [previewDismissed, setPreviewDismissed] = useState(false);
@@ -128,10 +129,14 @@ export default function App() {
   const showPreview = !activeBoard && !previewDismissed;
   const displayBoard = activeBoard ?? (showPreview ? sampleBoard() : undefined);
   const isPreview = displayBoard?.id === "preview";
+  const readOnly = !!activeBoard && !canEditBoard(activeBoard, playerRole, playerId);
+  const playerBoards = useMemo(() => groupPlayerBoards(boards.filter((board) => board.visibility === "gm-shared")), [boards]);
   const themeVars = useMemo(() => ({ "--bg": "#1e2231", "--surface": "#202435", "--panel": "#25293c", "--panel-soft": "#1c2030", "--panel-raised": "#2c3042", "--border": "rgba(187, 153, 255, 0.14)", "--border-strong": "rgba(187, 153, 255, 0.28)", "--text": "#ffffff", "--muted": "#ffffff", "--muted-2": "#ffffff", "--accent": "#bb99ff", "--accent-strong": "#d2bdff", "--accent-dark": "#826bb2", "--accent-soft": "rgba(187, 153, 255, 0.16)", "--danger": "#ff6b8a", "--shadow": "rgba(4, 6, 14, 0.42)" }) as CSSProperties, []);
 
   const refresh = useCallback(async () => {
-    const [visible, prefs, win, key, role] = await Promise.all([loadAllVisibleBoards(), loadPreferences(), loadWindowPreferences(), getSceneKey(), OBR.isAvailable ? OBR.player.getRole() : Promise.resolve("GM" as const)]);
+    const role = OBR.isAvailable ? await OBR.player.getRole() : "GM" as const;
+    const id = await getPlayerId();
+    const [visible, prefs, win, key] = await Promise.all([loadAllVisibleBoards(role, id), loadPreferences(), loadWindowPreferences(), getSceneKey()]);
     const ordered = buildBoardPickerRows({
       privateSceneBoards: visible.privateScene.boards,
       privateRoomBoards: visible.privateRoom.boards,
@@ -139,8 +144,8 @@ export default function App() {
       sharedRoomBoards: visible.sharedRoom.boards,
       preferences: prefs,
       sceneKey: key,
-    }).flatMap((row) => row.kind === "board" ? [row.board] : []);
-    setSceneKey(key); setPreferences(prefs); setPlayerRole(role); setPreviewDismissed(!!prefs.previewDismissed); setBoards(ordered); setWindowSize(win); await resizeAction(win.width, win.height);
+    }).flatMap((row) => row.kind === "board" ? [row.board] : []).concat(visible.gmShared.boards);
+    setSceneKey(key); setPlayerId(id); setPreferences(prefs); setPlayerRole(role); setPreviewDismissed(!!prefs.previewDismissed); setBoards(ordered); setWindowSize(win); await resizeAction(win.width, win.height);
     setOpenBoardIds((ids) => ids.filter((id) => ordered.some((board) => board.id === id)));
     setActiveBoardId((current) => {
       const preserved = ordered.find((board) => board.id === current);
@@ -190,6 +195,7 @@ export default function App() {
   }, [ready]);
 
   async function persistBoard(board: Board, pushHistory = true, reportSave = false) {
+    if (!canEditBoard(board, playerRole, playerId)) return;
     try {
       await counterChangeQueue.current;
       if (pushHistory && activeBoard && activeBoard.id === board.id) setHistory((current) => ({ ...current, [board.id]: { undo: [activeBoard, ...(current[board.id]?.undo ?? [])].slice(0, MAX_HISTORY), redo: [] } }));
@@ -261,7 +267,7 @@ export default function App() {
     if (!name || name.length > 60) return;
     const duplicate = boards.some((b) => b.visibility === "private" && b.scope === createScope && b.name.trim().toLowerCase() === name.toLowerCase());
     if (duplicate) return;
-    const board = makeBoard(createScope, "private", name);
+    const board = { ...makeBoard(createScope, "private", name, playerId), ownerName: await getPlayerName() };
     await persistBoard(board, false); await markPrivateBoardOpened(board); setCreateOpen(false); await refresh(); await chooseBoard(board);
   }
 
@@ -278,10 +284,10 @@ export default function App() {
   }
 
   async function updateActiveBoard(update: Partial<Board>) {
-    if (!activeBoard || ("name" in update && !canRenameBoard(activeBoard, playerRole))) return;
+    if (!activeBoard || !canEditBoard(activeBoard, playerRole, playerId) || ("name" in update && !canRenameBoard(activeBoard, playerRole))) return;
     await persistBoard({ ...activeBoard, ...update });
   }
-  async function updateGridSize(value: number) { if (!activeBoard) return; const cellSizePx = clampNumber(value, MIN_CELL_SIZE, MAX_CELL_SIZE); await updateActiveBoard({ cellSizePx }); }
+  async function updateGridSize(value: number) { if (!activeBoard || readOnly) return; const cellSizePx = clampNumber(value, MIN_CELL_SIZE, MAX_CELL_SIZE); await updateActiveBoard({ cellSizePx }); }
 
   function resolveItemSize(type: BoardItem["type"], imageSize?: { width: number; height: number }) {
     const widthDraft = parseItemSize(itemWidth); const heightDraft = parseItemSize(itemHeight);
@@ -291,7 +297,7 @@ export default function App() {
   }
 
   async function createTextAt(target: { x: number; y: number }) {
-    if (!activeBoard) return;
+    if (!activeBoard || readOnly) return;
     const position = firstFreeNear(activeBoard, target.x, target.y, 2, 1);
     const item: BoardItem = { ...createItemBase(position.x, position.y, 2, 1), type: "text", text: "", textBaselineWidth: textBaselineSize("").width, textBaselineHeight: textBaselineSize("").height, fillBlock: true, textVerticalAlignment: "top", borderColor: DEFAULT_ITEM_BORDER_COLOR };
     await persistBoard({ ...activeBoard, items: [...activeBoard.items, item] });
@@ -300,7 +306,7 @@ export default function App() {
   }
 
   async function addImage(source?: string, imageSize?: { width: number; height: number }) {
-    if (!activeBoard) return; const url = (source ?? imageDraft).trim();
+    if (!activeBoard || readOnly) return; const url = (source ?? imageDraft).trim();
     try { const parsed = new URL(url); if (!["http:", "https:"].includes(parsed.protocol)) return; } catch { return; }
     const size = resolveItemSize("image", imageSize); const target = addTarget ?? viewportCenterGrid(); const position = firstFreeNear(activeBoard, target.x, target.y, clampNumber(size.width, 1, 24), clampNumber(size.height, 1, 24));
     const item: BoardItem = { ...createItemBase(position.x, position.y, clampNumber(size.width, 1, 24), clampNumber(size.height, 1, 24)), type: "image", imageUrl: url, borderColor: borderColorDraft };
@@ -308,7 +314,7 @@ export default function App() {
   }
 
   async function addCounter() {
-    if (!activeBoard) return;
+    if (!activeBoard || readOnly) return;
     const width = parseItemSize(itemWidth); const height = parseItemSize(itemHeight);
     const gridWidth = width === AUTO_SIZE ? 2 : width; const gridHeight = height === AUTO_SIZE ? 1 : height;
     const target = addTarget ?? viewportCenterGrid(); const position = firstFreeNear(activeBoard, target.x, target.y, gridWidth, gridHeight);
@@ -320,6 +326,7 @@ export default function App() {
   async function pickOwlbearImage() { if (!OBR.isAvailable) return; const images = await OBR.assets.downloadImages(false, undefined, "NOTE"); const image = images[0]?.image; if (image?.url) await addImage(image.url, { width: image.width, height: image.height }); }
 
   function openItemEditor(item: BoardItem) {
+    if (!activeBoard || !canEditBoard(activeBoard, playerRole, playerId)) return;
     setFocusedItemId(item.id);
     if (item.type === "text") { setFocusDraft(item.text ?? ""); setTextFillBlock(item.fillBlock !== false); setTextVerticalAlignment(item.textVerticalAlignment ?? "top"); setMarkdownHelpOpen(false); setHasTextSelection(false); setImageEdit(undefined); setCounterEdit(undefined); }
     else if (item.type === "image") { setImageEdit({ itemId: item.id, url: item.imageUrl ?? "", borderColor: item.borderColor ?? DEFAULT_ITEM_BORDER_COLOR, imageFit: item.imageFit ?? "cover" }); setCounterEdit(undefined); }
@@ -333,11 +340,11 @@ export default function App() {
   }
 
   async function updateItemRect(itemId: string, gridX: number, gridY: number, gridWidth: number, gridHeight: number) {
-    if (!activeBoard) return; if (collides(activeBoard, gridX, gridY, gridWidth, gridHeight, itemId)) return;
+    if (!activeBoard || readOnly) return; if (collides(activeBoard, gridX, gridY, gridWidth, gridHeight, itemId)) return;
     await persistBoard({ ...activeBoard, items: activeBoard.items.map((item) => item.id === itemId ? updateBoardItemRect(item, gridX, gridY, gridWidth, gridHeight) : item) });
   }
 
-  async function deleteItem(itemId: string) { if (!activeBoard) return; await persistBoard({ ...activeBoard, items: activeBoard.items.filter((item) => item.id !== itemId) }); setContextItem(undefined); setSelectedItemId(undefined); }
+  async function deleteItem(itemId: string) { if (!activeBoard || readOnly) return; await persistBoard({ ...activeBoard, items: activeBoard.items.filter((item) => item.id !== itemId) }); setContextItem(undefined); setSelectedItemId(undefined); }
   async function saveFocusedText() {
     if (!activeBoard || !focusedItemId) return; const item = activeBoard.items.find((candidate) => candidate.id === focusedItemId); if (!item) return; const text = focusDraft.trim();
     if (!text || /^\^[1-3]\s*$/.test(text)) { if (newFocusedItemId === focusedItemId) await deleteItem(focusedItemId); setFocusedItemId(undefined); setNewFocusedItemId(undefined); return; }
@@ -366,7 +373,7 @@ export default function App() {
   function cancelFocusedCounter() { setCounterEdit(undefined); setFocusedItemId(undefined); }
 
   function changeCounter(item: BoardItem, delta: number) {
-    const board = boardDraft.current; if (!board) return;
+    const board = boardDraft.current; if (!board || !canEditBoard(board, playerRole, playerId)) return;
     const current = board.items.find((candidate) => candidate.id === item.id); if (!current) return;
     const value = normalizeCounterValue((current.counterValue ?? 0) + delta, current.counterMax); if (value === current.counterValue) return;
     const next = { ...board, items: board.items.map((candidate) => candidate.id === item.id ? { ...candidate, counterValue: value, updatedAt: nowIso() } : candidate) };
@@ -427,17 +434,18 @@ export default function App() {
     if (!displayBoard || event.button !== 0 && event.button !== 1) return; if (event.button === 1) event.preventDefault(); setContextItem(undefined); setEmptyContext(undefined);
     if (event.button === 1) { setPanning({ x: event.clientX - pan.x, y: event.clientY - pan.y }); event.currentTarget.setPointerCapture(event.pointerId); return; }
     const grid = pointerToGrid(event.clientX, event.clientY); const item = boardItemAt(displayBoard, grid.x, grid.y);
+    if (readOnly) { if (event.button === 0) setPanning({ x: event.clientX - pan.x, y: event.clientY - pan.y }); event.currentTarget.setPointerCapture(event.pointerId); return; }
     if (item) { setSelectedItemId(item.id); if (event.detail > 1) return; const rect = gridRef.current?.getBoundingClientRect(); const cell = displayBoard.cellSizePx * zoom; setDragState({ itemId: item.id, offsetX: event.clientX - ((rect?.left ?? 0) + pan.x + item.gridX * cell), offsetY: event.clientY - ((rect?.top ?? 0) + pan.y + item.gridY * cell), startX: event.clientX, startY: event.clientY, moved: false }); event.currentTarget.setPointerCapture(event.pointerId); return; }
     setSelectedItemId(undefined); setPanning({ x: event.clientX - pan.x, y: event.clientY - pan.y }); event.currentTarget.setPointerCapture(event.pointerId);
   }
   function handleGridPointerMove(event: React.PointerEvent<HTMLDivElement>) {
-    if (!activeBoard) { if (panning) setPan({ x: event.clientX - panning.x, y: event.clientY - panning.y }); return; }
+    if (!activeBoard || readOnly) { if (panning) setPan({ x: event.clientX - panning.x, y: event.clientY - panning.y }); return; }
     if (resizeItemState) { const grid = pointerToGrid(event.clientX, event.clientY); const gridWidth = Math.max(1, grid.x - resizeItemState.gridX + 1); const gridHeight = Math.max(1, grid.y - resizeItemState.gridY + 1); if (!collides(activeBoard, resizeItemState.gridX, resizeItemState.gridY, gridWidth, gridHeight, resizeItemState.itemId)) setResizeItemState({ ...resizeItemState, gridWidth, gridHeight }); return; }
     if (dragState) { if (!dragState.moved && Math.hypot(event.clientX - dragState.startX, event.clientY - dragState.startY) < 4) return; const moving = dragState.moved ? dragState : { ...dragState, moved: true }; if (!dragState.moved) setDragState(moving); const item = activeBoard.items.find((candidate) => candidate.id === moving.itemId); if (!item) return; const grid = pointerToGrid(event.clientX - moving.offsetX, event.clientY - moving.offsetY); if (!collides(activeBoard, grid.x, grid.y, item.gridWidth, item.gridHeight, item.id)) setBoards((current) => current.map((board) => board.id === activeBoard.id ? { ...board, items: board.items.map((candidate) => candidate.id === item.id ? updateBoardItemPosition(candidate, grid.x, grid.y) : candidate) } : board)); return; }
     if (panning) setPan({ x: event.clientX - panning.x, y: event.clientY - panning.y });
   }
   async function handleGridPointerUp(event: React.PointerEvent<HTMLDivElement>) { if (resizeItemState) await updateItemRect(resizeItemState.itemId, resizeItemState.gridX, resizeItemState.gridY, resizeItemState.gridWidth, resizeItemState.gridHeight); if (dragState?.moved && activeBoard) { const item = activeBoard.items.find((candidate) => candidate.id === dragState.itemId); if (item) await updateItemRect(item.id, item.gridX, item.gridY, item.gridWidth, item.gridHeight); } setDragState(undefined); setResizeItemState(undefined); setPanning(undefined); }
-  function startItemResize(event: React.PointerEvent<HTMLElement>, item: BoardItem) { event.preventDefault(); event.stopPropagation(); setSelectedItemId(item.id); setResizeItemState({ itemId: item.id, gridX: item.gridX, gridY: item.gridY, gridWidth: item.gridWidth, gridHeight: item.gridHeight }); gridRef.current?.setPointerCapture(event.pointerId); }
+  function startItemResize(event: React.PointerEvent<HTMLElement>, item: BoardItem) { if (readOnly) return; event.preventDefault(); event.stopPropagation(); setSelectedItemId(item.id); setResizeItemState({ itemId: item.id, gridX: item.gridX, gridY: item.gridY, gridWidth: item.gridWidth, gridHeight: item.gridHeight }); gridRef.current?.setPointerCapture(event.pointerId); }
   async function resizeWindow(width: number, height: number) { const next = { width: Math.max(1, Math.round(width)), height: Math.max(1, Math.round(height)) }; setWindowSize(next); await saveWindowPreferences(next); await resizeAction(next.width, next.height); }
   function startResize(event: React.PointerEvent<HTMLElement>) { const target = event.currentTarget; const startX = event.clientX; const startY = event.clientY; const start = { ...windowSize }; target.setPointerCapture(event.pointerId); const move = (moveEvent: PointerEvent) => void resizeWindow(start.width + moveEvent.clientX - startX, start.height + moveEvent.clientY - startY); const up = () => { target.releasePointerCapture(event.pointerId); target.removeEventListener("pointermove", move); target.removeEventListener("pointerup", up); }; target.addEventListener("pointermove", move); target.addEventListener("pointerup", up); }
 
@@ -447,11 +455,11 @@ export default function App() {
 
   return <main className="app" style={{ width: windowSize.width, height: windowSize.height, ...themeVars }}>
     <header className="toolbar"><div className="boardTitle"><button className="boardToggle" title="Board settings" onClick={() => { setBoardPanelOpen((value) => !value); setBoardPickerOpen(false); }}><Settings size={16} /></button><button className="boardToggle" title="Boards" onClick={() => { setBoardPickerOpen((value) => !value); setBoardPanelOpen(false); }}><ChevronDown size={16} /></button><div className="boardTabs" onPointerDown={startTabDrag} onPointerMove={moveTabDrag} onPointerUp={endTabDrag} onPointerCancel={endTabDrag}>{openBoardIds.flatMap((id) => boards.filter((board) => board.id === id)).map((board) => <button key={board.id} className={`boardTab ${board.id === activeBoardId ? "active" : ""}`} onClick={() => void chooseBoard(board)} onContextMenu={(event) => { event.preventDefault(); void chooseBoard(board); setBoardPanelOpen(true); }}>{board.name}<X size={13} onClick={(event) => { event.stopPropagation(); closeBoardTab(board.id); }} /></button>)}</div>{boardPanelOpen && <section className="boardPanel">
-      {activeBoard ? <>{shouldShowBoardNameControl(activeBoard, playerRole) && <label>Name<input value={activeBoard.name} onChange={(event) => void updateActiveBoard({ name: event.target.value.slice(0, 60) })} /></label>}<div className="boardInlineFields"><label><span>Grid size</span><input type="number" min={MIN_CELL_SIZE} max={MAX_CELL_SIZE} value={activeBoard.cellSizePx} onChange={(event) => void updateGridSize(Number(event.target.value))} /></label><label><span>Grid cell gap</span><input type="number" min={MIN_CELL_GAP} max={MAX_CELL_GAP} value={activeBoard.cellGapPx} onChange={(event) => void updateActiveBoard({ cellGapPx: clampNumber(Number(event.target.value), MIN_CELL_GAP, MAX_CELL_GAP) })} /></label></div>{activeBoard.visibility === "private" && activeBoard.scope === "room" && <button onClick={() => void moveActiveBoardToScene()}>Move to Scene</button>}<button title="Delete board" onClick={() => { if (confirm(`Delete ${activeBoard.name}? This cannot be undone.`)) void deleteBoard(activeBoard).then(refresh); }}><Trash2 size={16} /> Delete Board</button></> : <span className="emptyBoardGroup">Open a board or create one from the Boards menu.</span>}
-    </section>}{boardPickerOpen && <section className="boardPanel boardPicker"><button className="primaryAction" onClick={() => { setCreateOpen(true); setBoardPickerOpen(false); }}><Plus size={16} /> Create Private Board</button><div className="boardGroups"><strong>Shared Boards</strong>{boards.filter((board) => board.visibility === "shared").map((board) => <button key={board.id} onClick={() => void chooseBoard(board)}>{board.name}</button>)}{!boards.some((board) => board.visibility === "shared" && board.scope === "scene") && <button onClick={() => void createShared("scene")}>Shared Scene Board</button>}{!boards.some((board) => board.visibility === "shared" && board.scope === "room") && <button onClick={() => void createShared("room")}>Shared Room Board</button>}<strong>Private Scene Boards</strong>{boards.filter((board) => board.visibility === "private" && board.scope === "scene").map((board) => <button key={board.id} onClick={() => void chooseBoard(board)}>{board.name}</button>)}{!boards.some((board) => board.visibility === "private" && board.scope === "scene") && <span className="emptyBoardGroup">Empty</span>}<strong>Private Room Boards</strong>{boards.filter((board) => board.visibility === "private" && board.scope === "room").map((board) => <button key={board.id} onClick={() => void chooseBoard(board)}>{board.name}</button>)}{!boards.some((board) => board.visibility === "private" && board.scope === "room") && <span className="emptyBoardGroup">Empty</span>}</div></section>}</div><div className="tools"><button title={activeBoard ? "Save board" : "Create board"} onClick={() => activeBoard ? void persistBoard(activeBoard, false, true) : setCreateOpen(true)}><Save size={16} /> {activeBoard ? saveStatus ?? "Save" : "Create"}</button><button title={activeBoard ? "Add item" : "Create board"} onClick={() => activeBoard ? (setAddTarget(viewportCenterGrid()), setAddModalOpen(true)) : setCreateOpen(true)}><Plus size={16} /> {activeBoard ? "Add" : "Create"}</button><button title="Zoom out" onClick={() => setZoom((value) => clampNumber(value - 0.1, MIN_ZOOM, MAX_ZOOM))}><Minus size={16} /></button><span className="zoom">{Math.round(zoom * 100)}%</span><button title="Zoom in" onClick={() => setZoom((value) => clampNumber(value + 0.1, MIN_ZOOM, MAX_ZOOM))}><Plus size={16} /></button><button title="Reset view" onClick={() => { setPan(DEFAULT_PAN); setZoom(DEFAULT_ZOOM); }}><RefreshCw size={16} /></button></div></header>
+      {activeBoard ? <>{!readOnly && shouldShowBoardNameControl(activeBoard, playerRole) && <label>Name<input value={activeBoard.name} onChange={(event) => void updateActiveBoard({ name: event.target.value.slice(0, 60) })} /></label>}<div className="boardInlineFields"><label><span>Grid size</span><input disabled={readOnly} type="number" min={MIN_CELL_SIZE} max={MAX_CELL_SIZE} value={activeBoard.cellSizePx} onChange={(event) => void updateGridSize(Number(event.target.value))} /></label><label><span>Grid cell gap</span><input disabled={readOnly} type="number" min={MIN_CELL_GAP} max={MAX_CELL_GAP} value={activeBoard.cellGapPx} onChange={(event) => void updateActiveBoard({ cellGapPx: clampNumber(Number(event.target.value), MIN_CELL_GAP, MAX_CELL_GAP) })} /></label></div>{!readOnly && activeBoard.visibility === "private" && <label><input type="checkbox" checked={!!activeBoard.showToGM} onChange={(event) => void updateActiveBoard({ showToGM: event.target.checked })} /> Show to GM</label>}{!readOnly && activeBoard.visibility === "private" && activeBoard.scope === "room" && <button onClick={() => void moveActiveBoardToScene()}>Move to Scene</button>}{!readOnly && <button title="Delete board" onClick={() => { if (confirm(`Delete ${activeBoard.name}? This cannot be undone.`)) void deleteBoard(activeBoard).then(refresh); }}><Trash2 size={16} /> Delete Board</button>}</> : <span className="emptyBoardGroup">Open a board or create one from the Boards menu.</span>}
+    </section>}{boardPickerOpen && <section className="boardPanel boardPicker"><button className="primaryAction" onClick={() => { setCreateOpen(true); setBoardPickerOpen(false); }}><Plus size={16} /> Create Private Board</button><div className="boardGroups"><strong>Shared Boards</strong>{boards.filter((board) => board.visibility === "shared").map((board) => <button key={board.id} onClick={() => void chooseBoard(board)}>{board.name}</button>)}{!boards.some((board) => board.visibility === "shared" && board.scope === "scene") && <button onClick={() => void createShared("scene")}>Shared Scene Board</button>}{!boards.some((board) => board.visibility === "shared" && board.scope === "room") && <button onClick={() => void createShared("room")}>Shared Room Board</button>}<strong>Private Scene Boards</strong>{boards.filter((board) => board.visibility === "private" && board.scope === "scene").map((board) => <button key={board.id} onClick={() => void chooseBoard(board)}>{board.name}</button>)}{!boards.some((board) => board.visibility === "private" && board.scope === "scene") && <span className="emptyBoardGroup">Empty</span>}<strong>Private Room Boards</strong>{boards.filter((board) => board.visibility === "private" && board.scope === "room").map((board) => <button key={board.id} onClick={() => void chooseBoard(board)}>{board.name}</button>)}{!boards.some((board) => board.visibility === "private" && board.scope === "room") && <span className="emptyBoardGroup">Empty</span>}{playerRole === "GM" && playerBoards.length > 0 && <><strong>Player Boards</strong>{playerBoards.map((group) => <div key={group.playerName}><strong>{group.playerName}</strong>{group.boards.map((board) => <button key={board.id} onClick={() => void chooseBoard(board)}>{board.name}</button>)}</div>)}</>}</div></section>}</div><div className="tools"><button disabled={!!activeBoard && readOnly} title={activeBoard ? "Save board" : "Create board"} onClick={() => activeBoard ? void persistBoard(activeBoard, false, true) : setCreateOpen(true)}><Save size={16} /> {activeBoard ? saveStatus ?? "Save" : "Create"}</button><button disabled={readOnly} title={activeBoard ? "Add item" : "Create board"} onClick={() => activeBoard ? (setAddTarget(viewportCenterGrid()), setAddModalOpen(true)) : setCreateOpen(true)}><Plus size={16} /> {activeBoard ? "Add" : "Create"}</button><button title="Zoom out" onClick={() => setZoom((value) => clampNumber(value - 0.1, MIN_ZOOM, MAX_ZOOM))}><Minus size={16} /></button><span className="zoom">{Math.round(zoom * 100)}%</span><button title="Zoom in" onClick={() => setZoom((value) => clampNumber(value + 0.1, MIN_ZOOM, MAX_ZOOM))}><Plus size={16} /></button><button title="Reset view" onClick={() => { setPan(DEFAULT_PAN); setZoom(DEFAULT_ZOOM); }}><RefreshCw size={16} /></button></div></header>
 
-    <div ref={gridRef} className="gridSurface" onDoubleClick={(event) => { if (!activeBoard) return; const grid = pointerToGrid(event.clientX, event.clientY); if (!boardItemAt(activeBoard, grid.x, grid.y)) void createTextAt(grid); }} onPointerDown={handleGridPointerDown} onPointerMove={handleGridPointerMove} onPointerUp={(event) => void handleGridPointerUp(event)} onContextMenu={(event) => { event.preventDefault(); if (!activeBoard) { setCreateOpen(true); return; } const grid = pointerToGrid(event.clientX, event.clientY); const item = boardItemAt(activeBoard, grid.x, grid.y); if (item) setContextItem({ item, x: event.clientX, y: event.clientY }); else setEmptyContext({ gridX: grid.x, gridY: grid.y, x: event.clientX, y: event.clientY }); }} style={{ backgroundSize: `${cellSize}px ${cellSize}px`, backgroundPosition: `${pan.x}px ${pan.y}px` }}>
-      <div key={displayBoard?.id ?? "empty"} className="gridPlane" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>{displayBoard?.items.map((item) => <BoardItemView key={item.id} item={resizeItemState?.itemId === item.id ? { ...item, gridWidth: resizeItemState.gridWidth, gridHeight: resizeItemState.gridHeight } : item} selected={selectedItemId === item.id} cellSize={displayBoard.cellSizePx} cellGap={displayBoard.cellGapPx} onResizePointerDown={startItemResize} onDoubleClick={openItemEditor} onCounterChange={changeCounter} />)}</div>
+    <div ref={gridRef} className="gridSurface" onDoubleClick={(event) => { if (!activeBoard || readOnly) return; const grid = pointerToGrid(event.clientX, event.clientY); if (!boardItemAt(activeBoard, grid.x, grid.y)) void createTextAt(grid); }} onPointerDown={handleGridPointerDown} onPointerMove={handleGridPointerMove} onPointerUp={(event) => void handleGridPointerUp(event)} onContextMenu={(event) => { event.preventDefault(); if (!activeBoard || readOnly) { if (!activeBoard) setCreateOpen(true); return; } const grid = pointerToGrid(event.clientX, event.clientY); const item = boardItemAt(activeBoard, grid.x, grid.y); if (item) setContextItem({ item, x: event.clientX, y: event.clientY }); else setEmptyContext({ gridX: grid.x, gridY: grid.y, x: event.clientX, y: event.clientY }); }} style={{ backgroundSize: `${cellSize}px ${cellSize}px`, backgroundPosition: `${pan.x}px ${pan.y}px` }}>
+      <div key={displayBoard?.id ?? "empty"} className="gridPlane" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>{displayBoard?.items.map((item) => <BoardItemView key={item.id} item={resizeItemState?.itemId === item.id ? { ...item, gridWidth: resizeItemState.gridWidth, gridHeight: resizeItemState.gridHeight } : item} selected={selectedItemId === item.id} cellSize={displayBoard.cellSizePx} cellGap={displayBoard.cellGapPx} onResizePointerDown={startItemResize} onDoubleClick={openItemEditor} onCounterChange={changeCounter} readOnly={readOnly} />)}</div>
       {showPreview && <div className="emptyState" onPointerDown={(event) => event.stopPropagation()} onContextMenu={(event) => { event.preventDefault(); event.stopPropagation(); }}><strong>Preview Board</strong><button className="primaryAction" onClick={() => setCreateOpen(true)}><Plus size={16} /> Create Private Board</button><button onClick={async () => { const prefs = preferences ?? await loadPreferences(); await savePreferences({ ...prefs, previewDismissed: true }); setPreviewDismissed(true); }}>Dismiss</button></div>}
       {error && <div className="saveError">Could not save Board: {error}</div>}
       <div className="surfaceHud"><span>{displayBoard?.items.length ?? 0} items</span><span>{Math.round(cellSize)} px cells</span></div>
@@ -472,13 +480,13 @@ function MarkdownHelp() {
   return <div className="markdownHelpPanel" role="dialog" aria-label="Markdown help"><div className="markdownHelpCard"><strong>Syntax</strong><code>**bold**<br />*italic*<br />- list item</code></div><div className="markdownHelpCard"><strong>Rules</strong><span>Use one syntax form per line. Links open safely in a new tab.</span></div><div className="markdownHelpCard"><strong>Rendered result</strong><MarkdownView value="**Bold** and *italic*" /></div><div className="markdownHelpCard"><strong>Rendered result</strong><MarkdownView value="- List item" /></div></div>;
 }
 
-function BoardItemView({ item, selected, cellSize, cellGap, onResizePointerDown, onDoubleClick, onCounterChange }: { item: BoardItem; selected: boolean; cellSize: number; cellGap: number; onResizePointerDown: (event: React.PointerEvent<HTMLElement>, item: BoardItem) => void; onDoubleClick: (item: BoardItem) => void; onCounterChange: (item: BoardItem, delta: number) => void }) {
+function BoardItemView({ item, selected, cellSize, cellGap, onResizePointerDown, onDoubleClick, onCounterChange, readOnly = false }: { item: BoardItem; selected: boolean; cellSize: number; cellGap: number; onResizePointerDown: (event: React.PointerEvent<HTMLElement>, item: BoardItem) => void; onDoubleClick: (item: BoardItem) => void; onCounterChange: (item: BoardItem, delta: number) => void; readOnly?: boolean }) {
   const inset = Math.min(cellGap, Math.max(0, (Math.min(item.gridWidth, item.gridHeight) * cellSize) / 2 - 4)); const value = item.counterValue ?? 0; const atMax = item.type === "counter" && item.counterMax !== undefined && value === item.counterMax;
   const borderColor = atMax && item.counterMaxColorEnabled ? item.counterMaxColor : item.type === "counter" && value === 0 && item.counterZeroColorEnabled ? item.counterZeroColor : item.borderColor ?? DEFAULT_ITEM_BORDER_COLOR;
   const stopControl = (event: React.SyntheticEvent) => event.stopPropagation();
   const textScale = item.type === "text" && item.fillBlock !== false ? textFillScale(item.gridWidth, item.textBaselineWidth ?? item.gridWidth) : 1;
   return <article className={`boardItem ${item.type} ${selected ? "selected" : ""} ${item.type === "counter" && value === 0 && item.counterDimAtZero !== false ? "zeroDim" : ""}`} style={{ left: item.gridX * cellSize + inset, top: item.gridY * cellSize + inset, width: Math.max(8, item.gridWidth * cellSize - inset * 2), height: Math.max(8, item.gridHeight * cellSize - inset * 2), borderColor }} onMouseDown={(event) => { if (event.detail === 2) { event.stopPropagation(); onDoubleClick(item); } }} onDoubleClick={(event) => { event.stopPropagation(); onDoubleClick(item); }}>
-    {item.type === "image" && item.imageUrl ? <img src={item.imageUrl} alt="Board item" style={{ objectFit: item.imageFit ?? "cover" }} /> : item.type === "counter" ? <><button className="counterControl" aria-label="Decrease counter" disabled={value === 0} onPointerDown={stopControl} onMouseDown={stopControl} onDoubleClick={stopControl} onClick={(event) => { stopControl(event); void onCounterChange(item, -1); }}><Minus size={16} /></button><div className={`counterContent ${item.counterLabelPosition ?? "top-center"}`}>{item.counterLabel && <span className="counterLabel" title={item.counterLabel}>{item.counterLabel}</span>}<div className="counterNumbers"><strong>{value}</strong>{item.counterMax !== undefined && <span>/ {item.counterMax}</span>}</div></div><button className="counterControl" aria-label="Increase counter" disabled={atMax} onPointerDown={stopControl} onMouseDown={stopControl} onDoubleClick={stopControl} onClick={(event) => { stopControl(event); void onCounterChange(item, 1); }}><Plus size={16} /></button></> : <div className={`textPreview textAlign-${item.textVerticalAlignment ?? "top"}`} style={{ "--text-scale": textScale } as CSSProperties}><div className="textScaleContent"><MarkdownView value={item.text || ""} /></div></div>}
-    <button className="itemResizeHandle" title="Resize item" onPointerDown={(event) => onResizePointerDown(event, item)}><Maximize2 size={13} /></button>
+    {item.type === "image" && item.imageUrl ? <img src={item.imageUrl} alt="Board item" style={{ objectFit: item.imageFit ?? "cover" }} /> : item.type === "counter" ? <><div className={`counterContent ${item.counterLabelPosition ?? "top-center"}`}>{item.counterLabel && <span className="counterLabel" title={item.counterLabel}>{item.counterLabel}</span>}<div className="counterNumbers"><strong>{value}</strong>{item.counterMax !== undefined && <span>/ {item.counterMax}</span>}</div></div>{!readOnly && <><button className="counterControl" aria-label="Decrease counter" disabled={value === 0} onPointerDown={stopControl} onMouseDown={stopControl} onDoubleClick={stopControl} onClick={(event) => { stopControl(event); void onCounterChange(item, -1); }}><Minus size={16} /></button><button className="counterControl" aria-label="Increase counter" disabled={atMax} onPointerDown={stopControl} onMouseDown={stopControl} onDoubleClick={stopControl} onClick={(event) => { stopControl(event); void onCounterChange(item, 1); }}><Plus size={16} /></button></>} </> : <div className={`textPreview textAlign-${item.textVerticalAlignment ?? "top"}`} style={{ "--text-scale": textScale } as CSSProperties}><div className="textScaleContent"><MarkdownView value={item.text || ""} /></div></div>}
+    {!readOnly && <button className="itemResizeHandle" title="Resize item" onPointerDown={(event) => onResizePointerDown(event, item)}><Maximize2 size={13} /></button>}
   </article>;
 }

@@ -39,7 +39,7 @@ function className(align?: string) {
 export function renderMarkdown(markdown: string) {
   const lines = markdown.split(/\r?\n/);
   const html: string[] = [];
-  let inList = false;
+  let listType: "ul" | "ol" | undefined;
   let inCode = false;
   let codeAlign: string | undefined;
 
@@ -56,16 +56,20 @@ export function renderMarkdown(markdown: string) {
       continue;
     }
 
-    const bullet = line.match(/^\s*[-*]\s+(.+)/);
-    if (bullet) {
-      if (!inList) html.push("<ul>");
-      inList = true;
-      html.push(`<li${className(align)}>${inlineMarkdown(bullet[1])}</li>`);
+    const listItem = line.match(/^\s*(?:[-*]|(\d+)\.)\s+(.+)/);
+    if (listItem) {
+      const nextListType = listItem[1] ? "ol" : "ul";
+      if (listType !== nextListType) {
+        if (listType) html.push(`</${listType}>`);
+        html.push(`<${nextListType}>`);
+        listType = nextListType;
+      }
+      html.push(`<li${className(align)}>${inlineMarkdown(listItem[2])}</li>`);
       continue;
     }
-    if (inList) {
-      html.push("</ul>");
-      inList = false;
+    if (listType) {
+      html.push(`</${listType}>`);
+      listType = undefined;
     }
 
     const heading = line.match(/^(#{1,3})\s+(.+)/);
@@ -80,7 +84,7 @@ export function renderMarkdown(markdown: string) {
       html.push("<br />");
     }
   }
-  if (inList) html.push("</ul>");
+  if (listType) html.push(`</${listType}>`);
   if (inCode) html.push("</code></pre>");
   return html.join("");
 }

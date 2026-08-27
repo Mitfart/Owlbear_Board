@@ -478,7 +478,7 @@ input[type="radio"] {
   grid-template-rows: auto minmax(0, 1fr);
   height: 100%;
   min-height: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .textEditControls {

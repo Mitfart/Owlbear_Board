@@ -11,13 +11,27 @@ import {
   GM_SHARED_BOARD_STATE_KEY,
 } from "./constants";
 import { createId } from "./ids";
-import type { Board, BoardScope, PlayerPreferences, PersistedBoardState, ViewportPreference, WindowPreferences } from "./types";
+import type { Board, BoardItem, BoardScope, PlayerPreferences, PersistedBoardState, ViewportPreference, WindowPreferences } from "./types";
 import type { PlayerRole } from "./boardPermissions";
 export { orderPrivateBoards } from "./boardSession";
 
 type PrivateSceneStates = Record<string, PersistedBoardState>;
 
 const emptyState = (): PersistedBoardState => ({ version: 1, boards: [] });
+
+export function normalizeBoardState(state: PersistedBoardState): PersistedBoardState {
+  return {
+    ...state,
+    boards: state.boards.map((board) => ({
+      ...board,
+      items: board.items.map((item) => {
+        const { occupiedCells: _legacyOccupiedCells, ...normalizedItem } = item as BoardItem & { occupiedCells?: unknown };
+        return normalizedItem;
+      }),
+    })),
+  };
+}
+
 const emptyPreferences = (): PlayerPreferences => ({
   version: 1,
   privateSceneOpenOrder: {},
@@ -84,20 +98,20 @@ async function writePrivateSceneStates(states: PrivateSceneStates) {
 }
 
 export async function loadPrivateBoardState(scope: BoardScope) {
-  if (scope === "room") return readPlayerMetadata<PersistedBoardState>(PRIVATE_ROOM_STATE_KEY, emptyState());
+  if (scope === "room") return normalizeBoardState(await readPlayerMetadata<PersistedBoardState>(PRIVATE_ROOM_STATE_KEY, emptyState()));
   const sceneKey = await getSceneKey();
   const states = await readPrivateSceneStates();
-  return states[sceneKey] ?? emptyState();
+  return normalizeBoardState(states[sceneKey] ?? emptyState());
 }
 
 export async function savePrivateBoardState(scope: BoardScope, state: PersistedBoardState) {
   if (scope === "room") {
-    await writePlayerMetadata(PRIVATE_ROOM_STATE_KEY, state);
+    await writePlayerMetadata(PRIVATE_ROOM_STATE_KEY, normalizeBoardState(state));
     return;
   }
   const sceneKey = await getSceneKey();
   const states = await readPrivateSceneStates();
-  states[sceneKey] = state;
+  states[sceneKey] = normalizeBoardState(state);
   await writePrivateSceneStates(states);
 }
 
@@ -106,33 +120,33 @@ function isPersistedBoardState(value: unknown): value is PersistedBoardState {
 }
 
 export async function loadSharedBoardState(scope: BoardScope) {
-  if (!OBR.isAvailable) return readLocal(scope === "room" ? SHARED_ROOM_STATE_KEY : SHARED_SCENE_STATE_KEY, emptyState());
+  if (!OBR.isAvailable) return normalizeBoardState(readLocal(scope === "room" ? SHARED_ROOM_STATE_KEY : SHARED_SCENE_STATE_KEY, emptyState()));
   const metadata = scope === "room" ? await OBR.room.getMetadata() : await OBR.scene.getMetadata();
   const raw = metadata[scope === "room" ? SHARED_ROOM_STATE_KEY : SHARED_SCENE_STATE_KEY];
-  return isPersistedBoardState(raw) ? raw : emptyState();
+  return isPersistedBoardState(raw) ? normalizeBoardState(raw) : emptyState();
 }
 
 export async function loadGmSharedBoardState() {
   if (!OBR.isAvailable) return readLocal(GM_SHARED_BOARD_STATE_KEY, emptyState());
   const metadata = await OBR.room.getMetadata();
-  return isPersistedBoardState(metadata[GM_SHARED_BOARD_STATE_KEY]) ? metadata[GM_SHARED_BOARD_STATE_KEY] as PersistedBoardState : emptyState();
+  return isPersistedBoardState(metadata[GM_SHARED_BOARD_STATE_KEY]) ? normalizeBoardState(metadata[GM_SHARED_BOARD_STATE_KEY] as PersistedBoardState) : emptyState();
 }
 
 export async function saveGmSharedBoardState(state: PersistedBoardState) {
-  if (!OBR.isAvailable) { writeLocal(GM_SHARED_BOARD_STATE_KEY, state); return; }
+  if (!OBR.isAvailable) { writeLocal(GM_SHARED_BOARD_STATE_KEY, normalizeBoardState(state)); return; }
   const metadata = await OBR.room.getMetadata();
-  await OBR.room.setMetadata({ ...metadata, [GM_SHARED_BOARD_STATE_KEY]: state });
+  await OBR.room.setMetadata({ ...metadata, [GM_SHARED_BOARD_STATE_KEY]: normalizeBoardState(state) });
 }
 
 export async function saveSharedBoardState(scope: BoardScope, state: PersistedBoardState) {
   if (!OBR.isAvailable) {
-    writeLocal(scope === "room" ? SHARED_ROOM_STATE_KEY : SHARED_SCENE_STATE_KEY, state);
+    writeLocal(scope === "room" ? SHARED_ROOM_STATE_KEY : SHARED_SCENE_STATE_KEY, normalizeBoardState(state));
     return;
   }
-  if (scope === "room") await OBR.room.setMetadata({ [SHARED_ROOM_STATE_KEY]: state });
+  if (scope === "room") await OBR.room.setMetadata({ [SHARED_ROOM_STATE_KEY]: normalizeBoardState(state) });
   else {
     const metadata = await OBR.scene.getMetadata();
-    await OBR.scene.setMetadata({ ...metadata, [SHARED_SCENE_STATE_KEY]: state });
+    await OBR.scene.setMetadata({ ...metadata, [SHARED_SCENE_STATE_KEY]: normalizeBoardState(state) });
   }
 }
 

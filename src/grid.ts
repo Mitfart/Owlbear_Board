@@ -1,12 +1,12 @@
-import type { Board, BoardItem, OccupiedCell } from "./types";
+import type { Board, BoardItem } from "./types";
 
 export function makeRectCells(
   gridX: number,
   gridY: number,
   gridWidth: number,
   gridHeight: number,
-): OccupiedCell[] {
-  const cells: OccupiedCell[] = [];
+): { x: number; y: number }[] {
+  const cells: { x: number; y: number }[] = [];
   for (let y = gridY; y < gridY + gridHeight; y += 1) {
     for (let x = gridX; x < gridX + gridWidth; x += 1) {
       cells.push({ x, y });
@@ -15,8 +15,12 @@ export function makeRectCells(
   return cells;
 }
 
-export function cellKey(cell: OccupiedCell) {
+export function cellKey(cell: { x: number; y: number }) {
   return `${cell.x}:${cell.y}`;
+}
+
+export function boardItemCells(item: BoardItem) {
+  return makeRectCells(item.gridX, item.gridY, item.gridWidth, item.gridHeight);
 }
 
 export function collides(
@@ -30,7 +34,7 @@ export function collides(
   const occupied = new Set<string>();
   for (const item of board.items) {
     if (item.id === ignoreItemId) continue;
-    for (const cell of item.occupiedCells) {
+    for (const cell of boardItemCells(item)) {
       occupied.add(cellKey(cell));
     }
   }
@@ -42,7 +46,7 @@ export function collides(
 
 export function boardItemAt(board: Board, gridX: number, gridY: number) {
   return board.items.find((item) =>
-    item.occupiedCells.some((cell) => cell.x === gridX && cell.y === gridY),
+    boardItemCells(item).some((cell) => cell.x === gridX && cell.y === gridY),
   );
 }
 
@@ -51,11 +55,11 @@ export function updateBoardItemPosition(
   gridX: number,
   gridY: number,
 ): BoardItem {
+  const { occupiedCells: _legacyOccupiedCells, ...withoutDerivedOccupancy } = item as BoardItem & { occupiedCells?: unknown };
   return {
-    ...item,
+    ...withoutDerivedOccupancy,
     gridX,
     gridY,
-    occupiedCells: makeRectCells(gridX, gridY, item.gridWidth, item.gridHeight),
     updatedAt: new Date().toISOString(),
   };
 }
@@ -67,13 +71,13 @@ export function updateBoardItemRect(
   gridWidth: number,
   gridHeight: number,
 ): BoardItem {
+  const { occupiedCells: _legacyOccupiedCells, ...withoutDerivedOccupancy } = item as BoardItem & { occupiedCells?: unknown };
   return {
-    ...item,
+    ...withoutDerivedOccupancy,
     gridX,
     gridY,
     gridWidth,
     gridHeight,
-    occupiedCells: makeRectCells(gridX, gridY, gridWidth, gridHeight),
     updatedAt: new Date().toISOString(),
   };
 }

@@ -2,11 +2,6 @@ export type BoardScope = "scene" | "room";
 export type BoardVisibility = "private" | "shared" | "gm-shared";
 export type BoardItemType = "text" | "image" | "counter";
 
-export type OccupiedCell = {
-  x: number;
-  y: number;
-};
-
 export type BoardItem = {
   id: string;
   type: BoardItemType;
@@ -30,7 +25,6 @@ export type BoardItem = {
   gridY: number;
   gridWidth: number;
   gridHeight: number;
-  occupiedCells: OccupiedCell[];
   createdAt: string;
   updatedAt: string;
 };

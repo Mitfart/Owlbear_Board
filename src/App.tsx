@@ -5,7 +5,7 @@ import type React from "react";
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_CELL_GAP, DEFAULT_CELL_SIZE, DEFAULT_WINDOW, MAX_CELL_GAP, MAX_CELL_SIZE, MIN_CELL_GAP, MIN_CELL_SIZE } from "./constants";
-import { boardItemAt, collides, makeRectCells, updateBoardItemPosition, updateBoardItemRect } from "./grid";
+import { boardItemAt, collides, updateBoardItemPosition, updateBoardItemRect } from "./grid";
 import { createId, nowIso } from "./ids";
 import { MarkdownView } from "./markdown";
 import { resizeAction } from "./owlbear";
@@ -38,7 +38,7 @@ const FALLBACK_THEME: Theme = { mode: "DARK", primary: { main: "#bb99ff", light:
 
 function createItemBase(gridX: number, gridY: number, gridWidth: number, gridHeight: number) {
   const timestamp = nowIso();
-  return { id: createId("board_item"), gridX, gridY, gridWidth, gridHeight, occupiedCells: makeRectCells(gridX, gridY, gridWidth, gridHeight), createdAt: timestamp, updatedAt: timestamp };
+  return { id: createId("board_item"), gridX, gridY, gridWidth, gridHeight, createdAt: timestamp, updatedAt: timestamp };
 }
 
 function sampleBoard(): Board {

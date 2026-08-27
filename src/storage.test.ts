@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SHARED_SCENE_STATE_KEY } from "./constants";
-import { getSceneKey, loadAllVisibleBoards, loadGmSharedBoardState, loadPrivateBoardState, movePrivateRoomBoardToScene, saveBoard, savePrivateBoardState, saveSharedBoardState } from "./storage";
+import { getSceneKey, loadAllVisibleBoards, loadGmSharedBoardState, loadPrivateBoardState, movePrivateRoomBoardToScene, normalizeBoardState, saveBoard, savePrivateBoardState, saveSharedBoardState } from "./storage";
 import type { BoardItem } from "./types";
 
 const obr = vi.hoisted(() => ({
@@ -89,13 +89,21 @@ describe("storage", () => {
     const alignments = ["top", "center", "bottom"] as const;
     const items: BoardItem[] = alignments.flatMap((textVerticalAlignment) => [true, false].map((fillBlock, index) => ({
       id: `${textVerticalAlignment}-${index}`, type: "text" as const, text: "Saved text", textBaselineWidth: 2, fillBlock, textVerticalAlignment,
-      gridX: index, gridY: 0, gridWidth: 2, gridHeight: 1, occupiedCells: [{ x: index, y: 0 }, { x: index + 1, y: 0 }],
+      gridX: index, gridY: 0, gridWidth: 2, gridHeight: 1,
       createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z",
     })));
 
     await saveBoard({ ...shareableBoard, id: "presentation", items });
 
     await expect(loadPrivateBoardState("room")).resolves.toMatchObject({ boards: [{ id: "presentation", items }] });
+  });
+
+  it("normalizes legacy derived occupancy when loading", () => {
+    const legacy = { ...shareableBoard, items: [{ id: "item", type: "text" as const, gridX: 2, gridY: 3, gridWidth: 2, gridHeight: 1, occupiedCells: [{ x: 99, y: 99 }], createdAt: "", updatedAt: "" }] };
+    const normalized = normalizeBoardState({ version: 1, boards: [legacy] });
+
+    expect(normalized.boards[0].items[0]).toEqual(expect.objectContaining({ gridX: 2, gridY: 3 }));
+    expect("occupiedCells" in normalized.boards[0].items[0]).toBe(false);
   });
 
   it("uses the demo scene key without Owlbear", async () => {

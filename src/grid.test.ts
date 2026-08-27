@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { collides, makeRectCells, updateBoardItemPosition, updateBoardItemRect } from "./grid";
+import { boardItemAt, boardItemCells, collides, makeRectCells, updateBoardItemPosition, updateBoardItemRect } from "./grid";
 import type { Board, BoardItem } from "./types";
 
 const item = (overrides: Partial<BoardItem>): BoardItem => ({
@@ -10,7 +10,6 @@ const item = (overrides: Partial<BoardItem>): BoardItem => ({
   gridY: 1,
   gridWidth: 2,
   gridHeight: 2,
-  occupiedCells: makeRectCells(1, 1, 2, 2),
   createdAt: "",
   updatedAt: "",
   ...overrides,
@@ -50,17 +49,20 @@ describe("grid occupancy", () => {
     expect(collides(state, 1, 1, 2, 2, "item_1")).toBe(false);
   });
 
-  it("recomputes occupied cells when moving an item", () => {
+  it("derives occupancy from bounds after moving an item", () => {
     const moved = updateBoardItemPosition(item({}), 5, 6);
-    expect(moved.gridX).toBe(5);
-    expect(moved.gridY).toBe(6);
-    expect(moved.occupiedCells).toEqual(makeRectCells(5, 6, 2, 2));
+    expect(boardItemCells(moved)).toEqual(makeRectCells(5, 6, 2, 2));
+    expect("occupiedCells" in moved).toBe(false);
   });
 
-  it("recomputes occupied cells when resizing an item", () => {
+  it("derives occupancy from bounds after resizing an item", () => {
     const resized = updateBoardItemRect(item({}), 1, 1, 4, 3);
-    expect(resized.gridWidth).toBe(4);
-    expect(resized.gridHeight).toBe(3);
-    expect(resized.occupiedCells).toEqual(makeRectCells(1, 1, 4, 3));
+    expect(boardItemCells(resized)).toEqual(makeRectCells(1, 1, 4, 3));
+    expect("occupiedCells" in resized).toBe(false);
+  });
+
+  it("uses bounds for selection", () => {
+    const candidate = item({ gridX: 5, gridY: 6, gridWidth: 2, gridHeight: 2 });
+    expect(boardItemAt(board([candidate]), 6, 7)).toBe(candidate);
   });
 });

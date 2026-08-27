@@ -554,7 +554,10 @@ input[type="radio"] {
 }
 
 .markdownHelpTrigger {
-  position: static;
+  position: absolute;
+  top: 50%;
+  right: calc(100% + 8px);
+  transform: translateY(-50%);
 }
 
 .markdownHelpButton {

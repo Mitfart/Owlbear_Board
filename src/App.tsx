@@ -1,5 +1,4 @@
 import OBR from "@owlbear-rodeo/sdk";
-import type { Theme } from "@owlbear-rodeo/sdk";
 import { AlignCenter, AlignJustify, AlignLeft, AlignRight, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalJustifyStart, Bold, ChevronDown, Grip, ImagePlus, Italic, Maximize2, Minus, Pencil, Plus, RefreshCw, Save, Settings, Trash2, Type, X } from "lucide-react";
 import type React from "react";
 import type { CSSProperties } from "react";
@@ -12,7 +11,7 @@ import { resizeAction } from "./owlbear";
 import { autoImageSize, autoTextSize, clampNumber, normalizeCounterValue, parseItemSize, textFillScale } from "./sizing";
 import { zoomPanToCursor } from "./viewport";
 import { toggleMarkdownStyle } from "./textFormatting";
-import { boardSaving, getPlayerId, getPlayerName, getRoomOwnerId, getSceneKey, loadAllVisibleBoards, loadPreferences, loadWindowPreferences, markPrivateBoardOpened, savePreferences, saveViewport, saveWindowPreferences } from "./storage";
+import { beginSharedSceneTransition, boardSaving, carrySharedBoardAcrossSceneTransition, getPlayerId, getPlayerName, getRoomOwnerId, getSceneKey, loadAllVisibleBoards, loadPreferences, loadWindowPreferences, markPrivateBoardOpened, savePreferences, saveViewport, saveWindowPreferences, trackActiveSharedBoard } from "./storage";
 import { buildBoardPickerRows, groupPlayerBoards } from "./boardSession";
 import { canEditBoard, canRenameBoard, type PlayerRole } from "./boardPermissions";
 import type { Board, BoardItem, BoardScope, BoardVisibility, PlayerPreferences } from "./types";
@@ -34,7 +33,7 @@ const DEFAULT_ITEM_BORDER_COLOR = "#bb99ff";
 const MAX_HISTORY = 20;
 const DEFAULT_COUNTER_ZERO_COLOR = "#ff6b8a";
 const DEFAULT_COUNTER_MAX_COLOR = "#ffd166";
-const FALLBACK_THEME: Theme = { mode: "DARK", primary: { main: "#bb99ff", light: "#d2bdff", dark: "#826bb2", contrastText: "#ffffff" }, secondary: { main: "#03dac6", light: "#66fff8", dark: "#00a896", contrastText: "#ffffff" }, background: { default: "#1e2231", paper: "#2c3042" }, text: { primary: "#ffffff", secondary: "#ffffff", disabled: "#ffffff" } };
+const FALLBACK_THEME: Record<string, unknown> = { mode: "DARK", primary: { main: "#bb99ff", light: "#d2bdff", dark: "#826bb2", contrastText: "#ffffff" }, secondary: { main: "#03dac6", light: "#66fff8", dark: "#00a896", contrastText: "#ffffff" }, background: { default: "#1e2231", paper: "#2c3042" }, text: { primary: "#ffffff", secondary: "#ffffff", disabled: "#ffffff" } };
 
 function createItemBase(gridX: number, gridY: number, gridWidth: number, gridHeight: number) {
   const timestamp = nowIso();
@@ -119,7 +118,7 @@ export default function App() {
   const [resizeItemState, setResizeItemState] = useState<ResizeItemState>();
   const [panning, setPanning] = useState<{ x: number; y: number }>();
   const [history, setHistory] = useState<Record<string, History>>({});
-  const [, setTheme] = useState(FALLBACK_THEME);
+  const [, setTheme] = useState<Record<string, unknown>>(FALLBACK_THEME);
   const gridRef = useRef<HTMLDivElement>(null);
   const focusTextarea = useRef<HTMLTextAreaElement>(null);
   const previewContent = useRef<HTMLDivElement>(null);
@@ -152,7 +151,7 @@ export default function App() {
       preferences: prefs,
       sceneKey: key,
     }).flatMap((row) => row.kind === "board" ? [row.board] : []).concat(visible.gmShared.boards);
-    setSceneKey(key); setPlayerId(id); setPreferences(prefs); setPlayerRole(role); setPreviewDismissed(!!prefs.previewDismissed); setBoards(ordered); setWindowSize(win); await resizeAction(win.width, win.height);
+    setSceneKey(key); setPlayerId(id); setPreferences(prefs); setPlayerRole(role); setPreviewDismissed(!!prefs.previewDismissed); setBoards(ordered); setWindowSize(win); await resizeAction(win.width, win.height); await trackActiveSharedBoard(visible.sharedScene, key);
     setOpenBoardIds((ids) => ids.filter((id) => ordered.some((board) => board.id === id)));
     setActiveBoardId((current) => {
       const preserved = ordered.find((board) => board.id === current);
@@ -168,8 +167,15 @@ export default function App() {
     tabsInitialized.current = true;
   }, []);
 
-  useEffect(() => { if (!OBR.isAvailable) { void refresh(); return; } OBR.onReady(() => { setReady(true); void refresh(); void OBR.theme.getTheme().then(setTheme); }); }, [refresh]);
-  useEffect(() => { if (!OBR.isAvailable || !ready) return; return OBR.theme.onChange(setTheme); }, [ready]);
+  useEffect(() => {
+    if (!OBR.isAvailable) { void refresh(); return; }
+    OBR.onReady(() => { setReady(true); void carrySharedBoardAcrossSceneTransition().then(refresh); void OBR.theme.getTheme().then((theme) => setTheme(theme as unknown as Record<string, unknown>)); });
+    return (OBR.scene as unknown as { onReadyChange(callback: (sceneReady: boolean) => void): () => void }).onReadyChange((sceneReady) => {
+      if (!sceneReady) beginSharedSceneTransition();
+      else { setReady(true); void carrySharedBoardAcrossSceneTransition().then(refresh); }
+    });
+  }, [refresh]);
+  useEffect(() => { if (!OBR.isAvailable || !ready) return; return OBR.theme.onChange((theme) => setTheme(theme as unknown as Record<string, unknown>)); }, [ready]);
   useEffect(() => {
     if (!ready) return;
     const id = window.setInterval(() => {

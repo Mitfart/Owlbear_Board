@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getSceneKey, loadAllVisibleBoards, loadGmSharedBoardState, loadPrivateBoardState, movePrivateRoomBoardToScene, normalizeBoardState, saveBoard, savePrivateBoardState, saveSharedBoardState } from "./storage";
+import { beginSharedSceneTransition, carrySharedBoardAcrossSceneTransition, getSceneKey, loadAllVisibleBoards, loadGmSharedBoardState, loadPrivateBoardState, movePrivateRoomBoardToScene, normalizeBoardState, saveBoard, savePrivateBoardState, saveSharedBoardState, trackActiveSharedBoard } from "./storage";
 import type { BoardItem } from "./types";
 
 const obr = vi.hoisted(() => ({
@@ -110,5 +110,40 @@ describe("storage", () => {
     obr.isAvailable = false;
 
     await expect(getSceneKey()).resolves.toBe("demo");
+  });
+
+  it("carries the tracked board and cleans only its source item when returning", async () => {
+    let sceneMetadata: Record<string, unknown> = { "com.owlbear-board.grid/scene-key": "source" };
+    obr.scene.isReady.mockResolvedValue(true);
+    obr.scene.getMetadata.mockImplementation(() => Promise.resolve(sceneMetadata));
+    const boardState = { version: 1 as const, boards: [{ ...shareableBoard, visibility: "shared" as const, scope: "scene" as const, revision: 4 }] };
+    obr.scene.items.getItems.mockResolvedValue([
+      { id: "source-item", type: "DATA", data: { namespace: "com.owlbear-board.grid/shared-scene-board", version: 1, state: boardState } },
+      { id: "untracked-duplicate", type: "DATA", data: { namespace: "com.owlbear-board.grid/shared-scene-board", version: 1, state: boardState } },
+    ]);
+
+    await trackActiveSharedBoard(boardState, "source");
+    beginSharedSceneTransition();
+    sceneMetadata = { "com.owlbear-board.grid/scene-key": "destination" };
+    obr.scene.items.getItems.mockResolvedValue([]);
+    await carrySharedBoardAcrossSceneTransition();
+    expect(obr.scene.items.addItems).toHaveBeenCalledWith([expect.objectContaining({ data: expect.objectContaining({ state: boardState }) })]);
+
+    sceneMetadata = { "com.owlbear-board.grid/scene-key": "source" };
+    await carrySharedBoardAcrossSceneTransition();
+    expect(obr.scene.items.deleteItems).toHaveBeenCalledWith(["source-item"]);
+  });
+
+  it("does not delete the source item when readiness returns without changing scenes", async () => {
+    const boardState = { version: 1 as const, boards: [{ ...shareableBoard, visibility: "shared" as const, scope: "scene" as const, revision: 4 }] };
+    obr.scene.isReady.mockResolvedValue(true);
+    obr.scene.getMetadata.mockResolvedValue({ "com.owlbear-board.grid/scene-key": "source" });
+    obr.scene.items.getItems.mockResolvedValue([{ id: "source-item", type: "DATA", data: { namespace: "com.owlbear-board.grid/shared-scene-board", version: 1, state: boardState } }]);
+
+    await trackActiveSharedBoard(boardState, "source");
+    beginSharedSceneTransition();
+    await carrySharedBoardAcrossSceneTransition();
+
+    expect(obr.scene.items.deleteItems).not.toHaveBeenCalled();
   });
 });

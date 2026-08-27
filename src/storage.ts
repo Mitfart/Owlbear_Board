@@ -101,9 +101,9 @@ function isPersistedBoardState(value: unknown): value is PersistedBoardState {
 const SHARED_SCENE_DATA_NAMESPACE = `${EXTENSION_ID}/shared-scene-board`;
 type SharedSceneDataRecord = { namespace: typeof SHARED_SCENE_DATA_NAMESPACE; version: 1; state: PersistedBoardState };
 type SceneDataItem = { id?: string; type: string; data?: unknown; [key: string]: unknown };
-type SharedSceneTransition = { sourceSceneKey: string; state: PersistedBoardState; itemIds: string[]; destinationSceneKey?: string };
-let activeSharedScene: { sceneKey: string; state: PersistedBoardState; itemIds: string[] } | undefined;
-let pendingSharedSceneTransition: SharedSceneTransition | undefined;
+type SharedRoomTransition = { sourceSceneKey: string; state: PersistedBoardState; itemIds: string[]; destinationSceneKey?: string };
+let activeSharedRoom: { sceneKey: string; state: PersistedBoardState; itemIds: string[] } | undefined;
+let pendingSharedRoomTransition: SharedRoomTransition | undefined;
 
 function sharedSceneRecord(item: SceneDataItem): SharedSceneDataRecord | undefined {
   const record = item.data;
@@ -123,11 +123,17 @@ async function getSharedSceneDataItem() {
 export async function trackActiveSharedBoard(state: PersistedBoardState, sceneKey: string) {
   if (!OBR.isAvailable || sceneKey === "no-scene") return;
   const existing = await getSharedSceneDataItem();
-  activeSharedScene = { sceneKey, state: normalizeBoardState(state), itemIds: existing?.item.id ? [existing.item.id] : [] };
+  activeSharedRoom = { sceneKey, state: normalizeBoardState(state), itemIds: existing?.item.id ? [existing.item.id] : [] };
 }
 
 export function beginSharedSceneTransition() {
-  if (!pendingSharedSceneTransition && activeSharedScene) pendingSharedSceneTransition = { sourceSceneKey: activeSharedScene.sceneKey, state: activeSharedScene.state, itemIds: activeSharedScene.itemIds };
+  if (activeSharedRoom) {
+    pendingSharedRoomTransition = {
+      sourceSceneKey: activeSharedRoom.sceneKey,
+      state: activeSharedRoom.state,
+      itemIds: [...activeSharedRoom.itemIds],
+    };
+  }
 }
 
 function boardRevision(state: PersistedBoardState) {
@@ -135,20 +141,20 @@ function boardRevision(state: PersistedBoardState) {
 }
 
 export async function carrySharedBoardAcrossSceneTransition() {
-  if (!pendingSharedSceneTransition || !OBR.isAvailable || !(await OBR.scene.isReady())) return;
+  if (!pendingSharedRoomTransition || !OBR.isAvailable || !(await OBR.scene.isReady())) return;
   const destinationKey = await getSceneKey();
-  if (destinationKey === pendingSharedSceneTransition.sourceSceneKey) {
-    if (pendingSharedSceneTransition.destinationSceneKey && pendingSharedSceneTransition.itemIds.length) {
-      await (OBR.scene as unknown as { items: { deleteItems(ids: string[]): Promise<unknown> } }).items.deleteItems(pendingSharedSceneTransition.itemIds);
+  if (destinationKey === pendingSharedRoomTransition.sourceSceneKey) {
+    if (pendingSharedRoomTransition.destinationSceneKey && pendingSharedRoomTransition.itemIds.length) {
+      await (OBR.scene as unknown as { items: { deleteItems(ids: string[]): Promise<unknown> } }).items.deleteItems(pendingSharedRoomTransition.itemIds);
     }
-    pendingSharedSceneTransition = undefined;
+    pendingSharedRoomTransition = undefined;
     return;
   }
-  const destination = await loadSharedBoardState("scene");
-  if (boardRevision(pendingSharedSceneTransition.state) >= boardRevision(destination)) {
-    await saveSharedBoardState("scene", pendingSharedSceneTransition.state);
+  const destination = await loadSharedBoardState("room");
+  if (boardRevision(pendingSharedRoomTransition.state) >= boardRevision(destination)) {
+    await saveSharedBoardState("room", pendingSharedRoomTransition.state);
   }
-  pendingSharedSceneTransition.destinationSceneKey = destinationKey;
+  pendingSharedRoomTransition.destinationSceneKey = destinationKey;
 }
 
 export async function loadSharedBoardState(scope: BoardScope) {

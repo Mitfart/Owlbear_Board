@@ -528,6 +528,111 @@
         "kind": "main",
         "sessionId": "01a014d2-00db-79be-9852-b1a059f1856d"
       }
+    },
+    "topology/peer-seq": {
+      "key": "topology/peer-seq",
+      "value": {
+        "format": 1,
+        "next": 1
+      },
+      "version": 1,
+      "updatedAt": 1787820345844,
+      "updatedBy": {
+        "id": "session:01a04263-c1fe-76d4-a747-ecddfef01035",
+        "name": "main",
+        "kind": "main",
+        "sessionId": "01a04263-c1fe-76d4-a747-ecddfef01035"
+      }
+    },
+    "topology/hosts/c1e1d62028d5c7e711f5fa0712c728618af65e9efc40ef0b4bdf4dc0690ba3ef": {
+      "key": "topology/hosts/c1e1d62028d5c7e711f5fa0712c728618af65e9efc40ef0b4bdf4dc0690ba3ef",
+      "value": {
+        "format": 1,
+        "id": "session:01a04263-c1fe-76d4-a747-ecddfef01035",
+        "rootId": "session:01a04263-c1fe-76d4-a747-ecddfef01035",
+        "identity": {
+          "id": "session:01a04263-c1fe-76d4-a747-ecddfef01035",
+          "name": "main",
+          "kind": "main",
+          "sessionId": "01a04263-c1fe-76d4-a747-ecddfef01035"
+        },
+        "startedAt": 1787820250621,
+        "updatedAt": 1787820345841,
+        "expiresAt": 1787820360841
+      },
+      "version": 1,
+      "updatedAt": 1787820345866,
+      "updatedBy": {
+        "id": "session:01a04263-c1fe-76d4-a747-ecddfef01035",
+        "name": "main",
+        "kind": "main",
+        "sessionId": "01a04263-c1fe-76d4-a747-ecddfef01035"
+      }
+    },
+    "sessions/01a04263-c1fe-76d4-a747-ecddfef01035": {
+      "key": "sessions/01a04263-c1fe-76d4-a747-ecddfef01035",
+      "value": {
+        "id": "session:01a04263-c1fe-76d4-a747-ecddfef01035",
+        "name": "OB-1",
+        "label": "OB-1",
+        "kind": "peer",
+        "status": "idle",
+        "runner": "pi",
+        "transport": "host",
+        "cwd": "D:\\Projects\\AI\\Owlbear_Board",
+        "sessionId": "01a04263-c1fe-76d4-a747-ecddfef01035",
+        "model": "openai-codex/gpt-5.6-terra",
+        "thinking": "medium",
+        "startedAt": 1787820250621,
+        "updatedAt": 1787820345841,
+        "pendingMessages": false,
+        "local": false
+      },
+      "version": 1,
+      "updatedAt": 1787820345885,
+      "updatedBy": {
+        "id": "session:01a04263-c1fe-76d4-a747-ecddfef01035",
+        "name": "main",
+        "kind": "main",
+        "sessionId": "01a04263-c1fe-76d4-a747-ecddfef01035"
+      }
+    },
+    "topology/participants/c1e1d62028d5c7e711f5fa0712c728618af65e9efc40ef0b4bdf4dc0690ba3ef": {
+      "key": "topology/participants/c1e1d62028d5c7e711f5fa0712c728618af65e9efc40ef0b4bdf4dc0690ba3ef",
+      "value": {
+        "format": 1,
+        "id": "session:01a04263-c1fe-76d4-a747-ecddfef01035",
+        "kind": "root",
+        "rootId": "session:01a04263-c1fe-76d4-a747-ecddfef01035",
+        "ownerHostId": "session:01a04263-c1fe-76d4-a747-ecddfef01035",
+        "ownerIdentityId": "session:01a04263-c1fe-76d4-a747-ecddfef01035",
+        "name": "main",
+        "status": "idle",
+        "runner": "pi",
+        "transport": "host",
+        "capabilities": [
+          "steer",
+          "followUp",
+          "fabric"
+        ],
+        "cwd": "D:\\Projects\\AI\\Owlbear_Board",
+        "sessionId": "01a04263-c1fe-76d4-a747-ecddfef01035",
+        "model": "openai-codex/gpt-5.6-terra",
+        "thinking": "medium",
+        "startedAt": 1787820250621,
+        "updatedAt": 1787820345841,
+        "pendingMessages": false,
+        "controlProtocol": "v1",
+        "label": "OB-1"
+      },
+      "version": 1,
+      "updatedAt": 1787820345907,
+      "updatedBy": {
+        "id": "session:01a04263-c1fe-76d4-a747-ecddfef01035",
+        "name": "main",
+        "kind": "main",
+        "sessionId": "01a04263-c1fe-76d4-a747-ecddfef01035"
+      }
     }
   },
   "versions": {
@@ -586,7 +691,11 @@
     "topology/participants/97e963d2395719fbae0e018be047a49bf266927ee3db2b0bbcfab20594d4748a": 489,
     "topology/hosts/e6fb96fa182c66d340c467d19d1f9011523be9314339e22271bef0fa4c543f18": 703,
     "sessions/01a014d2-00db-79be-9852-b1a059f1856d": 703,
-    "topology/participants/e6fb96fa182c66d340c467d19d1f9011523be9314339e22271bef0fa4c543f18": 703
+    "topology/participants/e6fb96fa182c66d340c467d19d1f9011523be9314339e22271bef0fa4c543f18": 703,
+    "topology/peer-seq": 1,
+    "topology/hosts/c1e1d62028d5c7e711f5fa0712c728618af65e9efc40ef0b4bdf4dc0690ba3ef": 1,
+    "sessions/01a04263-c1fe-76d4-a747-ecddfef01035": 1,
+    "topology/participants/c1e1d62028d5c7e711f5fa0712c728618af65e9efc40ef0b4bdf4dc0690ba3ef": 1
   },
   "tombstoneOrder": [
     "sessions/019ffc38-a933-748f-b750-aa1982b24194",

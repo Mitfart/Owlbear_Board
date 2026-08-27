@@ -50,10 +50,6 @@ export function textFillScale(itemWidth: number, baselineWidth: number) {
   return Math.max(0.25, itemWidth / Math.max(1, baselineWidth));
 }
 
-export function textBaselineSize(text: string) {
-  return autoTextSize(text);
-}
-
 export function autoImageSize(
   width?: number,
   height?: number,

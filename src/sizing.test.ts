@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { autoImageSize, autoTextSize, normalizeCounterValue, parseItemSize, textBaselineSize, textFillScale } from "./sizing";
+import { autoImageSize, autoTextSize, normalizeCounterValue, parseItemSize, textFillScale } from "./sizing";
 
 describe("counter values", () => {
   it("normalizes invalid, fractional, and capped values", () => {
@@ -15,9 +15,8 @@ describe("text presentation sizing", () => {
     expect(textFillScale(1, 8)).toBe(0.25);
   });
 
-  it("recalculates a baseline without depending on item bounds", () => {
-    expect(textBaselineSize("short")).toEqual(autoTextSize("short"));
-    expect(textBaselineSize("one\ntwo\nthree\nfour\nfive").height).toBeGreaterThan(textBaselineSize("short").height);
+  it("calculates text baseline dimensions without item bounds", () => {
+    expect(autoTextSize("one\ntwo\nthree\nfour\nfive").height).toBeGreaterThan(autoTextSize("short").height);
   });
 });
 

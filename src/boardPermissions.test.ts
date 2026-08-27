@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canEditBoard, canRenameBoard, shouldShowBoardNameControl } from "./boardPermissions";
+import { canEditBoard, canRenameBoard } from "./boardPermissions";
 import type { Board } from "./types";
 
 const board = (visibility: Board["visibility"], ownerId?: string): Board => ({
@@ -20,15 +20,10 @@ describe("Board sharing permissions", () => {
     }
   });
 
-  it("keeps shared-board rename behavior", () => {
+  it("allows only GMs to rename shared boards", () => {
     expect(canRenameBoard(board("shared"), "GM")).toBe(true);
     expect(canRenameBoard(board("shared"), "PLAYER")).toBe(false);
-  });
-
-  it("shows the name control only to users allowed to rename", () => {
-    expect(shouldShowBoardNameControl(board("shared"), "GM")).toBe(true);
-    expect(shouldShowBoardNameControl(board("shared"), "PLAYER")).toBe(false);
-    expect(shouldShowBoardNameControl(board("private"), "PLAYER")).toBe(true);
-    expect(shouldShowBoardNameControl(board("gm-shared"), "GM")).toBe(false);
+    expect(canRenameBoard(board("private"), "PLAYER")).toBe(true);
+    expect(canRenameBoard(board("gm-shared"), "GM")).toBe(false);
   });
 });

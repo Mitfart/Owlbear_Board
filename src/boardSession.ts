@@ -1,4 +1,4 @@
-import type { Board, BoardScope, PlayerPreferences, ViewportPreference } from "./types";
+import type { Board, BoardScope, PlayerPreferences } from "./types";
 
 export type ExistingBoardPickerRow = {
   kind: "board";
@@ -28,18 +28,6 @@ export function groupPlayerBoards(boards: Board[]): PlayerBoardGroup[] {
     }))
     .sort((a, b) => a.playerName.localeCompare(b.playerName));
 }
-
-export type BoardSessionModel = {
-  rows: BoardPickerRow[];
-  activeBoard?: Board;
-  previewVisible: boolean;
-  viewport: ViewportPreference;
-};
-
-export const DEFAULT_VIEWPORT: ViewportPreference = {
-  pan: { x: 260, y: 180 },
-  zoom: 0.6,
-};
 
 export function sharedBoardLabel(scope: BoardScope) {
   return `Shared ${scope === "scene" ? "Scene" : "Room"} Board`;
@@ -81,42 +69,4 @@ export function buildBoardPickerRows(input: {
     sharedScene ? { kind: "board", board: sharedScene } : { kind: "shared-placeholder", scope: "scene", label: sharedBoardLabel("scene") },
     sharedRoom ? { kind: "board", board: sharedRoom } : { kind: "shared-placeholder", scope: "room", label: sharedBoardLabel("room") },
   ];
-}
-
-export function chooseActiveBoard(rows: BoardPickerRow[], currentBoardId?: string) {
-  const existingRows = rows.filter((row): row is ExistingBoardPickerRow => row.kind === "board");
-  return existingRows.find((row) => row.board.id === currentBoardId)?.board ?? existingRows[0]?.board;
-}
-
-export function previewVisible(rows: BoardPickerRow[], activeBoard: Board | undefined, previewDismissed?: boolean) {
-  const hasExistingBoard = rows.some((row) => row.kind === "board");
-  return !activeBoard && !hasExistingBoard && !previewDismissed;
-}
-
-export function resolveViewport(
-  activeBoard: Board | undefined,
-  preferences: PlayerPreferences,
-  fallback: ViewportPreference = DEFAULT_VIEWPORT,
-) {
-  if (!activeBoard) return fallback;
-  return preferences.viewportByBoardId[activeBoard.id] ?? fallback;
-}
-
-export function buildBoardSession(input: {
-  privateSceneBoards: Board[];
-  privateRoomBoards: Board[];
-  sharedSceneBoards: Board[];
-  sharedRoomBoards: Board[];
-  preferences: PlayerPreferences;
-  sceneKey: string;
-  currentBoardId?: string;
-}): BoardSessionModel {
-  const rows = buildBoardPickerRows(input);
-  const activeBoard = chooseActiveBoard(rows, input.currentBoardId);
-  return {
-    rows,
-    activeBoard,
-    previewVisible: previewVisible(rows, activeBoard, input.preferences.previewDismissed),
-    viewport: resolveViewport(activeBoard, input.preferences),
-  };
 }

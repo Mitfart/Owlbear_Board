@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildBoardPickerRows, buildBoardSession, chooseActiveBoard, groupPlayerBoards, orderPrivateBoards, previewVisible, resolveViewport } from "./boardSession";
+import { buildBoardPickerRows, groupPlayerBoards, orderPrivateBoards } from "./boardSession";
 import type { Board, BoardScope, BoardVisibility, PlayerPreferences } from "./types";
 
 const preferences = (overrides: Partial<PlayerPreferences> = {}): PlayerPreferences => ({
@@ -30,7 +30,7 @@ const privateBoard = (id: string, scope: BoardScope, updatedAt: string, name = i
 const sharedBoard = (id: string, scope: BoardScope) =>
   board({ id, name: `Shared ${scope}`, scope, visibility: "shared" as BoardVisibility });
 
-describe("Board Session", () => {
+describe("Board picker", () => {
   it("groups GM-shared boards by player name", () => {
     expect(groupPlayerBoards([
       board({ id: "b", ownerName: "Zoe", name: "Alpha", visibility: "gm-shared" }),
@@ -94,59 +94,4 @@ describe("Board Session", () => {
     ]);
   });
 
-  it("preserves the current Active Board when it still exists", () => {
-    const first = privateBoard("first", "scene", "2026-01-01T00:00:00.000Z");
-    const current = privateBoard("current", "room", "2026-01-01T00:00:00.000Z");
-    const rows = [first, current].map((candidate) => ({ kind: "board" as const, board: candidate }));
-
-    expect(chooseActiveBoard(rows, "current")?.id).toBe("current");
-  });
-
-  it("chooses the first existing Board when the current Active Board is unavailable", () => {
-    const first = privateBoard("first", "scene", "2026-01-01T00:00:00.000Z");
-    const rows = [
-      { kind: "shared-placeholder" as const, scope: "scene" as const, label: "Shared Scene Board" },
-      { kind: "board" as const, board: first },
-    ];
-
-    expect(chooseActiveBoard(rows, "missing")?.id).toBe("first");
-  });
-
-  it("shows preview only when no real Board exists and preview is not dismissed", () => {
-    const placeholderRows = [{ kind: "shared-placeholder" as const, scope: "scene" as const, label: "Shared Scene Board" }];
-    const boardRows = [{ kind: "board" as const, board: privateBoard("first", "scene", "2026-01-01T00:00:00.000Z") }];
-
-    expect(previewVisible(placeholderRows, undefined, false)).toBe(true);
-    expect(previewVisible(placeholderRows, undefined, true)).toBe(false);
-    expect(previewVisible(boardRows, boardRows[0].board, false)).toBe(false);
-  });
-
-  it("resolves viewport for the Active Board from preferences", () => {
-    const active = privateBoard("active", "scene", "2026-01-01T00:00:00.000Z");
-
-    expect(
-      resolveViewport(
-        active,
-        preferences({ viewportByBoardId: { active: { pan: { x: 10, y: 20 }, zoom: 1.25 } } }),
-      ),
-    ).toEqual({ pan: { x: 10, y: 20 }, zoom: 1.25 });
-  });
-
-  it("builds a Board Session model", () => {
-    const active = privateBoard("active", "scene", "2026-01-01T00:00:00.000Z");
-
-    const session = buildBoardSession({
-      privateSceneBoards: [active],
-      privateRoomBoards: [],
-      sharedSceneBoards: [],
-      sharedRoomBoards: [],
-      preferences: preferences({ viewportByBoardId: { active: { pan: { x: 1, y: 2 }, zoom: 0.75 } } }),
-      sceneKey: "scene_a",
-      currentBoardId: "active",
-    });
-
-    expect(session.activeBoard?.id).toBe("active");
-    expect(session.previewVisible).toBe(false);
-    expect(session.viewport).toEqual({ pan: { x: 1, y: 2 }, zoom: 0.75 });
-  });
 });

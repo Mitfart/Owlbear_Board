@@ -10,7 +10,3 @@ export function canEditBoard(board: Board, role: PlayerRole, playerId?: string) 
   if (board.visibility === "gm-shared") return false;
   return board.visibility !== "private" || board.ownerId === playerId;
 }
-
-export function shouldShowBoardNameControl(board: Board, role: PlayerRole) {
-  return canRenameBoard(board, role);
-}

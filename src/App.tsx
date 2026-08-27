@@ -340,8 +340,10 @@ export default function App() {
   async function createTextAt(target: { x: number; y: number }) {
     if (!activeBoard || readOnly) return;
     textEditorReturnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const position = firstFreeNear(activeBoard, target.x, target.y, 2, 1);
-    const item: BoardItem = { ...createItemBase(position.x, position.y, 2, 1), type: "text", text: "", textBaselineWidth: autoTextSize("").width, fillBlock: true, textVerticalAlignment: "top", borderColor: DEFAULT_ITEM_BORDER_COLOR };
+    const size = resolveItemSize("text");
+    const gridWidth = clampNumber(size.width, 1, 24); const gridHeight = clampNumber(size.height, 1, 24);
+    const position = firstFreeNear(activeBoard, target.x, target.y, gridWidth, gridHeight);
+    const item: BoardItem = { ...createItemBase(position.x, position.y, gridWidth, gridHeight), type: "text", text: "", textBaselineWidth: autoTextSize("").width, fillBlock: true, textVerticalAlignment: "top", borderColor: borderColorDraft };
     await persistBoard({ ...activeBoard, items: [...activeBoard.items, item] });
     const alignment = preferences?.textAlignment ?? 0;
     setFocusedItemId(item.id); setNewFocusedItemId(item.id); setFocusDraft(alignment ? `^${alignment} ` : ""); setHorizontalAlignmentOpen(false); setVerticalAlignmentOpen(false);
@@ -350,15 +352,17 @@ export default function App() {
   async function addImage(source?: string, imageSize?: { width: number; height: number }) {
     if (!activeBoard || readOnly) return; const url = (source ?? imageDraft).trim();
     try { const parsed = new URL(url); if (!["http:", "https:"].includes(parsed.protocol)) return; } catch { return; }
-    const size = resolveItemSize("image", imageSize); const target = addTarget ?? viewportCenterGrid(); const position = firstFreeNear(activeBoard, target.x, target.y, clampNumber(size.width, 1, 24), clampNumber(size.height, 1, 24));
-    const item: BoardItem = { ...createItemBase(position.x, position.y, clampNumber(size.width, 1, 24), clampNumber(size.height, 1, 24)), type: "image", imageUrl: url, borderColor: borderColorDraft };
+    const size = resolveItemSize("image", imageSize); const target = addTarget ?? viewportCenterGrid();
+    const gridWidth = clampNumber(size.width, 1, 24); const gridHeight = clampNumber(size.height, 1, 24);
+    const position = firstFreeNear(activeBoard, target.x, target.y, gridWidth, gridHeight);
+    const item: BoardItem = { ...createItemBase(position.x, position.y, gridWidth, gridHeight), type: "image", imageUrl: url, imageFit: "cover", borderColor: borderColorDraft };
     await persistBoard({ ...activeBoard, items: [...activeBoard.items, item] }); setAddModalOpen(false); setImageDraft(""); setAddTarget(undefined);
   }
 
   async function addCounter() {
     if (!activeBoard || readOnly) return;
-    const width = parseItemSize(itemWidth); const height = parseItemSize(itemHeight);
-    const gridWidth = width === AUTO_SIZE ? 2 : width; const gridHeight = height === AUTO_SIZE ? 1 : height;
+    const size = resolveItemSize("counter");
+    const gridWidth = clampNumber(size.width, 1, 24); const gridHeight = clampNumber(size.height, 1, 24);
     const target = addTarget ?? viewportCenterGrid(); const position = firstFreeNear(activeBoard, target.x, target.y, gridWidth, gridHeight);
     const max = counterMaxDraft.trim() ? normalizeCounterValue(Number(counterMaxDraft)) : undefined;
     const item: BoardItem = { ...createItemBase(position.x, position.y, gridWidth, gridHeight), type: "counter", counterValue: normalizeCounterValue(Number(counterValueDraft), max), counterMax: max, counterLabelPosition: "top-center", counterDimAtZero: true, borderColor: borderColorDraft, counterZeroColor: DEFAULT_COUNTER_ZERO_COLOR, counterMaxColor: DEFAULT_COUNTER_MAX_COLOR };

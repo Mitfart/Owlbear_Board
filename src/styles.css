@@ -467,6 +467,7 @@ input[type="radio"] {
 .textEditModal {
   position: relative;
   display: grid;
+  min-height: 0;
   grid-template-rows: auto minmax(0, 1fr);
   width: min(1100px, calc(100% - 28px));
   height: min(620px, calc(100% - 70px));
@@ -479,6 +480,21 @@ input[type="radio"] {
   height: 100%;
   min-height: 0;
   overflow: visible;
+}
+
+.textEditLayout > .textEditToolbar {
+  grid-column: 1 / -1;
+  grid-row: 1;
+}
+
+.textEditLayout > .textEditControls {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.textEditLayout > .textPreviewPane {
+  grid-column: 2;
+  grid-row: 2;
 }
 
 .textEditLayout > .textEditControls,
@@ -517,6 +533,8 @@ input[type="radio"] {
 }
 
 .textEditModal .editorTextarea {
+  align-self: stretch;
+  width: 100%;
   height: 100%;
   min-height: 0;
   resize: none;
@@ -549,7 +567,7 @@ input[type="radio"] {
 
 .markdownHelpPanel {
   position: absolute;
-  inset: 50%;
+  inset: 0;
   z-index: 100;
 
   display: grid;
@@ -558,8 +576,9 @@ input[type="radio"] {
   height: 100%;
   min-height: 0;
   padding: 17px;
+  overflow-x: hidden;
   overflow-y: auto;
-  transform: translate(-50%, -50%);
+  transform: none;
   border: 0;
   border-radius: 8px;
   background: var(--panel);
@@ -582,8 +601,7 @@ input[type="radio"] {
   pointer-events: none;
 }
 
-.textEditModal:has(.markdownHelpTrigger:hover) .markdownHelpPanel,
-.textEditModal:has(.markdownHelpTrigger:focus-within) .markdownHelpPanel {
+.markdownHelpPanel.open {
   opacity: 1;
   pointer-events: auto;
   visibility: visible;
@@ -925,6 +943,7 @@ input[type="radio"] {
 
 .editModalBody {
   display: grid;
+  min-height: 0;
   gap: 10px;
   padding: 10px;
 }

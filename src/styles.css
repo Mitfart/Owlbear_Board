@@ -24,6 +24,23 @@
 
 * {
   box-sizing: border-box;
+  scrollbar-color: var(--accent) var(--panel-soft);
+  scrollbar-width: thin;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--panel-soft);
+}
+
+*::-webkit-scrollbar-thumb {
+  border: 2px solid var(--panel-soft);
+  border-radius: 8px;
+  background: var(--accent);
 }
 
 html,
@@ -448,6 +465,7 @@ input[type="radio"] {
 }
 
 .textEditModal {
+  position: relative;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   width: min(1100px, calc(100% - 28px));
@@ -492,42 +510,130 @@ input[type="radio"] {
   font-size: 12px;
 }
 
-.textPresentationOptions select { min-height: 28px; padding: 0 6px; }
-
-.markdownHelpPanel {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  z-index: 5;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(120px, 1fr));
-  gap: 8px;
-  width: min(650px, calc(100vw - 48px));
-  padding: 8px;
-  border: 1px dashed var(--accent);
-  border-radius: 8px;
-  background: var(--panel);
-  box-shadow: 0 14px 34px var(--shadow);
+.fillBlockButton.active,
+.verticalAlignmentButtons button.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
 }
 
-.markdownHelpCard {
-  display: grid;
-  align-content: start;
+.verticalAlignment {
+  display: flex;
+  align-items: center;
   gap: 6px;
-  min-width: 0;
-  padding: 8px;
-  border: 1px dashed var(--border-strong);
-  border-radius: 6px;
   color: var(--muted);
   font-size: 12px;
 }
 
-.markdownHelpCard strong { color: var(--text); }
-.markdownHelpCard code { white-space: nowrap; }
+.verticalAlignmentButtons {
+  display: flex;
+  gap: 4px;
+}
 
-.textEditToolbar button {
+.verticalAlignmentButtons button {
+  min-height: 28px;
+}
+
+.boardGroupButton {
+  justify-content: flex-start;
+  margin-top: 4px;
+}
+
+.textEditModal .editorTextarea {
+  resize: none;
+  overflow: auto;
+}
+
+.editTextTitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.textEditModal .modalHeader {
+  position: relative;
+}
+
+.markdownHelpTrigger {
+  position: absolute;
+  top: 50%;
+  right: calc(100% + 8px);
+  transform: translateY(-50%);
+}
+
+.markdownHelpButton {
+  width: 24px;
+  min-height: 24px;
+  padding: 0;
+  border-radius: 50%;
+}
+
+.markdownHelpPanel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  z-index: 5;
+  display: grid;
+  gap: 8px;
+  width: min(360px, calc(100vw - 48px));
+  padding: 14px;
+  transform: translateX(-50%);
+  border: 3px dashed var(--accent);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 14px 34px var(--shadow);
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.markdownHelpTrigger:hover .markdownHelpPanel,
+.markdownHelpTrigger:focus-within .markdownHelpPanel {
+  opacity: 1;
+  pointer-events: auto;
+  visibility: visible;
+}
+
+.markdownHelpPanel code {
+  white-space: pre-line;
+  color: var(--muted);
+}
+
+.markdownHelpPanel .markdown h1 {
+  margin: 0;
+  color: var(--text);
+}
+
+.textEditToolbar button,
+.verticalAlignmentButtons button {
   min-width: 34px;
   padding: 0 8px;
+}
+
+.alignmentDropdown {
+  position: relative;
+}
+
+.alignmentButton {
+  min-width: 58px !important;
+}
+
+.alignmentMenu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 4;
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--panel);
+  box-shadow: 0 8px 18px var(--shadow);
+}
+
+.alignmentMenu button {
+  min-width: 32px;
+  padding: 0;
 }
 
 .align-1 { text-align: center; }
@@ -577,27 +683,8 @@ input[type="radio"] {
   background: var(--panel-soft);
 }
 
-.editorTextarea,
 .textPreviewContent {
-  scrollbar-color: var(--accent) var(--panel-soft);
-  scrollbar-width: thin;
-}
-
-.editorTextarea::-webkit-scrollbar,
-.textPreviewContent::-webkit-scrollbar {
-  width: 10px;
-}
-
-.editorTextarea::-webkit-scrollbar-track,
-.textPreviewContent::-webkit-scrollbar-track {
-  background: var(--panel-soft);
-}
-
-.editorTextarea::-webkit-scrollbar-thumb,
-.textPreviewContent::-webkit-scrollbar-thumb {
-  border: 2px solid var(--panel-soft);
-  border-radius: 8px;
-  background: var(--accent);
+  overflow: auto;
 }
 
 .imageUrlRow,

@@ -299,7 +299,7 @@ export default function App() {
   async function createTextAt(target: { x: number; y: number }) {
     if (!activeBoard || readOnly) return;
     const position = firstFreeNear(activeBoard, target.x, target.y, 2, 1);
-    const item: BoardItem = { ...createItemBase(position.x, position.y, 2, 1), type: "text", text: "", textBaselineWidth: textBaselineSize("").width, textBaselineHeight: textBaselineSize("").height, fillBlock: true, textVerticalAlignment: "top", borderColor: DEFAULT_ITEM_BORDER_COLOR };
+    const item: BoardItem = { ...createItemBase(position.x, position.y, 2, 1), type: "text", text: "", textBaselineWidth: textBaselineSize("").width, fillBlock: true, textVerticalAlignment: "top", borderColor: DEFAULT_ITEM_BORDER_COLOR };
     await persistBoard({ ...activeBoard, items: [...activeBoard.items, item] });
     const alignment = preferences?.textAlignment ?? 0;
     setFocusedItemId(item.id); setNewFocusedItemId(item.id); setFocusDraft(alignment ? `^${alignment} ` : "");
@@ -349,7 +349,7 @@ export default function App() {
     if (!activeBoard || !focusedItemId) return; const item = activeBoard.items.find((candidate) => candidate.id === focusedItemId); if (!item) return; const text = focusDraft.trim();
     if (!text || /^\^[1-3]\s*$/.test(text)) { if (newFocusedItemId === focusedItemId) await deleteItem(focusedItemId); setFocusedItemId(undefined); setNewFocusedItemId(undefined); return; }
     const baseline = textBaselineSize(text);
-    await persistBoard({ ...activeBoard, items: activeBoard.items.map((candidate) => candidate.id === focusedItemId ? { ...candidate, text, textBaselineWidth: baseline.width, textBaselineHeight: baseline.height, fillBlock: textFillBlock, textVerticalAlignment, updatedAt: nowIso() } : candidate) }); setFocusedItemId(undefined); setNewFocusedItemId(undefined); setHasTextSelection(false); setMarkdownHelpOpen(false);
+    await persistBoard({ ...activeBoard, items: activeBoard.items.map((candidate) => candidate.id === focusedItemId ? { ...candidate, text, textBaselineWidth: baseline.width, fillBlock: textFillBlock, textVerticalAlignment, updatedAt: nowIso() } : candidate) }); setFocusedItemId(undefined); setNewFocusedItemId(undefined); setHasTextSelection(false); setMarkdownHelpOpen(false);
   }
   async function cancelFocusedText() { if (newFocusedItemId && activeBoard) await deleteItem(newFocusedItemId); setFocusedItemId(undefined); setNewFocusedItemId(undefined); setFocusDraft(""); setHasTextSelection(false); }
 

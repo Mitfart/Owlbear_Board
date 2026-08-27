@@ -141,7 +141,7 @@ export async function loadAllVisibleBoards(role: PlayerRole = "GM", playerId?: s
     loadPrivateBoardState("scene"), loadPrivateBoardState("room"), loadSharedBoardState("scene"), loadSharedBoardState("room"), loadGmSharedBoardState(),
   ]);
   const sceneKey = await getSceneKey();
-  const visibleGm = gmShared.boards.filter((board) => (board.scope === "room" || board.sceneKey === sceneKey) && role === "GM");
+  const visibleGm = gmShared.boards.filter((board) => (board.scope === "room" || board.sceneKey === sceneKey) && role === "GM" && board.ownerId !== playerId);
   return { privateScene, privateRoom, sharedScene, sharedRoom, gmShared: { version: 1 as const, boards: visibleGm }, boards: [...privateScene.boards, ...privateRoom.boards, ...sharedScene.boards, ...sharedRoom.boards, ...visibleGm] };
 }
 

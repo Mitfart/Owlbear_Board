@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canEditBoard, canRenameBoard, canViewGmSharedBoard, shouldShowBoardNameControl } from "./boardPermissions";
+import { canEditBoard, canRenameBoard, shouldShowBoardNameControl } from "./boardPermissions";
 import type { Board } from "./types";
 
 const board = (visibility: Board["visibility"], ownerId?: string): Board => ({
@@ -8,12 +8,16 @@ const board = (visibility: Board["visibility"], ownerId?: string): Board => ({
 });
 
 describe("Board sharing permissions", () => {
-  it("allows owners to edit and GMs to view, but not mutate, GM-shared boards", () => {
+  it("allows only the private owner to edit", () => {
     expect(canEditBoard(board("private", "owner"), "PLAYER", "owner")).toBe(true);
     expect(canEditBoard(board("private", "owner"), "PLAYER", "other")).toBe(false);
-    expect(canEditBoard(board("gm-shared", "owner"), "GM")).toBe(false);
-    expect(canViewGmSharedBoard(board("gm-shared", "owner"), "GM")).toBe(true);
-    expect(canViewGmSharedBoard(board("gm-shared", "owner"), "PLAYER", "other")).toBe(false);
+    expect(canEditBoard(board("private"), "PLAYER", "anyone")).toBe(false);
+  });
+
+  it("keeps every GM-shared mutation path read-only for GMs", () => {
+    for (const mutation of ["board editing", "item editing", "movement", "resizing", "deletion", "counter changes"]) {
+      expect(canEditBoard(board("gm-shared", "owner"), "GM"), mutation).toBe(false);
+    }
   });
 
   it("keeps shared-board rename behavior", () => {

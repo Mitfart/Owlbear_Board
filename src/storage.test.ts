@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SHARED_SCENE_STATE_KEY } from "./constants";
 import { getSceneKey, loadAllVisibleBoards, loadGmSharedBoardState, loadPrivateBoardState, movePrivateRoomBoardToScene, saveBoard, savePrivateBoardState, saveSharedBoardState } from "./storage";
+import type { BoardItem } from "./types";
 
 const obr = vi.hoisted(() => ({
   isAvailable: true,
@@ -62,12 +63,27 @@ describe("storage", () => {
     await expect(loadGmSharedBoardState()).resolves.toEqual(state);
   });
 
-  it("only exposes enabled boards to GMs", async () => {
+  it("only exposes enabled boards to GMs, not the private GM owner's copy", async () => {
     obr.isAvailable = false;
     await saveBoard({ ...shareableBoard, showToGM: true });
 
     await expect(loadAllVisibleBoards("PLAYER", "other")).resolves.toMatchObject({ gmShared: { boards: [] } });
+    await expect(loadAllVisibleBoards("GM", "owner")).resolves.toMatchObject({ gmShared: { boards: [] } });
     await expect(loadAllVisibleBoards("GM", "gm")).resolves.toMatchObject({ gmShared: { boards: [{ id: "shareable" }] } });
+  });
+
+  it("persists Fill Block and every vertical alignment through reload", async () => {
+    obr.isAvailable = false;
+    const alignments = ["top", "center", "bottom"] as const;
+    const items: BoardItem[] = alignments.flatMap((textVerticalAlignment) => [true, false].map((fillBlock, index) => ({
+      id: `${textVerticalAlignment}-${index}`, type: "text" as const, text: "Saved text", textBaselineWidth: 2, fillBlock, textVerticalAlignment,
+      gridX: index, gridY: 0, gridWidth: 2, gridHeight: 1, occupiedCells: [{ x: index, y: 0 }, { x: index + 1, y: 0 }],
+      createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z",
+    })));
+
+    await saveBoard({ ...shareableBoard, id: "presentation", items });
+
+    await expect(loadPrivateBoardState("room")).resolves.toMatchObject({ boards: [{ id: "presentation", items }] });
   });
 
   it("uses the demo scene key without Owlbear", async () => {

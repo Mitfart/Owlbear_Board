@@ -8,11 +8,7 @@ export function canRenameBoard(board: Board, role: PlayerRole) {
 
 export function canEditBoard(board: Board, role: PlayerRole, playerId?: string) {
   if (board.visibility === "gm-shared") return false;
-  return board.visibility !== "private" || !board.ownerId || board.ownerId === playerId;
-}
-
-export function canViewGmSharedBoard(board: Board, role: PlayerRole, playerId?: string) {
-  return role === "GM" || board.ownerId === playerId;
+  return board.visibility !== "private" || board.ownerId === playerId;
 }
 
 export function shouldShowBoardNameControl(board: Board, role: PlayerRole) {

@@ -465,6 +465,7 @@ input[type="radio"] {
 }
 
 .textEditModal {
+  position: relative;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   width: min(1100px, calc(100% - 28px));
@@ -548,8 +549,12 @@ input[type="radio"] {
   gap: 6px;
 }
 
-.markdownHelpTrigger {
+.textEditModal .modalHeader {
   position: relative;
+}
+
+.markdownHelpTrigger {
+  position: static;
 }
 
 .markdownHelpButton {

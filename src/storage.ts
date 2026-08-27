@@ -81,6 +81,16 @@ export async function loadPrivateBoardState(scope: BoardScope) {
   if (scope === "room") return normalizeBoardState(await readPlayerMetadata<PersistedBoardState>(PRIVATE_ROOM_STATE_KEY, emptyState()));
   const sceneKey = await getSceneKey();
   const states = await readPrivateSceneStates();
+  const pending = sceneKey !== "no-scene" ? states["no-scene"] : undefined;
+  if (pending) {
+    const merged = new Map((states[sceneKey]?.boards ?? []).map((board) => [board.id, board]));
+    for (const board of pending.boards) {
+      if ((merged.get(board.id)?.revision ?? -1) < board.revision) merged.set(board.id, board);
+    }
+    states[sceneKey] = { version: 1, boards: [...merged.values()] };
+    delete states["no-scene"];
+    await writePrivateSceneStates(states);
+  }
   return normalizeBoardState(states[sceneKey] ?? emptyState());
 }
 

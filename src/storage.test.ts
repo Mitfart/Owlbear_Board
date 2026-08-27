@@ -65,6 +65,17 @@ describe("storage", () => {
     await expect(loadPrivateBoardState("room")).resolves.toEqual(privateState);
   });
 
+  it("restores a scene board saved before scene readiness after reload", async () => {
+    const existing = { ...privateState, boards: [{ ...privateState.boards[0], id: "existing", scope: "scene" as const }] };
+    const saved = { ...privateState, boards: [{ ...privateState.boards[0], scope: "scene" as const }] };
+    obr.scene.getMetadata.mockResolvedValue({ "com.owlbear-board.grid/scene-key": "active-scene" });
+    obr.scene.isReady.mockResolvedValueOnce(true).mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    await savePrivateBoardState("scene", existing);
+    await savePrivateBoardState("scene", saved);
+
+    await expect(loadPrivateBoardState("scene")).resolves.toEqual({ version: 1, boards: [...existing.boards, ...saved.boards] });
+  });
+
   it("moves a private room board into the current scene", async () => {
     await savePrivateBoardState("room", privateState);
 

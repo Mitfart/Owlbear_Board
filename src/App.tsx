@@ -170,11 +170,17 @@ export default function App() {
 
   useEffect(() => {
     if (!OBR.isAvailable) { void refresh(); return; }
-    OBR.onReady(() => { setReady(true); void carrySharedBoardAcrossSceneTransition().then(refresh); void OBR.theme.getTheme().then(setTheme); });
-    return (OBR.scene as unknown as { onReadyChange(callback: (sceneReady: boolean) => void): () => void }).onReadyChange((sceneReady) => {
-      if (!sceneReady) beginSharedSceneTransition();
-      else { setReady(true); void carrySharedBoardAcrossSceneTransition().then(refresh); }
+    let cancelled = false;
+    let unsubscribe: (() => void) | undefined;
+    OBR.onReady(() => {
+      if (cancelled) return;
+      setReady(true); void carrySharedBoardAcrossSceneTransition().then(refresh); void OBR.theme.getTheme().then(setTheme);
+      unsubscribe = (OBR.scene as unknown as { onReadyChange(callback: (sceneReady: boolean) => void): () => void }).onReadyChange((sceneReady) => {
+        if (!sceneReady) beginSharedSceneTransition();
+        else { setReady(true); void carrySharedBoardAcrossSceneTransition().then(refresh); }
+      });
     });
+    return () => { cancelled = true; unsubscribe?.(); };
   }, [refresh]);
   useEffect(() => { if (!OBR.isAvailable || !ready) return; return OBR.theme.onChange(setTheme); }, [ready]);
   useEffect(() => {

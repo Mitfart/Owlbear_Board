@@ -519,7 +519,7 @@ export default function App() {
 
 function MarkdownHelp({ open, panelRef }: { open: boolean; panelRef: React.RefObject<HTMLDivElement | null> }) {
   return <div ref={panelRef} id="markdown-help-panel" className={`markdownHelpPanel ${open ? "open" : ""}`} role="dialog" aria-label="Markdown help" aria-hidden={!open}>
-    <strong>Markdown examples</strong>
+    <div className="markdownHelpContent"><strong>Markdown examples</strong>
     <section className="markdownHelpGroup"><strong>Headings</strong><div className="markdownSamples">
       <div className="markdownSample"><code># Heading</code><h1>Heading</h1></div>
       <div className="markdownSample"><code>## Heading</code><h2>Heading</h2></div>
@@ -543,7 +543,7 @@ function MarkdownHelp({ open, panelRef }: { open: boolean; panelRef: React.RefOb
       <div className="markdownSample"><code>^2 right</code><p className="align-2">Right-aligned text</p></div>
       <div className="markdownSample"><code>^3 justified</code><p className="align-3">Justified text</p></div>
     </div></section>
-    <span>Links open safely in a new tab.</span>
+    </div>
   </div>;
 }
 

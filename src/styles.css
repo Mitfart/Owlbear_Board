@@ -488,49 +488,18 @@ input[type="radio"] {
 
 .textEditToolbar {
   position: relative;
+  z-index: 1;
   grid-column: 1 / -1;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  align-items: center;
   gap: 6px;
+  overflow-x: auto;
 }
 
-.textPresentationOptions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-  padding: 4px 0;
-}
-
-.textPresentationOptions label {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.fillBlockButton.active,
-.verticalAlignmentButtons button.active {
+.fillBlockButton.active {
   border-color: var(--accent);
   background: var(--accent-soft);
-}
-
-.verticalAlignment {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.verticalAlignmentButtons {
-  display: flex;
-  gap: 4px;
-}
-
-.verticalAlignmentButtons button {
-  min-height: 28px;
 }
 
 .boardGroupButton {
@@ -569,15 +538,15 @@ input[type="radio"] {
 
 .markdownHelpPanel {
   position: absolute;
-  top: calc(100% + 8px);
+  top: 48px;
   left: 50%;
-  z-index: 5;
+  z-index: 20;
   display: grid;
   gap: 8px;
-  width: min(360px, calc(100vw - 48px));
+  width: min(360px, calc(100% - 24px));
   padding: 14px;
   transform: translateX(-50%);
-  border: 3px dashed var(--accent);
+  border: 9px dashed var(--accent);
   border-radius: 8px;
   background: var(--panel);
   box-shadow: 0 14px 34px var(--shadow);
@@ -586,21 +555,32 @@ input[type="radio"] {
   visibility: hidden;
 }
 
-.markdownHelpTrigger:hover .markdownHelpPanel,
-.markdownHelpTrigger:focus-within .markdownHelpPanel {
+.textEditModal:has(.markdownHelpTrigger:hover) .markdownHelpPanel,
+.textEditModal:has(.markdownHelpTrigger:focus-within) .markdownHelpPanel {
   opacity: 1;
   pointer-events: auto;
   visibility: visible;
 }
 
-.markdownHelpPanel code {
-  white-space: pre-line;
-  color: var(--muted);
+.markdownSamples {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-.markdownHelpPanel .markdown h1 {
-  margin: 0;
-  color: var(--text);
+.markdownSamples li + li {
+  padding-top: 4px;
+}
+
+.markdownHelpPanel .markdown h1,
+.markdownHelpPanel .markdown h2,
+.markdownHelpPanel .markdown p,
+.markdownHelpPanel .markdown ul,
+.markdownHelpPanel .markdown blockquote,
+.markdownHelpPanel .markdown pre {
+  margin-bottom: 0;
 }
 
 .textEditToolbar button,

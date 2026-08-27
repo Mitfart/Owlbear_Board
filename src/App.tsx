@@ -133,7 +133,7 @@ export default function App() {
   const boardDraft = useRef<Board | undefined>(undefined);
   const activeBoard = useMemo(() => boards.find((board) => board.id === activeBoardId), [activeBoardId, boards]);
   boardDraft.current = activeBoard;
-  const showPreview = !activeBoard && !previewDismissed;
+  const showPreview = !activeBoard && boards.length === 0 && !previewDismissed;
   const displayBoard = activeBoard ?? (showPreview ? sampleBoard() : undefined);
   const isPreview = displayBoard?.id === "preview";
   const readOnly = !!activeBoard && !canEditBoard(activeBoard, playerRole, playerId);

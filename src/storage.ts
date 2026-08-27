@@ -19,6 +19,11 @@ type PrivateSceneStates = Record<string, PersistedBoardState>;
 
 const emptyState = (): PersistedBoardState => ({ version: 1, boards: [] });
 
+function normalizedGridValue(value: unknown, fallback: number, minimum?: number) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.max(minimum ?? -Infinity, Math.trunc(number)) : fallback;
+}
+
 export function normalizeBoardState(state: PersistedBoardState): PersistedBoardState {
   return {
     ...state,
@@ -26,7 +31,7 @@ export function normalizeBoardState(state: PersistedBoardState): PersistedBoardS
       ...board,
       items: board.items.map((item) => {
         const { occupiedCells: _legacyOccupiedCells, ...normalizedItem } = item as BoardItem & { occupiedCells?: unknown };
-        return { ...normalizedItem, gridWidth: Math.max(1, Number(normalizedItem.gridWidth) || 1), gridHeight: Math.max(1, Number(normalizedItem.gridHeight) || 1) };
+        return { ...normalizedItem, gridX: normalizedGridValue(normalizedItem.gridX, 0), gridY: normalizedGridValue(normalizedItem.gridY, 0), gridWidth: normalizedGridValue(normalizedItem.gridWidth, 1, 1), gridHeight: normalizedGridValue(normalizedItem.gridHeight, 1, 1) };
       }),
     })),
   };
@@ -210,11 +215,15 @@ export type BoardSavingBehavior = {
 };
 
 // The Board layer owns mutation semantics; metadata/local storage is its replaceable adapter.
-export const boardSaving: BoardSavingBehavior = {
+export let boardSaving: BoardSavingBehavior = {
   save: saveBoardToMetadata,
   delete: deleteBoardFromMetadata,
   relocate: relocateBoardInMetadata,
 };
+
+export function setBoardSavingBehavior(behavior: BoardSavingBehavior) {
+  boardSaving = behavior;
+}
 
 export const saveBoard = (board: Board) => boardSaving.save(board);
 export const deleteBoard = (board: Board) => boardSaving.delete(board);

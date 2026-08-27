@@ -99,10 +99,10 @@ describe("storage", () => {
   });
 
   it("normalizes legacy derived occupancy when loading", () => {
-    const legacy = { ...shareableBoard, items: [{ id: "item", type: "text" as const, gridX: 2, gridY: 3, gridWidth: 0, gridHeight: -1, occupiedCells: [{ x: 99, y: 99 }], createdAt: "", updatedAt: "" }] };
+    const legacy = { ...shareableBoard, items: [{ id: "item", type: "text" as const, gridX: Infinity, gridY: 3.5, gridWidth: Infinity, gridHeight: -1, occupiedCells: [{ x: 99, y: 99 }], createdAt: "", updatedAt: "" }] };
     const normalized = normalizeBoardState({ version: 1, boards: [legacy] });
 
-    expect(normalized.boards[0].items[0]).toEqual(expect.objectContaining({ gridX: 2, gridY: 3, gridWidth: 1, gridHeight: 1 }));
+    expect(normalized.boards[0].items[0]).toEqual(expect.objectContaining({ gridX: 0, gridY: 3, gridWidth: 1, gridHeight: 1 }));
     expect("occupiedCells" in normalized.boards[0].items[0]).toBe(false);
   });
 

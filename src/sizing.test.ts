@@ -1,11 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { autoImageSize, autoTextSize, normalizeCounterValue, parseItemSize } from "./sizing";
+import { autoImageSize, autoTextSize, normalizeCounterValue, parseItemSize, textBaselineSize, textFillScale } from "./sizing";
 
 describe("counter values", () => {
   it("normalizes invalid, fractional, and capped values", () => {
     expect(normalizeCounterValue(-1)).toBe(0);
     expect(normalizeCounterValue(2.8)).toBe(2);
     expect(normalizeCounterValue(9, 4)).toBe(4);
+  });
+});
+
+describe("text presentation sizing", () => {
+  it("produces the unitless Fill Block scale for CSS", () => {
+    expect(textFillScale(8, 4)).toBe(2);
+    expect(textFillScale(1, 8)).toBe(0.25);
+  });
+
+  it("recalculates a baseline without depending on item bounds", () => {
+    expect(textBaselineSize("short")).toEqual(autoTextSize("short"));
+    expect(textBaselineSize("one\ntwo\nthree\nfour\nfive").height).toBeGreaterThan(textBaselineSize("short").height);
   });
 });
 

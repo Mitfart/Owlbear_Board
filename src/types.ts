@@ -11,6 +11,10 @@ export type BoardItem = {
   id: string;
   type: BoardItemType;
   text?: string;
+  textBaselineWidth?: number;
+  textBaselineHeight?: number;
+  fillBlock?: boolean;
+  textVerticalAlignment?: "top" | "center" | "bottom";
   imageUrl?: string;
   borderColor?: string;
   imageFit?: "cover" | "contain";

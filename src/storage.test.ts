@@ -52,6 +52,18 @@ describe("storage", () => {
     await expect(loadPrivateBoardState("scene")).resolves.toMatchObject({ boards: [{ id: "saved", scope: "scene", revision: 2 }] });
   });
 
+  it("republishes GM sharing with the destination scene when moving a room board", async () => {
+    obr.isAvailable = false;
+    const shared = { ...shareableBoard, showToGM: true };
+
+    await saveBoard(shared);
+    await movePrivateRoomBoardToScene(shared);
+
+    await expect(loadGmSharedBoardState()).resolves.toMatchObject({
+      boards: [{ id: "shareable", visibility: "gm-shared", scope: "scene", sceneKey: "demo" }],
+    });
+  });
+
   it("persists default-off sharing and revocation", async () => {
     obr.isAvailable = false;
 

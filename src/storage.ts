@@ -178,6 +178,11 @@ export async function movePrivateRoomBoardToScene(board: Board) {
   const moved = { ...board, scope: "scene" as const, revision: board.revision + 1 };
   await savePrivateBoardState("scene", { version: 1, boards: [...scene.boards.filter((candidate) => candidate.id !== board.id), moved] });
   await deleteBoard(board);
+  if (board.showToGM) {
+    const published = (await loadGmSharedBoardState()).boards.filter((candidate) => candidate.id !== board.id);
+    published.push({ ...moved, visibility: "gm-shared", sceneKey: await getSceneKey() });
+    await saveGmSharedBoardState({ version: 1, boards: published });
+  }
   return moved;
 }
 

@@ -37,6 +37,18 @@ describe("Board Session", () => {
       board({ id: "a", ownerName: "Ada", name: "Bravo", visibility: "gm-shared" }),
     ])).toMatchObject([{ playerName: "Ada", boards: [{ id: "a" }] }, { playerName: "Zoe", boards: [{ id: "b" }] }]);
   });
+  it("keeps same-name players in separate GM-shared groups", () => {
+    const boards = [
+      board({ id: "one", ownerId: "player-1", ownerName: "Alex", visibility: "gm-shared" }),
+      board({ id: "two", ownerId: "player-2", ownerName: "Alex", visibility: "gm-shared" }),
+    ];
+
+    expect(groupPlayerBoards(boards)).toMatchObject([
+      { playerName: "Alex", boards: [{ id: "one" }] },
+      { playerName: "Alex", boards: [{ id: "two" }] },
+    ]);
+  });
+
   it("orders Private Boards by Board Open Order before recency", () => {
     const old = privateBoard("old", "scene", "2026-01-01T00:00:00.000Z");
     const recent = privateBoard("recent", "scene", "2026-01-02T00:00:00.000Z");

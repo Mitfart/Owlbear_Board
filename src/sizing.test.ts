@@ -10,7 +10,7 @@ describe("counter values", () => {
 });
 
 describe("text presentation sizing", () => {
-  it("scales from the saved baseline with a quarter minimum", () => {
+  it("produces the unitless Fill Block scale for CSS", () => {
     expect(textFillScale(8, 4)).toBe(2);
     expect(textFillScale(1, 8)).toBe(0.25);
   });

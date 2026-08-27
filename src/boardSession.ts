@@ -18,10 +18,15 @@ export type PlayerBoardGroup = { playerName: string; boards: Board[] };
 export function groupPlayerBoards(boards: Board[]): PlayerBoardGroup[] {
   const groups = new Map<string, Board[]>();
   for (const board of boards) {
-    const name = board.ownerName || board.ownerId || "Unknown player";
-    groups.set(name, [...(groups.get(name) ?? []), board]);
+    const ownerId = board.ownerId || board.ownerName || "unknown";
+    groups.set(ownerId, [...(groups.get(ownerId) ?? []), board]);
   }
-  return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([playerName, grouped]) => ({ playerName, boards: grouped.sort((a, b) => a.name.localeCompare(b.name)) }));
+  return [...groups.values()]
+    .map((grouped) => ({
+      playerName: grouped[0].ownerName || grouped[0].ownerId || "Unknown player",
+      boards: grouped.sort((a, b) => a.name.localeCompare(b.name)),
+    }))
+    .sort((a, b) => a.playerName.localeCompare(b.playerName));
 }
 
 export type BoardSessionModel = {

@@ -41,8 +41,20 @@ Markdown-compatible emphasis choices that control the presentation of selected t
 _Avoid_: Rich text, node style
 
 **Text Block**:
-A rendered Markdown unit within a Text Board Item, such as a heading, paragraph, list item, quote, or code block. A Text Block has its own alignment.
+A rendered Markdown unit within a Text Board Item, such as a heading, paragraph, list item, quote, or code block. A Text Block has its own horizontal alignment.
 _Avoid_: Row, node, line
+
+**Text Board Item Vertical Alignment**:
+The vertical placement of all Markdown content within a Text Board Item: top, center, or bottom.
+_Avoid_: Text block alignment, vertical text alignment
+
+**Text Board Item Baseline Size**:
+The natural grid dimensions calculated from a Text Board Item’s current Markdown whenever its text is saved. It determines the unscaled Markdown size within the item, not the item bounds.
+_Avoid_: Default size, original size
+
+**Fill Block**:
+The default Text Board Item presentation where Markdown scales with the item width relative to its Text Board Item Baseline Size while overflow remains scrollable. Item bounds change only when the user resizes them. When disabled, the item keeps the existing presentation.
+_Avoid_: Auto-size, stretch
 
 **Image Board Item**:
 A board item whose content is an image.
@@ -81,11 +93,15 @@ A board visible and editable only by the user who created it.
 _Avoid_: Own board, personal project
 
 **Shared Board**:
-A board visible and editable by all users in the Owlbear room, including the GM and players. There is at most one shared scene board per scene and one shared room board per room. Any user may create a shared board when it does not already exist, and any user may add, change, move, resize, or delete content on it.
+A board visible and editable by all users in the Owlbear room, including GMs and players. There is at most one shared scene board per scene and one shared room board per room. Any user may create one and edit its content; only GMs may rename it.
 _Avoid_: Public board, global board
 
+**GM-shared Board**:
+A board visible to its player owner and every GM in the Owlbear room. The player may change it while GMs may view it.
+_Avoid_: Private shared board, player-GM board
+
 **Board Owner**:
-The user associated with board ownership. Private boards are owned by their creator, while shared boards are owned by the Owlbear room owner when known; ownership is informational and does not limit who can edit shared boards.
+The user associated with board ownership. Private and GM-shared boards are owned by their creator, while shared boards are owned by the Owlbear room owner when known; ownership is informational and does not limit content editing where that is allowed.
 _Avoid_: Admin, moderator
 
 ## Example dialogue

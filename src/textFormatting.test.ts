@@ -15,4 +15,8 @@ describe("toggleMarkdownStyle", () => {
   it("unwraps markers included in the selection", () => {
     expect(toggleMarkdownStyle("hello **world**", 6, 15, "**")).toEqual({ value: "hello world", selectionStart: 6, selectionEnd: 11 });
   });
+
+  it("removes nested pairs when included and surrounding the selection", () => {
+    expect(toggleMarkdownStyle("hello ****world****", 8, 17, "**")).toEqual({ value: "hello world", selectionStart: 6, selectionEnd: 11 });
+  });
 });

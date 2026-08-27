@@ -325,7 +325,7 @@ export default function App() {
     const item: BoardItem = { ...createItemBase(position.x, position.y, 2, 1), type: "text", text: "", textBaselineWidth: textBaselineSize("").width, fillBlock: true, textVerticalAlignment: "top", borderColor: DEFAULT_ITEM_BORDER_COLOR };
     await persistBoard({ ...activeBoard, items: [...activeBoard.items, item] });
     const alignment = preferences?.textAlignment ?? 0;
-    setFocusedItemId(item.id); setNewFocusedItemId(item.id); setFocusDraft(alignment ? `^${alignment} ` : ""); setHorizontalAlignmentOpen(false);
+    setFocusedItemId(item.id); setNewFocusedItemId(item.id); setFocusDraft(alignment ? `^${alignment} ` : ""); setHorizontalAlignmentOpen(false); setVerticalAlignmentOpen(false);
   }
 
   async function addImage(source?: string, imageSize?: { width: number; height: number }) {
@@ -352,7 +352,7 @@ export default function App() {
     if (!activeBoard || !canEditBoard(activeBoard, playerRole, playerId)) return;
     textEditorReturnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setFocusedItemId(item.id);
-    if (item.type === "text") { setFocusDraft(item.text ?? ""); setTextFillBlock(item.fillBlock !== false); setTextVerticalAlignment(item.textVerticalAlignment ?? "top"); setHorizontalAlignmentOpen(false); setHasTextSelection(false); setImageEdit(undefined); setCounterEdit(undefined); }
+    if (item.type === "text") { setFocusDraft(item.text ?? ""); setTextFillBlock(item.fillBlock !== false); setTextVerticalAlignment(item.textVerticalAlignment ?? "top"); setHorizontalAlignmentOpen(false); setVerticalAlignmentOpen(false); setHasTextSelection(false); setImageEdit(undefined); setCounterEdit(undefined); }
     else if (item.type === "image") { setImageEdit({ itemId: item.id, url: item.imageUrl ?? "", borderColor: item.borderColor ?? DEFAULT_ITEM_BORDER_COLOR, imageFit: item.imageFit ?? "cover" }); setCounterEdit(undefined); }
     else setCounterEdit({ itemId: item.id, label: item.counterLabel ?? "", labelPosition: item.counterLabelPosition ?? "top-center", value: String(item.counterValue ?? 0), max: item.counterMax === undefined ? "" : String(item.counterMax), borderColor: item.borderColor ?? DEFAULT_ITEM_BORDER_COLOR, zeroColorEnabled: !!item.counterZeroColorEnabled, zeroColor: item.counterZeroColor ?? DEFAULT_COUNTER_ZERO_COLOR, maxColorEnabled: !!item.counterMaxColorEnabled, maxColor: item.counterMaxColor ?? DEFAULT_COUNTER_MAX_COLOR, dimAtZero: item.counterDimAtZero ?? true });
   }
@@ -371,11 +371,11 @@ export default function App() {
   async function deleteItem(itemId: string) { if (!activeBoard || readOnly) return; await persistBoard({ ...activeBoard, items: activeBoard.items.filter((item) => item.id !== itemId) }); setContextItem(undefined); setSelectedItemId(undefined); }
   async function saveFocusedText() {
     if (!activeBoard || !focusedItemId) return; const item = activeBoard.items.find((candidate) => candidate.id === focusedItemId); if (!item) return; const text = focusDraft.trim();
-    if (!text || /^\^[1-3]\s*$/.test(text)) { if (newFocusedItemId === focusedItemId) await deleteItem(focusedItemId); setFocusedItemId(undefined); setNewFocusedItemId(undefined); setHorizontalAlignmentOpen(false); return; }
+    if (!text || /^\^[1-3]\s*$/.test(text)) { if (newFocusedItemId === focusedItemId) await deleteItem(focusedItemId); setFocusedItemId(undefined); setNewFocusedItemId(undefined); setHorizontalAlignmentOpen(false); setVerticalAlignmentOpen(false); return; }
     const baseline = textBaselineSize(text);
-    await persistBoard({ ...activeBoard, items: activeBoard.items.map((candidate) => candidate.id === focusedItemId ? { ...candidate, text, textBaselineWidth: baseline.width, fillBlock: textFillBlock, textVerticalAlignment, updatedAt: nowIso() } : candidate) }); setFocusedItemId(undefined); setNewFocusedItemId(undefined); setHasTextSelection(false); setHorizontalAlignmentOpen(false);
+    await persistBoard({ ...activeBoard, items: activeBoard.items.map((candidate) => candidate.id === focusedItemId ? { ...candidate, text, textBaselineWidth: baseline.width, fillBlock: textFillBlock, textVerticalAlignment, updatedAt: nowIso() } : candidate) }); setFocusedItemId(undefined); setNewFocusedItemId(undefined); setHasTextSelection(false); setHorizontalAlignmentOpen(false); setVerticalAlignmentOpen(false);
   }
-  async function cancelFocusedText() { if (newFocusedItemId && activeBoard) await deleteItem(newFocusedItemId); setFocusedItemId(undefined); setNewFocusedItemId(undefined); setFocusDraft(""); setHasTextSelection(false); }
+  async function cancelFocusedText() { if (newFocusedItemId && activeBoard) await deleteItem(newFocusedItemId); setFocusedItemId(undefined); setNewFocusedItemId(undefined); setFocusDraft(""); setHasTextSelection(false); setVerticalAlignmentOpen(false); }
 
   async function saveFocusedImage() {
     if (!activeBoard || !imageEdit) return;
@@ -499,7 +499,7 @@ export default function App() {
 }
 
 function MarkdownHelp() {
-  return <div className="markdownHelpPanel" role="dialog" aria-label="Markdown help"><strong>Markdown examples</strong><code># H1<br />**bold** and *italic*<br />- list item</code><MarkdownView value="# H1\n**Bold** and *italic*\n- List item" /><span>Links open safely in a new tab.</span></div>;
+  return <div className="markdownHelpPanel" role="dialog" aria-label="Markdown help"><strong>Markdown examples</strong><ul className="markdownSamples"><li><h1># HEADER 1</h1></li><li><h2>## HEADER 2</h2></li><li><h3>### HEADER 3</h3></li><li><strong>**bold**</strong> and <em>*italic*</em></li><li><blockquote>&gt; blockquote</blockquote></li><li><ul><li>- list item</li></ul></li><li><pre>```\ncode\n```</pre></li></ul><span>Links open safely in a new tab.</span></div>;
 }
 
 function BoardItemView({ item, selected, cellSize, cellGap, onResizePointerDown, onDoubleClick, onCounterChange, readOnly = false }: { item: BoardItem; selected: boolean; cellSize: number; cellGap: number; onResizePointerDown: (event: React.PointerEvent<HTMLElement>, item: BoardItem) => void; onDoubleClick: (item: BoardItem) => void; onCounterChange: (item: BoardItem, delta: number) => void; readOnly?: boolean }) {

@@ -1,13 +1,14 @@
 export function toggleMarkdownStyle(value: string, selectionStart: number, selectionEnd: number, marker: "*" | "**") {
   const selected = value.slice(selectionStart, selectionEnd);
-  const hasInnerMarkers = selected.startsWith(marker) && selected.endsWith(marker) && selected.length >= marker.length * 2;
-  const hasOuterMarkers = value.slice(selectionStart - marker.length, selectionStart) === marker && value.slice(selectionEnd, selectionEnd + marker.length) === marker;
+  let innerPairs = 0;
+  while (selected.slice(innerPairs * marker.length, selected.length - innerPairs * marker.length).startsWith(marker) && selected.slice(innerPairs * marker.length, selected.length - innerPairs * marker.length).endsWith(marker)) innerPairs += 1;
+  let outerPairs = 0;
+  while (value.slice(selectionStart - (outerPairs + 1) * marker.length, selectionStart - outerPairs * marker.length) === marker && value.slice(selectionEnd + outerPairs * marker.length, selectionEnd + (outerPairs + 1) * marker.length) === marker) outerPairs += 1;
 
-  if (hasInnerMarkers) {
-    return { value: value.slice(0, selectionStart) + selected.slice(marker.length, -marker.length) + value.slice(selectionEnd), selectionStart, selectionEnd: selectionEnd - marker.length * 2 };
-  }
-  if (hasOuterMarkers) {
-    return { value: value.slice(0, selectionStart - marker.length) + selected + value.slice(selectionEnd + marker.length), selectionStart: selectionStart - marker.length, selectionEnd: selectionEnd - marker.length };
+  if (innerPairs || outerPairs) {
+    const content = selected.slice(innerPairs * marker.length, selected.length - innerPairs * marker.length);
+    const start = selectionStart - outerPairs * marker.length;
+    return { value: value.slice(0, start) + content + value.slice(selectionEnd + outerPairs * marker.length), selectionStart: start, selectionEnd: start + content.length };
   }
   return { value: value.slice(0, selectionStart) + marker + selected + marker + value.slice(selectionEnd), selectionStart: selectionStart + marker.length, selectionEnd: selectionEnd + marker.length };
 }

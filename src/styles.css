@@ -564,23 +564,15 @@ input[type="radio"] {
 
 .markdownSamples {
   display: grid;
-  gap: 12px;
+  gap: 16px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.markdownSamples li + li {
-  padding-top: 4px;
-}
-
-.markdownHelpPanel .markdown h1,
-.markdownHelpPanel .markdown h2,
-.markdownHelpPanel .markdown p,
-.markdownHelpPanel .markdown ul,
-.markdownHelpPanel .markdown blockquote,
-.markdownHelpPanel .markdown pre {
-  margin-bottom: 0;
+.markdownSamples li {
+  display: grid;
+  gap: 4px;
 }
 
 .textEditToolbar button,
@@ -594,7 +586,8 @@ input[type="radio"] {
 }
 
 .alignmentButton {
-  min-width: 58px !important;
+  min-width: 0 !important;
+  padding: 0 4px !important;
 }
 
 .alignmentMenu {

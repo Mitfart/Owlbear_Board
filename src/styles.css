@@ -473,15 +473,18 @@ input[type="radio"] {
 }
 
 .textEditLayout {
+  position: relative;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr);
   height: 100%;
   min-height: 0;
+  overflow: visible;
 }
 
 .textEditControls {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
+  height: 100%;
   min-width: 0;
   min-height: 0;
 }
@@ -491,10 +494,10 @@ input[type="radio"] {
   z-index: 1;
   grid-column: 1 / -1;
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
-  overflow-x: auto;
+  overflow: visible;
 }
 
 .fillBlockButton.active {
@@ -508,6 +511,8 @@ input[type="radio"] {
 }
 
 .textEditModal .editorTextarea {
+  height: 100%;
+  min-height: 0;
   resize: none;
   overflow: auto;
 }
@@ -543,8 +548,11 @@ input[type="radio"] {
 
   display: grid;
   gap: 8px;
-  width: min(360px, calc(100% - 24px));
+  width: 100%;
+  height: 100%;
+  min-height: 0;
   padding: 14px;
+  overflow-y: auto;
   transform: translate(-50%, -50%);
   border: 9px dashed var(--accent);
   border-radius: 8px;
@@ -655,6 +663,7 @@ input[type="radio"] {
 .textPreviewPane {
   display: grid;
   grid-template-rows: minmax(0, 1fr);
+  height: 100%;
   min-width: 0;
   min-height: 0;
 }

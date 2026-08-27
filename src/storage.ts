@@ -1,13 +1,13 @@
 import OBR from "@owlbear-rodeo/sdk";
 import {
   DEFAULT_WINDOW,
+  EXTENSION_ID,
   PLAYER_PREFERENCES_KEY,
   PRIVATE_ROOM_STATE_KEY,
   PRIVATE_SCENE_STATES_KEY,
   ROOM_OWNER_KEY,
   SCENE_KEY_METADATA,
   SHARED_ROOM_STATE_KEY,
-  SHARED_SCENE_STATE_KEY,
   GM_SHARED_BOARD_STATE_KEY,
 } from "./constants";
 import { createId } from "./ids";
@@ -44,29 +44,6 @@ const emptyPreferences = (): PlayerPreferences => ({
   viewportByBoardId: {},
 });
 
-function canUseLocalStorage() {
-  return typeof localStorage !== "undefined";
-}
-
-function localKey(key: string) {
-  return `${key}:guest:${OBR.isAvailable ? OBR.room.id : "demo"}`;
-}
-
-function readLocal<T>(key: string, fallback: T): T {
-  if (!canUseLocalStorage()) return fallback;
-  try {
-    const raw = localStorage.getItem(localKey(key));
-    return raw ? (JSON.parse(raw) as T) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function writeLocal<T>(key: string, value: T) {
-  if (!canUseLocalStorage()) return;
-  localStorage.setItem(localKey(key), JSON.stringify(value));
-}
-
 export async function getSceneKey() {
   if (!OBR.isAvailable) return "demo";
   const ready = await OBR.scene.isReady();
@@ -82,16 +59,13 @@ export async function getSceneKey() {
 }
 
 async function readPlayerMetadata<T>(key: string, fallback: T): Promise<T> {
-  if (!OBR.isAvailable) return readLocal(key, fallback);
-  const metadata = await OBR.player.getMetadata();
-  const raw = metadata[key];
-  return raw && typeof raw === "object" ? (raw as T) : readLocal(key, fallback);
+  if (!OBR.isAvailable) return fallback;
+  const raw = (await OBR.player.getMetadata())[key];
+  return raw && typeof raw === "object" ? (raw as T) : fallback;
 }
 
 async function writePlayerMetadata<T>(key: string, value: T) {
-  writeLocal(key, value);
-  if (!OBR.isAvailable) return;
-  await OBR.player.setMetadata({ [key]: value });
+  if (OBR.isAvailable) await OBR.player.setMetadata({ [key]: value });
 }
 
 async function readPrivateSceneStates() {
@@ -124,38 +98,62 @@ function isPersistedBoardState(value: unknown): value is PersistedBoardState {
   return !!value && typeof value === "object" && (value as PersistedBoardState).version === 1 && Array.isArray((value as PersistedBoardState).boards);
 }
 
+const SHARED_SCENE_DATA_NAMESPACE = `${EXTENSION_ID}/shared-scene-board`;
+type SharedSceneDataRecord = { namespace: typeof SHARED_SCENE_DATA_NAMESPACE; version: 1; state: PersistedBoardState };
+type SceneDataItem = { id?: string; type: string; data?: unknown; [key: string]: unknown };
+
+function sharedSceneRecord(item: SceneDataItem): SharedSceneDataRecord | undefined {
+  const record = item.data;
+  if (!record || typeof record !== "object") return undefined;
+  const candidate = record as Partial<SharedSceneDataRecord>;
+  return candidate.namespace === SHARED_SCENE_DATA_NAMESPACE && candidate.version === 1 && isPersistedBoardState(candidate.state)
+    ? candidate as SharedSceneDataRecord : undefined;
+}
+
+async function getSharedSceneDataItem() {
+  if (!OBR.isAvailable || !(OBR.scene as unknown as { items?: unknown }).items) return undefined;
+  const items = await (OBR.scene as unknown as { items: { getItems(): Promise<SceneDataItem[]> } }).items.getItems();
+  return items.filter((item) => item.type === "DATA").map((item) => ({ item, record: sharedSceneRecord(item) })).filter((entry): entry is { item: SceneDataItem; record: SharedSceneDataRecord } => !!entry.record)
+    .sort((a, b) => Math.max(...b.record.state.boards.map((board) => board.revision), -1) - Math.max(...a.record.state.boards.map((board) => board.revision), -1))[0];
+}
+
 export async function loadSharedBoardState(scope: BoardScope) {
-  if (!OBR.isAvailable) return normalizeBoardState(readLocal(scope === "room" ? SHARED_ROOM_STATE_KEY : SHARED_SCENE_STATE_KEY, emptyState()));
-  const metadata = scope === "room" ? await OBR.room.getMetadata() : await OBR.scene.getMetadata();
-  const raw = metadata[scope === "room" ? SHARED_ROOM_STATE_KEY : SHARED_SCENE_STATE_KEY];
+  if (scope === "scene") return normalizeBoardState((await getSharedSceneDataItem())?.record.state ?? emptyState());
+  if (!OBR.isAvailable) return emptyState();
+  const raw = (await OBR.room.getMetadata())[SHARED_ROOM_STATE_KEY];
   return isPersistedBoardState(raw) ? normalizeBoardState(raw) : emptyState();
 }
 
 export async function loadGmSharedBoardState() {
-  if (!OBR.isAvailable) return readLocal(GM_SHARED_BOARD_STATE_KEY, emptyState());
+  if (!OBR.isAvailable) return emptyState();
   const metadata = await OBR.room.getMetadata();
   return isPersistedBoardState(metadata[GM_SHARED_BOARD_STATE_KEY]) ? normalizeBoardState(metadata[GM_SHARED_BOARD_STATE_KEY] as PersistedBoardState) : emptyState();
 }
 
 export async function saveGmSharedBoardState(state: PersistedBoardState) {
-  if (!OBR.isAvailable) { writeLocal(GM_SHARED_BOARD_STATE_KEY, normalizeBoardState(state)); return; }
+  if (!OBR.isAvailable) return;
   const metadata = await OBR.room.getMetadata();
   await OBR.room.setMetadata({ ...metadata, [GM_SHARED_BOARD_STATE_KEY]: normalizeBoardState(state) });
 }
 
 export async function saveSharedBoardState(scope: BoardScope, state: PersistedBoardState) {
-  if (!OBR.isAvailable) {
-    writeLocal(scope === "room" ? SHARED_ROOM_STATE_KEY : SHARED_SCENE_STATE_KEY, normalizeBoardState(state));
+  const normalized = normalizeBoardState(state);
+  if (scope === "room") {
+    if (!OBR.isAvailable) return;
+    const metadata = await OBR.room.getMetadata();
+    await OBR.room.setMetadata({ ...metadata, [SHARED_ROOM_STATE_KEY]: normalized });
     return;
   }
-  if (scope === "room") {
-    const metadata = await OBR.room.getMetadata();
-    await OBR.room.setMetadata({ ...metadata, [SHARED_ROOM_STATE_KEY]: normalizeBoardState(state) });
-  }
-  else {
-    const metadata = await OBR.scene.getMetadata();
-    await OBR.scene.setMetadata({ ...metadata, [SHARED_SCENE_STATE_KEY]: normalizeBoardState(state) });
-  }
+  if (!OBR.isAvailable) return;
+  const existing = await getSharedSceneDataItem();
+  const data = { namespace: SHARED_SCENE_DATA_NAMESPACE, version: 1 as const, state: normalized } satisfies SharedSceneDataRecord;
+  const item = existing ? { ...existing.item, type: "DATA", data, visible: false, locked: true, disableHit: true } : {
+    type: "DATA", data, visible: false, locked: true, disableHit: true,
+    position: { x: 0, y: 0 }, rotation: 0, scale: { x: 1, y: 1 }, layer: "FOREGROUND",
+  };
+  const items = (OBR.scene as unknown as { items: { addItems(items: unknown[]): Promise<unknown>; updateItems(ids: string[], update: (item: SceneDataItem) => SceneDataItem): Promise<unknown> } }).items;
+  if (existing?.item.id) await items.updateItems([existing.item.id], () => item);
+  else await items.addItems([item]);
 }
 
 export async function loadAllVisibleBoards(role: PlayerRole = "GM", playerId?: string) {
@@ -187,6 +185,12 @@ async function saveBoardToMetadata(board: Board) {
 
 async function deleteBoardFromMetadata(board: Board) {
   if (board.visibility === "gm-shared") return;
+  if (board.visibility === "shared" && board.scope === "scene") {
+    if (!OBR.isAvailable) return;
+    const existing = await getSharedSceneDataItem();
+    if (existing?.item.id) await (OBR.scene as unknown as { items: { deleteItems(ids: string[]): Promise<unknown> } }).items.deleteItems([existing.item.id]);
+    return;
+  }
   const load = board.visibility === "shared" ? loadSharedBoardState : loadPrivateBoardState;
   const save = board.visibility === "shared" ? saveSharedBoardState : savePrivateBoardState;
   const state = await load(board.scope);
@@ -214,7 +218,7 @@ export type BoardSavingBehavior = {
   relocate(board: Board): Promise<Board>;
 };
 
-// The Board layer owns mutation semantics; metadata/local storage is its replaceable adapter.
+// The Board layer owns mutation semantics; Owlbear persistence is its replaceable adapter.
 export let boardSaving: BoardSavingBehavior = {
   save: saveBoardToMetadata,
   delete: deleteBoardFromMetadata,

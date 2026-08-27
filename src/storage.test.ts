@@ -1,11 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { SHARED_SCENE_STATE_KEY } from "./constants";
 import { getSceneKey, loadAllVisibleBoards, loadGmSharedBoardState, loadPrivateBoardState, movePrivateRoomBoardToScene, normalizeBoardState, saveBoard, savePrivateBoardState, saveSharedBoardState } from "./storage";
 import type { BoardItem } from "./types";
 
 const obr = vi.hoisted(() => ({
   isAvailable: true,
-  scene: { getMetadata: vi.fn(), setMetadata: vi.fn(), isReady: vi.fn() },
+  scene: { getMetadata: vi.fn(), setMetadata: vi.fn(), isReady: vi.fn(), items: { getItems: vi.fn(), addItems: vi.fn(), updateItems: vi.fn(), deleteItems: vi.fn() } },
   room: { getMetadata: vi.fn(), setMetadata: vi.fn() },
   player: { getMetadata: vi.fn(), setMetadata: vi.fn() },
 }));
@@ -19,31 +18,36 @@ const shareableBoard = { id: "shareable", name: "Shareable", scope: "room" as co
 describe("storage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    localStorage.clear();
     obr.isAvailable = true;
-    obr.player.getMetadata.mockResolvedValue({});
+    let playerMetadata: Record<string, unknown> = {};
+    let roomMetadata: Record<string, unknown> = {};
+    obr.player.getMetadata.mockImplementation(() => Promise.resolve(playerMetadata));
+    obr.player.setMetadata.mockImplementation((value) => { playerMetadata = { ...playerMetadata, ...value }; return Promise.resolve(); });
+    obr.room.getMetadata.mockImplementation(() => Promise.resolve(roomMetadata));
+    obr.room.setMetadata.mockImplementation((value) => { roomMetadata = value; return Promise.resolve(); });
+    obr.scene.items.getItems.mockResolvedValue([]);
+    obr.scene.items.addItems.mockResolvedValue([]);
+    obr.scene.items.updateItems.mockResolvedValue([]);
+    obr.scene.items.deleteItems.mockResolvedValue([]);
   });
 
-  it("preserves unrelated scene metadata when saving a shared scene board", async () => {
-    obr.isAvailable = true;
-    obr.scene.getMetadata.mockResolvedValue({ "other-extension/key": "keep" });
-
+  it("persists a shared scene board as a hidden namespaced data item", async () => {
     await saveSharedBoardState("scene", state);
 
-    expect(obr.scene.setMetadata).toHaveBeenCalledWith({
-      "other-extension/key": "keep",
-      [SHARED_SCENE_STATE_KEY]: state,
-    });
+    expect(obr.scene.items.addItems).toHaveBeenCalledWith([expect.objectContaining({
+      type: "DATA", visible: false, locked: true, disableHit: true,
+      data: expect.objectContaining({ namespace: expect.stringContaining("shared-scene-board"), version: 1, state }),
+    })]);
+    expect(obr.scene.setMetadata).not.toHaveBeenCalled();
   });
 
-  it("restores a private room board from the local backup when Owlbear returns no player metadata", async () => {
+  it("restores a private room board from player metadata", async () => {
     await savePrivateBoardState("room", privateState);
 
     await expect(loadPrivateBoardState("room")).resolves.toEqual(privateState);
   });
 
   it("moves a private room board into the current scene", async () => {
-    obr.isAvailable = false;
     await savePrivateBoardState("room", privateState);
 
     await movePrivateRoomBoardToScene(privateState.boards[0]);
@@ -53,19 +57,17 @@ describe("storage", () => {
   });
 
   it("republishes GM sharing with the destination scene when moving a room board", async () => {
-    obr.isAvailable = false;
     const shared = { ...shareableBoard, showToGM: true };
 
     await saveBoard(shared);
     await movePrivateRoomBoardToScene(shared);
 
     await expect(loadGmSharedBoardState()).resolves.toMatchObject({
-      boards: [{ id: "shareable", visibility: "gm-shared", scope: "scene", sceneKey: "demo" }],
+      boards: [{ id: "shareable", visibility: "gm-shared", scope: "scene", sceneKey: "no-scene" }],
     });
   });
 
   it("persists default-off sharing and revocation", async () => {
-    obr.isAvailable = false;
 
     await saveBoard(shareableBoard);
     await expect(loadGmSharedBoardState()).resolves.toEqual(state);
@@ -76,7 +78,6 @@ describe("storage", () => {
   });
 
   it("only exposes enabled boards to GMs, not the private GM owner's copy", async () => {
-    obr.isAvailable = false;
     await saveBoard({ ...shareableBoard, showToGM: true });
 
     await expect(loadAllVisibleBoards("PLAYER", "other")).resolves.toMatchObject({ gmShared: { boards: [] } });
@@ -85,7 +86,6 @@ describe("storage", () => {
   });
 
   it("persists Fill Block and every vertical alignment through reload", async () => {
-    obr.isAvailable = false;
     const alignments = ["top", "center", "bottom"] as const;
     const items: BoardItem[] = alignments.flatMap((textVerticalAlignment) => [true, false].map((fillBlock, index) => ({
       id: `${textVerticalAlignment}-${index}`, type: "text" as const, text: "Saved text", textBaselineWidth: 2, fillBlock, textVerticalAlignment,

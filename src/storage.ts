@@ -1,6 +1,7 @@
 import OBR from "@owlbear-rodeo/sdk";
 import {
   DEFAULT_WINDOW,
+  EXTENSION_ID,
   PLAYER_PREFERENCES_KEY,
   PRIVATE_ROOM_STATE_KEY,
   PRIVATE_SCENE_STATES_KEY,
@@ -44,29 +45,6 @@ const emptyPreferences = (): PlayerPreferences => ({
   viewportByBoardId: {},
 });
 
-function canUseLocalStorage() {
-  return typeof localStorage !== "undefined";
-}
-
-function localKey(key: string) {
-  return `${key}:guest:${OBR.isAvailable ? OBR.room.id : "demo"}`;
-}
-
-function readLocal<T>(key: string, fallback: T): T {
-  if (!canUseLocalStorage()) return fallback;
-  try {
-    const raw = localStorage.getItem(localKey(key));
-    return raw ? (JSON.parse(raw) as T) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function writeLocal<T>(key: string, value: T) {
-  if (!canUseLocalStorage()) return;
-  localStorage.setItem(localKey(key), JSON.stringify(value));
-}
-
 export async function getSceneKey() {
   if (!OBR.isAvailable) return "demo";
   const ready = await OBR.scene.isReady();
@@ -82,16 +60,13 @@ export async function getSceneKey() {
 }
 
 async function readPlayerMetadata<T>(key: string, fallback: T): Promise<T> {
-  if (!OBR.isAvailable) return readLocal(key, fallback);
-  const metadata = await OBR.player.getMetadata();
-  const raw = metadata[key];
-  return raw && typeof raw === "object" ? (raw as T) : readLocal(key, fallback);
+  if (!OBR.isAvailable) return fallback;
+  const raw = (await OBR.player.getMetadata())[key];
+  return raw && typeof raw === "object" ? (raw as T) : fallback;
 }
 
 async function writePlayerMetadata<T>(key: string, value: T) {
-  writeLocal(key, value);
-  if (!OBR.isAvailable) return;
-  await OBR.player.setMetadata({ [key]: value });
+  if (OBR.isAvailable) await OBR.player.setMetadata({ [key]: value });
 }
 
 async function readPrivateSceneStates() {
@@ -124,38 +99,163 @@ function isPersistedBoardState(value: unknown): value is PersistedBoardState {
   return !!value && typeof value === "object" && (value as PersistedBoardState).version === 1 && Array.isArray((value as PersistedBoardState).boards);
 }
 
+const SHARED_SCENE_DATA_NAMESPACE = `${EXTENSION_ID}/shared-scene-board`;
+type SharedSceneDataRecord = { namespace: typeof SHARED_SCENE_DATA_NAMESPACE; version: 1; state: PersistedBoardState };
+type SceneDataItem = { id?: string; type: string; data?: unknown; [key: string]: unknown };
+type SharedRoomTransition = { sourceSceneKey: string; state: PersistedBoardState; itemIds: string[]; destinationSceneKey?: string };
+let activeSharedRoom: { sceneKey: string; state: PersistedBoardState; itemIds: string[] } | undefined;
+let pendingSharedRoomTransition: SharedRoomTransition | undefined;
+
+function sharedSceneRecord(item: SceneDataItem): SharedSceneDataRecord | undefined {
+  const record = item.data;
+  if (!record || typeof record !== "object") return undefined;
+  const candidate = record as Partial<SharedSceneDataRecord>;
+  return candidate.namespace === SHARED_SCENE_DATA_NAMESPACE && candidate.version === 1 && isPersistedBoardState(candidate.state)
+    ? candidate as SharedSceneDataRecord : undefined;
+}
+
+type SharedSceneDataEntry = { item: SceneDataItem; record: SharedSceneDataRecord };
+
+async function getSharedSceneDataItems(): Promise<SharedSceneDataEntry[]> {
+  if (!OBR.isAvailable || !(OBR.scene as unknown as { items?: unknown }).items) return [];
+  const items = await (OBR.scene as unknown as { items: { getItems(): Promise<SceneDataItem[]> } }).items.getItems();
+  return items.filter((item) => item.type === "DATA").map((item) => ({ item, record: sharedSceneRecord(item) })).filter((entry): entry is SharedSceneDataEntry => !!entry.record);
+}
+
+async function getSharedSceneDataItem(scope: BoardScope) {
+  return (await getSharedSceneDataItems())
+    .filter(({ record }) => record.state.boards.some((board) => board.scope === scope))
+    .sort((a, b) => boardRevision(b.record.state) - boardRevision(a.record.state))[0];
+}
+
+async function getSharedSceneDataItemForBoard(board: Board) {
+  return (await getSharedSceneDataItems()).find(({ record }) => record.state.boards.some((candidate) => candidate.id === board.id && candidate.scope === board.scope && candidate.visibility === board.visibility && candidate.revision === board.revision));
+}
+
+async function updateSharedSceneDataItem(existing: SharedSceneDataEntry, state: PersistedBoardState) {
+  if (!existing.item.id) return;
+  const data = { namespace: SHARED_SCENE_DATA_NAMESPACE, version: 1 as const, state: normalizeBoardState(state) } satisfies SharedSceneDataRecord;
+  const items = (OBR.scene as unknown as { items: { updateItems(ids: string[], update: (drafts: SceneDataItem[]) => void): Promise<void> } }).items;
+  await items.updateItems([existing.item.id], (drafts) => {
+    const draft = drafts.find((candidate) => candidate.id === existing.item.id);
+    if (draft) Object.assign(draft, { type: "DATA", data, visible: false, locked: true, disableHit: true });
+  });
+}
+
+async function writeSharedSceneDataState(state: PersistedBoardState, scope: BoardScope) {
+  const existing = await getSharedSceneDataItem(scope);
+  const nextState = existing
+    ? { version: 1 as const, boards: [...existing.record.state.boards.filter((board) => board.scope !== scope), ...state.boards] }
+    : state;
+  const data = { namespace: SHARED_SCENE_DATA_NAMESPACE, version: 1 as const, state: normalizeBoardState(nextState) } satisfies SharedSceneDataRecord;
+  const item = {
+    type: "DATA", data, visible: false, locked: true, disableHit: true,
+    position: { x: 0, y: 0 }, rotation: 0, scale: { x: 1, y: 1 }, layer: "FOREGROUND",
+  };
+  const items = (OBR.scene as unknown as { items: { addItems(items: SceneDataItem[]): Promise<void> } }).items;
+  if (existing?.item.id) await updateSharedSceneDataItem(existing, nextState);
+  else await items.addItems([item]);
+}
+
+let sharedSceneMigration: Promise<PersistedBoardState | undefined> | undefined;
+
+async function migrateLegacySharedSceneState() {
+  if (sharedSceneMigration) return sharedSceneMigration;
+  sharedSceneMigration = (async () => {
+    if (!OBR.isAvailable || await getSharedSceneDataItem("scene")) return undefined;
+    const metadata = await OBR.scene.getMetadata() ?? {};
+    const raw = metadata[SHARED_SCENE_STATE_KEY];
+    if (!isPersistedBoardState(raw)) return undefined;
+    const state = normalizeBoardState(raw);
+    await writeSharedSceneDataState(state, "scene");
+    await OBR.scene.setMetadata({ [SHARED_SCENE_STATE_KEY]: undefined });
+    return state;
+  })();
+  try {
+    return await sharedSceneMigration;
+  } finally {
+    sharedSceneMigration = undefined;
+  }
+}
+
+export async function trackActiveSharedBoard(state: PersistedBoardState, sceneKey: string) {
+  if (!OBR.isAvailable || sceneKey === "no-scene") return;
+  const roomBoardIds = new Set(normalizeBoardState(state).boards.filter((board) => board.scope === "room" && board.visibility === "shared").map((board) => board.id));
+  const itemIds = roomBoardIds.size
+    ? (await getSharedSceneDataItems()).filter(({ record }) => record.state.boards.some((board) => board.scope === "room" && board.visibility === "shared" && roomBoardIds.has(board.id))).map(({ item }) => item.id).filter((id): id is string => !!id)
+    : [];
+  activeSharedRoom = { sceneKey, state: normalizeBoardState(state), itemIds };
+}
+
+export function beginSharedSceneTransition() {
+  if (activeSharedRoom) {
+    pendingSharedRoomTransition = {
+      sourceSceneKey: activeSharedRoom.sceneKey,
+      state: activeSharedRoom.state,
+      itemIds: [...activeSharedRoom.itemIds],
+    };
+  }
+}
+
+function boardRevision(state: PersistedBoardState) {
+  return Math.max(...state.boards.map((board) => board.revision), -1);
+}
+
+export async function carrySharedBoardAcrossSceneTransition() {
+  if (!pendingSharedRoomTransition || !OBR.isAvailable || !(await OBR.scene.isReady())) return;
+  const destinationKey = await getSceneKey();
+  if (destinationKey === pendingSharedRoomTransition.sourceSceneKey) {
+    if (pendingSharedRoomTransition.destinationSceneKey && pendingSharedRoomTransition.itemIds.length) {
+      await (OBR.scene as unknown as { items: { deleteItems(ids: string[]): Promise<unknown> } }).items.deleteItems(pendingSharedRoomTransition.itemIds);
+    }
+    pendingSharedRoomTransition = undefined;
+    return;
+  }
+  const roomMetadataState = await loadSharedBoardState("room");
+  const roomDataState = (await getSharedSceneDataItem("room"))?.record.state;
+  const destination = roomDataState && boardRevision(roomDataState) > boardRevision(roomMetadataState) ? roomDataState : roomMetadataState;
+  const state = boardRevision(pendingSharedRoomTransition.state) > boardRevision(destination)
+    ? pendingSharedRoomTransition.state
+    : destination;
+  if (boardRevision(state) > boardRevision(roomMetadataState)) await saveSharedBoardState("room", state);
+  if (state.boards.length) await writeSharedSceneDataState(state, "room");
+  pendingSharedRoomTransition.destinationSceneKey = destinationKey;
+}
+
 export async function loadSharedBoardState(scope: BoardScope) {
-  if (!OBR.isAvailable) return normalizeBoardState(readLocal(scope === "room" ? SHARED_ROOM_STATE_KEY : SHARED_SCENE_STATE_KEY, emptyState()));
-  const metadata = scope === "room" ? await OBR.room.getMetadata() : await OBR.scene.getMetadata();
-  const raw = metadata[scope === "room" ? SHARED_ROOM_STATE_KEY : SHARED_SCENE_STATE_KEY];
+  if (scope === "scene") {
+    const existing = await getSharedSceneDataItem("scene");
+    if (existing) return normalizeBoardState(existing.record.state);
+    return normalizeBoardState(await migrateLegacySharedSceneState() ?? emptyState());
+  }
+  if (!OBR.isAvailable) return emptyState();
+  const raw = (await OBR.room.getMetadata())[SHARED_ROOM_STATE_KEY];
   return isPersistedBoardState(raw) ? normalizeBoardState(raw) : emptyState();
 }
 
 export async function loadGmSharedBoardState() {
-  if (!OBR.isAvailable) return readLocal(GM_SHARED_BOARD_STATE_KEY, emptyState());
+  if (!OBR.isAvailable) return emptyState();
   const metadata = await OBR.room.getMetadata();
   return isPersistedBoardState(metadata[GM_SHARED_BOARD_STATE_KEY]) ? normalizeBoardState(metadata[GM_SHARED_BOARD_STATE_KEY] as PersistedBoardState) : emptyState();
 }
 
 export async function saveGmSharedBoardState(state: PersistedBoardState) {
-  if (!OBR.isAvailable) { writeLocal(GM_SHARED_BOARD_STATE_KEY, normalizeBoardState(state)); return; }
+  if (!OBR.isAvailable) return;
   const metadata = await OBR.room.getMetadata();
   await OBR.room.setMetadata({ ...metadata, [GM_SHARED_BOARD_STATE_KEY]: normalizeBoardState(state) });
 }
 
 export async function saveSharedBoardState(scope: BoardScope, state: PersistedBoardState) {
-  if (!OBR.isAvailable) {
-    writeLocal(scope === "room" ? SHARED_ROOM_STATE_KEY : SHARED_SCENE_STATE_KEY, normalizeBoardState(state));
+  const normalized = normalizeBoardState(state);
+  if (scope === "room") {
+    if (!OBR.isAvailable) return;
+    const metadata = await OBR.room.getMetadata();
+    await OBR.room.setMetadata({ ...metadata, [SHARED_ROOM_STATE_KEY]: normalized });
     return;
   }
-  if (scope === "room") {
-    const metadata = await OBR.room.getMetadata();
-    await OBR.room.setMetadata({ ...metadata, [SHARED_ROOM_STATE_KEY]: normalizeBoardState(state) });
-  }
-  else {
-    const metadata = await OBR.scene.getMetadata();
-    await OBR.scene.setMetadata({ ...metadata, [SHARED_SCENE_STATE_KEY]: normalizeBoardState(state) });
-  }
+  if (!OBR.isAvailable) return;
+  await migrateLegacySharedSceneState();
+  await writeSharedSceneDataState(normalized, "scene");
 }
 
 export async function loadAllVisibleBoards(role: PlayerRole = "GM", playerId?: string) {
@@ -187,6 +287,16 @@ async function saveBoardToMetadata(board: Board) {
 
 async function deleteBoardFromMetadata(board: Board) {
   if (board.visibility === "gm-shared") return;
+  if (board.visibility === "shared" && board.scope === "scene") {
+    if (!OBR.isAvailable) return;
+    await migrateLegacySharedSceneState();
+    const existing = await getSharedSceneDataItemForBoard(board);
+    if (!existing?.item.id) return;
+    const remaining = existing.record.state.boards.filter((candidate) => candidate.id !== board.id);
+    if (remaining.length) await updateSharedSceneDataItem(existing, { version: 1, boards: remaining });
+    else await (OBR.scene as unknown as { items: { deleteItems(ids: string[]): Promise<unknown> } }).items.deleteItems([existing.item.id]);
+    return;
+  }
   const load = board.visibility === "shared" ? loadSharedBoardState : loadPrivateBoardState;
   const save = board.visibility === "shared" ? saveSharedBoardState : savePrivateBoardState;
   const state = await load(board.scope);
@@ -214,7 +324,7 @@ export type BoardSavingBehavior = {
   relocate(board: Board): Promise<Board>;
 };
 
-// The Board layer owns mutation semantics; metadata/local storage is its replaceable adapter.
+// The Board layer owns mutation semantics; Owlbear persistence is its replaceable adapter.
 export let boardSaving: BoardSavingBehavior = {
   save: saveBoardToMetadata,
   delete: deleteBoardFromMetadata,

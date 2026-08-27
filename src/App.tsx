@@ -494,7 +494,7 @@ export default function App() {
 
   const cellSize = (displayBoard?.cellSizePx ?? DEFAULT_CELL_SIZE) * zoom;
   const focusedItem = activeBoard?.items.find((item) => item.id === focusedItemId);
-  const showBoardActions = !!activeBoard && (displayBoard?.items.length ?? 0) > 0;
+  const showBoardActions = !!activeBoard;
   if (!ready) return <div className="loading">Loading Board...</div>;
 
   return <main className="app" style={{ width: windowSize.width, height: windowSize.height, ...themeVars }}>

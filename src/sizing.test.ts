@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { autoImageSize, autoTextSize, normalizeCounterValue, parseItemSize, textFillScale } from "./sizing";
+import { autoImageSize, autoTextSize, clampNumber, normalizeCounterValue, parseItemSize, textFillScale } from "./sizing";
 
 describe("counter values", () => {
   it("normalizes invalid, fractional, and capped values", () => {
     expect(normalizeCounterValue(-1)).toBe(0);
+    expect(clampNumber(NaN, 1, 10)).toBe(1);
     expect(normalizeCounterValue(2.8)).toBe(2);
     expect(normalizeCounterValue(9, 4)).toBe(4);
   });

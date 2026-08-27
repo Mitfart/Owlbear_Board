@@ -3,7 +3,7 @@ const AUTO_SIZE = "auto";
 export type ItemSizeDraft = number | typeof AUTO_SIZE;
 
 export function clampNumber(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value));
+  return Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : min;
 }
 
 export function normalizeCounterValue(value: number, max?: number) {

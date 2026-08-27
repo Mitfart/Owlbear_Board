@@ -36,6 +36,14 @@ _Avoid_: Max value, limit
 A board item whose content is Markdown text rendered for display.
 _Avoid_: Card, note, rich text item, node
 
+**Text Editor**:
+The dialog for editing a Text Board Item. Its Markdown textarea and rendered preview are equal-height panes.
+_Avoid_: Composer, rich-text editor
+
+**Markdown Help**:
+The `?`-triggered reference in the Text Editor. It toggles on click, closes on outside click or Escape, and keeps its scrolling examples inside one dashed border.
+_Avoid_: Tooltip, modal
+
 **Text Formatting**:
 Markdown-compatible emphasis choices that control the presentation of selected text in a Text Board Item.
 _Avoid_: Rich text, node style

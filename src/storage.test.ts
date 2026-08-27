@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { beginSharedSceneTransition, carrySharedBoardAcrossSceneTransition, getSceneKey, loadAllVisibleBoards, loadGmSharedBoardState, loadPrivateBoardState, movePrivateRoomBoardToScene, normalizeBoardState, saveBoard, savePrivateBoardState, saveSharedBoardState, trackActiveSharedBoard } from "./storage";
+import { beginSharedSceneTransition, carrySharedBoardAcrossSceneTransition, getSceneKey, loadAllVisibleBoards, loadGmSharedBoardState, loadPrivateBoardState, loadSharedBoardState, movePrivateRoomBoardToScene, normalizeBoardState, saveBoard, savePrivateBoardState, saveSharedBoardState, trackActiveSharedBoard } from "./storage";
 import type { BoardItem } from "./types";
 
 const obr = vi.hoisted(() => ({
@@ -39,6 +39,25 @@ describe("storage", () => {
       data: expect.objectContaining({ namespace: expect.stringContaining("shared-scene-board"), version: 1, state }),
     })]);
     expect(obr.scene.setMetadata).not.toHaveBeenCalled();
+  });
+
+  it("updates the existing shared scene data item contents", async () => {
+    const previous = { version: 1 as const, boards: [{ ...shareableBoard, visibility: "shared" as const, scope: "scene" as const, revision: 1 }] };
+    const next = { version: 1 as const, boards: [{ ...shareableBoard, name: "Updated", visibility: "shared" as const, scope: "scene" as const, revision: 2 }] };
+    let items = [{ id: "shared-item", type: "DATA", data: { namespace: "com.owlbear-board.grid/shared-scene-board", version: 1, state: previous } }];
+    obr.scene.items.getItems.mockImplementation(() => Promise.resolve(items));
+    obr.scene.items.updateItems.mockImplementation(async (ids, update) => {
+      items = items.map((item) => {
+        if (item.id && ids.includes(item.id)) update(item);
+        return item;
+      });
+      return [];
+    });
+
+    await saveSharedBoardState("scene", next);
+
+    await expect(loadSharedBoardState("scene")).resolves.toEqual(next);
+    expect(obr.scene.items.addItems).not.toHaveBeenCalled();
   });
 
   it("restores a private room board from player metadata", async () => {

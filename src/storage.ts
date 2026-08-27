@@ -192,7 +192,10 @@ export async function saveSharedBoardState(scope: BoardScope, state: PersistedBo
     position: { x: 0, y: 0 }, rotation: 0, scale: { x: 1, y: 1 }, layer: "FOREGROUND",
   };
   const items = (OBR.scene as unknown as { items: { addItems(items: unknown[]): Promise<unknown>; updateItems(ids: string[], update: (item: SceneDataItem) => SceneDataItem): Promise<unknown> } }).items;
-  if (existing?.item.id) await items.updateItems([existing.item.id], () => item);
+  if (existing?.item.id) await items.updateItems([existing.item.id], (draft) => {
+    Object.assign(draft, item);
+    return draft;
+  });
   else await items.addItems([item]);
 }
 

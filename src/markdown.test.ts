@@ -12,4 +12,15 @@ describe("renderMarkdown", () => {
     expect(html).toContain("<ul><li>Item</li></ul>");
     expect(html).toContain('href="https://example.com/"');
   });
+
+  it("renders ordered lists and supported inline styles", () => {
+    const html = renderMarkdown("1. Item\n\n**bold** *italic* ~~strike~~ `code`\n\n> quote\n\n```\nblock\n```");
+    expect(html).toContain("<ol><li>Item</li></ol>");
+    expect(html).toContain("<strong>bold</strong>");
+    expect(html).toContain("<em>italic</em>");
+    expect(html).toContain("<s>strike</s>");
+    expect(html).toContain("<code>code</code>");
+    expect(html).toContain("<blockquote>quote</blockquote>");
+    expect(html).toContain("<pre><code>block\n</code></pre>");
+  });
 });

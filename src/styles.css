@@ -538,14 +538,14 @@ input[type="radio"] {
 
 .markdownHelpPanel {
   position: absolute;
-  top: 48px;
-  left: 50%;
-  z-index: 20;
+  inset: 50%;
+  z-index: 100;
+
   display: grid;
   gap: 8px;
   width: min(360px, calc(100% - 24px));
   padding: 14px;
-  transform: translateX(-50%);
+  transform: translate(-50%, -50%);
   border: 9px dashed var(--accent);
   border-radius: 8px;
   background: var(--panel);
@@ -566,13 +566,42 @@ input[type="radio"] {
   display: grid;
   gap: 16px;
   margin: 0;
-  padding: 0;
-  list-style: none;
 }
 
-.markdownSamples li {
+.markdownSample {
   display: grid;
   gap: 4px;
+}
+
+.markdownSample:nth-child(4),
+.markdownSample:nth-child(7),
+.markdownSample:nth-child(9),
+.markdownSample:nth-child(12),
+.markdownSample:nth-child(13) {
+  margin-top: 8px;
+}
+
+.markdownHelpPanel :is(code, pre) {
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.markdownHelpPanel code {
+  padding: 1px 3px;
+}
+
+.markdownHelpPanel pre {
+  padding: 6px;
+  overflow: auto;
+}
+
+.markdownSample > :is(h1, h2, h3, p, blockquote, ul, ol, pre) {
+  margin: 0;
+}
+
+.markdownSample > ul,
+.markdownSample > ol {
+  padding-left: 18px;
 }
 
 .textEditToolbar button,
@@ -1053,8 +1082,6 @@ input[type="color"] {
 }
 
 @media (max-height: 420px) {
-  .markdownHelpPanel { top: auto; bottom: calc(100% + 6px); }
-
   .modalBackdrop {
     align-items: start;
     overflow-y: auto;

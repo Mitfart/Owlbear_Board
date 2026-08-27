@@ -499,7 +499,23 @@ export default function App() {
 }
 
 function MarkdownHelp() {
-  return <div className="markdownHelpPanel" role="dialog" aria-label="Markdown help"><strong>Markdown examples</strong><ul className="markdownSamples"><li><h1># HEADER 1</h1></li><li><h2>## HEADER 2</h2></li><li><h3>### HEADER 3</h3></li><li><strong>**bold**</strong> and <em>*italic*</em></li><li><blockquote>&gt; blockquote</blockquote></li><li><ul><li>- list item</li></ul></li><li><pre>```\ncode\n```</pre></li></ul><span>Links open safely in a new tab.</span></div>;
+  return <div className="markdownHelpPanel" role="dialog" aria-label="Markdown help"><strong>Markdown examples</strong><div className="markdownSamples">
+    <div className="markdownSample"><h1># Heading</h1></div>
+    <div className="markdownSample"><h2>## Heading</h2></div>
+    <div className="markdownSample"><h3>### Heading</h3></div>
+    <div className="markdownSample"><strong>**bold**</strong></div>
+    <div className="markdownSample"><em>*italic*</em></div>
+    <div className="markdownSample"><s>~~strikethrough~~</s></div>
+    <div className="markdownSample"><code>`inline code`</code></div>
+    <div className="markdownSample"><pre><code>{"```"}<br />block code<br />{"```"}</code></pre></div>
+    <div className="markdownSample"><blockquote>&gt; blockquote</blockquote></div>
+    <div className="markdownSample"><ul><li>- unordered item</li></ul></div>
+    <div className="markdownSample"><ol><li>1. ordered item</li></ol></div>
+    <div className="markdownSample"><a href="https://example.com" target="_blank" rel="noreferrer">[link](https://example.com)</a></div>
+    <div className="markdownSample"><p className="align-1">^1 centered</p></div>
+    <div className="markdownSample"><p className="align-2">^2 right</p></div>
+    <div className="markdownSample"><p className="align-3">^3 justified</p></div>
+  </div><span>Links open safely in a new tab.</span></div>;
 }
 
 function BoardItemView({ item, selected, cellSize, cellGap, onResizePointerDown, onDoubleClick, onCounterChange, readOnly = false }: { item: BoardItem; selected: boolean; cellSize: number; cellGap: number; onResizePointerDown: (event: React.PointerEvent<HTMLElement>, item: BoardItem) => void; onDoubleClick: (item: BoardItem) => void; onCounterChange: (item: BoardItem, delta: number) => void; readOnly?: boolean }) {

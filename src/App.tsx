@@ -499,23 +499,33 @@ export default function App() {
 }
 
 function MarkdownHelp() {
-  return <div className="markdownHelpPanel" role="dialog" aria-label="Markdown help"><strong>Markdown examples</strong><div className="markdownSamples">
-    <div className="markdownSample"><h1># Heading</h1></div>
-    <div className="markdownSample"><h2>## Heading</h2></div>
-    <div className="markdownSample"><h3>### Heading</h3></div>
-    <div className="markdownSample"><strong>**bold**</strong></div>
-    <div className="markdownSample"><em>*italic*</em></div>
-    <div className="markdownSample"><s>~~strikethrough~~</s></div>
-    <div className="markdownSample"><code>`inline code`</code></div>
-    <div className="markdownSample"><pre><code>{"```"}<br />block code<br />{"```"}</code></pre></div>
-    <div className="markdownSample"><blockquote>&gt; blockquote</blockquote></div>
-    <div className="markdownSample"><ul><li>- unordered item</li></ul></div>
-    <div className="markdownSample"><ol><li>1. ordered item</li></ol></div>
-    <div className="markdownSample"><a href="https://example.com" target="_blank" rel="noreferrer">[link](https://example.com)</a></div>
-    <div className="markdownSample"><p className="align-1">^1 centered</p></div>
-    <div className="markdownSample"><p className="align-2">^2 right</p></div>
-    <div className="markdownSample"><p className="align-3">^3 justified</p></div>
-  </div><span>Links open safely in a new tab.</span></div>;
+  return <div className="markdownHelpPanel" role="dialog" aria-label="Markdown help">
+    <strong>Markdown examples</strong>
+    <section className="markdownHelpGroup"><strong>Headings</strong><div className="markdownSamples">
+      <div className="markdownSample"><code># Heading</code><h1>Heading</h1></div>
+      <div className="markdownSample"><code>## Heading</code><h2>Heading</h2></div>
+      <div className="markdownSample"><code>### Heading</code><h3>Heading</h3></div>
+    </div></section>
+    <section className="markdownHelpGroup"><strong>Inline styles</strong><div className="markdownSamples">
+      <div className="markdownSample"><code>**bold**</code><strong>Bold text</strong></div>
+      <div className="markdownSample"><code>*italic*</code><em>Italic text</em></div>
+      <div className="markdownSample"><code>~~strikethrough~~</code><s>Strikethrough</s></div>
+      <div className="markdownSample"><code>`inline code`</code><code>inline code</code></div>
+    </div></section>
+    <section className="markdownHelpGroup"><strong>Blocks and lists</strong><div className="markdownSamples">
+      <div className="markdownSample"><code>{"> quote"}</code><blockquote>Quoted text</blockquote></div>
+      <div className="markdownSample"><code>- unordered item</code><ul><li>Unordered item</li></ul></div>
+      <div className="markdownSample"><code>1. ordered item</code><ol><li>Ordered item</li></ol></div>
+      <div className="markdownSample"><code>{"```"} code {"```"}</code><pre><code>block code</code></pre></div>
+    </div></section>
+    <section className="markdownHelpGroup"><strong>Links and alignment</strong><div className="markdownSamples">
+      <div className="markdownSample"><code>[link](https://example.com)</code><a href="https://example.com" target="_blank" rel="noreferrer">Example link</a></div>
+      <div className="markdownSample"><code>^1 centered</code><p className="align-1">Centered text</p></div>
+      <div className="markdownSample"><code>^2 right</code><p className="align-2">Right-aligned text</p></div>
+      <div className="markdownSample"><code>^3 justified</code><p className="align-3">Justified text</p></div>
+    </div></section>
+    <span>Links open safely in a new tab.</span>
+  </div>;
 }
 
 function BoardItemView({ item, selected, cellSize, cellGap, onResizePointerDown, onDoubleClick, onCounterChange, readOnly = false }: { item: BoardItem; selected: boolean; cellSize: number; cellGap: number; onResizePointerDown: (event: React.PointerEvent<HTMLElement>, item: BoardItem) => void; onDoubleClick: (item: BoardItem) => void; onCounterChange: (item: BoardItem, delta: number) => void; readOnly?: boolean }) {

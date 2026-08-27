@@ -481,6 +481,12 @@ input[type="radio"] {
   overflow: visible;
 }
 
+.textEditLayout > .textEditControls,
+.textEditLayout > .textPreviewPane {
+  min-height: 0;
+  overflow: hidden;
+}
+
 .textEditControls {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
@@ -547,20 +553,33 @@ input[type="radio"] {
   z-index: 100;
 
   display: grid;
-  gap: 8px;
+  gap: 14px;
   width: 100%;
   height: 100%;
   min-height: 0;
-  padding: 14px;
+  padding: 17px;
   overflow-y: auto;
   transform: translate(-50%, -50%);
-  border: 9px dashed var(--accent);
+  border: 0;
   border-radius: 8px;
   background: var(--panel);
   box-shadow: 0 14px 34px var(--shadow);
   opacity: 0;
   pointer-events: none;
   visibility: hidden;
+}
+
+.markdownHelpPanel::before {
+  position: absolute;
+  inset: 0;
+  border-radius: 8px;
+  background:
+    repeating-linear-gradient(90deg, var(--accent) 0 30px, transparent 30px 64px) top / 100% 3px no-repeat,
+    repeating-linear-gradient(90deg, var(--accent) 0 30px, transparent 30px 64px) bottom / 100% 3px no-repeat,
+    repeating-linear-gradient(0deg, var(--accent) 0 30px, transparent 30px 64px) left / 3px 100% no-repeat,
+    repeating-linear-gradient(0deg, var(--accent) 0 30px, transparent 30px 64px) right / 3px 100% no-repeat;
+  content: "";
+  pointer-events: none;
 }
 
 .textEditModal:has(.markdownHelpTrigger:hover) .markdownHelpPanel,
@@ -570,23 +589,38 @@ input[type="radio"] {
   visibility: visible;
 }
 
+.markdownHelpGroup {
+  display: grid;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.markdownHelpGroup > strong {
+  color: var(--accent-strong);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .markdownSamples {
   display: grid;
-  gap: 16px;
+  gap: 14px;
   margin: 0;
 }
 
 .markdownSample {
   display: grid;
-  gap: 4px;
+  gap: 6px;
+  min-width: 0;
 }
 
-.markdownSample:nth-child(4),
-.markdownSample:nth-child(7),
-.markdownSample:nth-child(9),
-.markdownSample:nth-child(12),
-.markdownSample:nth-child(13) {
-  margin-top: 8px;
+.markdownSample > code:first-child {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.markdownSample > :last-child {
+  margin: 0;
 }
 
 .markdownHelpPanel :is(code, pre) {
@@ -1033,8 +1067,28 @@ input[type="color"] {
   padding-left: 18px;
 }
 
-.markdown a {
+.markdown a,
+.markdownHelpPanel a {
   color: var(--accent-strong);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+.markdown a:visited,
+.markdownHelpPanel a:visited {
+  color: var(--accent);
+}
+
+.markdown a:hover,
+.markdownHelpPanel a:hover {
+  color: var(--accent-strong);
+}
+
+.markdown a:focus-visible,
+.markdownHelpPanel a:focus-visible {
+  outline: 2px solid var(--accent-strong);
+  outline-offset: 2px;
 }
 
 .markdown code,

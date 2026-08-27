@@ -159,7 +159,7 @@ export async function loadAllVisibleBoards(role: PlayerRole = "GM", playerId?: s
   return { privateScene, privateRoom, sharedScene, sharedRoom, gmShared: { version: 1 as const, boards: visibleGm }, boards: [...privateScene.boards, ...privateRoom.boards, ...sharedScene.boards, ...sharedRoom.boards, ...visibleGm] };
 }
 
-export async function saveBoard(board: Board) {
+async function saveBoardToMetadata(board: Board) {
   if (board.visibility === "gm-shared") return board;
   const load = board.visibility === "shared" ? loadSharedBoardState : loadPrivateBoardState;
   const save = board.visibility === "shared" ? saveSharedBoardState : savePrivateBoardState;
@@ -177,7 +177,7 @@ export async function saveBoard(board: Board) {
   return nextBoard;
 }
 
-export async function deleteBoard(board: Board) {
+async function deleteBoardFromMetadata(board: Board) {
   if (board.visibility === "gm-shared") return;
   const load = board.visibility === "shared" ? loadSharedBoardState : loadPrivateBoardState;
   const save = board.visibility === "shared" ? saveSharedBoardState : savePrivateBoardState;
@@ -186,12 +186,12 @@ export async function deleteBoard(board: Board) {
   if (board.visibility === "private") await saveGmSharedBoardState({ version: 1, boards: (await loadGmSharedBoardState()).boards.filter((candidate) => candidate.id !== board.id) });
 }
 
-export async function movePrivateRoomBoardToScene(board: Board) {
+async function relocateBoardInMetadata(board: Board) {
   if (board.visibility !== "private" || board.scope !== "room") return board;
   const scene = await loadPrivateBoardState("scene");
   const moved = { ...board, scope: "scene" as const, revision: board.revision + 1 };
   await savePrivateBoardState("scene", { version: 1, boards: [...scene.boards.filter((candidate) => candidate.id !== board.id), moved] });
-  await deleteBoard(board);
+  await deleteBoardFromMetadata(board);
   if (board.showToGM) {
     const published = (await loadGmSharedBoardState()).boards.filter((candidate) => candidate.id !== board.id);
     published.push({ ...moved, visibility: "gm-shared", sceneKey: await getSceneKey() });
@@ -199,6 +199,23 @@ export async function movePrivateRoomBoardToScene(board: Board) {
   }
   return moved;
 }
+
+export type BoardSavingBehavior = {
+  save(board: Board): Promise<Board>;
+  delete(board: Board): Promise<void>;
+  relocate(board: Board): Promise<Board>;
+};
+
+// The Board layer owns mutation semantics; metadata/local storage is its replaceable adapter.
+export const boardSaving: BoardSavingBehavior = {
+  save: saveBoardToMetadata,
+  delete: deleteBoardFromMetadata,
+  relocate: relocateBoardInMetadata,
+};
+
+export const saveBoard = (board: Board) => boardSaving.save(board);
+export const deleteBoard = (board: Board) => boardSaving.delete(board);
+export const movePrivateRoomBoardToScene = (board: Board) => boardSaving.relocate(board);
 
 export async function loadPreferences() {
   return readPlayerMetadata<PlayerPreferences>(PLAYER_PREFERENCES_KEY, emptyPreferences());

@@ -13,22 +13,6 @@ export type SharedBoardPlaceholderPickerRow = {
 
 export type BoardPickerRow = ExistingBoardPickerRow | SharedBoardPlaceholderPickerRow;
 
-export type PlayerBoardGroup = { playerName: string; boards: Board[] };
-
-export function groupPlayerBoards(boards: Board[]): PlayerBoardGroup[] {
-  const groups = new Map<string, Board[]>();
-  for (const board of boards) {
-    const ownerId = board.ownerId || board.ownerName || "unknown";
-    groups.set(ownerId, [...(groups.get(ownerId) ?? []), board]);
-  }
-  return [...groups.values()]
-    .map((grouped) => ({
-      playerName: grouped[0].ownerName || grouped[0].ownerId || "Unknown player",
-      boards: grouped.sort((a, b) => a.name.localeCompare(b.name)),
-    }))
-    .sort((a, b) => a.playerName.localeCompare(b.playerName));
-}
-
 export function sharedBoardLabel(scope: BoardScope) {
   return `Shared ${scope === "scene" ? "Scene" : "Room"} Board`;
 }

@@ -100,12 +100,8 @@ _Avoid_: Own board, personal project
 A board visible and editable by all users in the Owlbear room, including GMs and players. There is at most one shared scene board per scene and one shared room board per room. Any user may create one and edit its content; only GMs may rename it.
 _Avoid_: Public board, global board
 
-**GM-shared Board**:
-A board visible to its player owner and every GM in the Owlbear room. The player may change it while GMs may view it.
-_Avoid_: Private shared board, player-GM board
-
 **Board Owner**:
-The user associated with board ownership. Private and GM-shared boards are owned by their creator, while shared boards are owned by the Owlbear room owner when known; ownership is informational and does not limit content editing where that is allowed.
+The user associated with board ownership. Private boards are owned by their creator, while shared boards are owned by the Owlbear room owner when known; ownership is informational and does not limit GM management.
 _Avoid_: Admin, moderator
 
 ## Example dialogue

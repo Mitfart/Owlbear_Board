@@ -14,16 +14,13 @@ describe("Board sharing permissions", () => {
     expect(canEditBoard(board("private"), "PLAYER", "anyone")).toBe(false);
   });
 
-  it("keeps every GM-shared mutation path read-only for GMs", () => {
-    for (const mutation of ["board editing", "item editing", "movement", "resizing", "deletion", "counter changes"]) {
-      expect(canEditBoard(board("gm-shared", "owner"), "GM"), mutation).toBe(false);
-    }
+  it("allows GMs to manage every board", () => {
+    for (const visibility of ["private", "shared"] as const) expect(canEditBoard(board(visibility, "owner"), "GM")).toBe(true);
   });
 
   it("allows only GMs to rename shared boards", () => {
     expect(canRenameBoard(board("shared"), "GM")).toBe(true);
     expect(canRenameBoard(board("shared"), "PLAYER")).toBe(false);
     expect(canRenameBoard(board("private"), "PLAYER")).toBe(true);
-    expect(canRenameBoard(board("gm-shared"), "GM")).toBe(false);
   });
 });

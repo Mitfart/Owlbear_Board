@@ -14,7 +14,7 @@ import {
   SCENE_KEY_METADATA,
   SHARED_ROOM_STATE_KEY,
   SHARED_SCENE_STATE_KEY,
-  GM_SHARED_BOARD_STATE_KEY,
+  BOARD_EVENT_CHANNEL,
 } from "./constants";
 import { createId } from "./ids";
 import type { Board, BoardItem, BoardScope, PlayerPreferences, PersistedBoardState, ViewportPreference, WindowPreferences } from "./types";
@@ -62,7 +62,6 @@ function compactBoardState(state: PersistedBoardState): PersistedBoardState {
       const storedBoard = compactBoard as Omit<Board, "cellSizePx" | "cellGapPx"> & Partial<Pick<Board, "cellSizePx" | "cellGapPx">>;
       if (cellSizePx !== DEFAULT_CELL_SIZE) storedBoard.cellSizePx = cellSizePx;
       if (cellGapPx !== DEFAULT_CELL_GAP) storedBoard.cellGapPx = cellGapPx;
-      if (storedBoard.showToGM === false) delete storedBoard.showToGM;
       storedBoard.items = board.items.map((item) => {
         const compact = { ...item };
         if (compact.borderColor === DEFAULT_ITEM_BORDER_COLOR) delete compact.borderColor;
@@ -297,18 +296,6 @@ export async function loadSharedBoardState(scope: BoardScope) {
   return isPersistedBoardState(raw) ? normalizeBoardState(raw) : emptyState();
 }
 
-export async function loadGmSharedBoardState() {
-  if (!OBR.isAvailable) return emptyState();
-  const metadata = await OBR.room.getMetadata();
-  return isPersistedBoardState(metadata[GM_SHARED_BOARD_STATE_KEY]) ? normalizeBoardState(metadata[GM_SHARED_BOARD_STATE_KEY] as PersistedBoardState) : emptyState();
-}
-
-export async function saveGmSharedBoardState(state: PersistedBoardState) {
-  if (!OBR.isAvailable) return;
-  const metadata = await OBR.room.getMetadata();
-  await OBR.room.setMetadata({ ...metadata, [GM_SHARED_BOARD_STATE_KEY]: compactBoardState(state) });
-}
-
 export async function saveSharedBoardState(scope: BoardScope, state: PersistedBoardState) {
   const normalized = normalizeBoardState(state);
   if (scope === "room") {
@@ -326,26 +313,18 @@ export async function saveSharedBoardState(scope: BoardScope, state: PersistedBo
   await writeSharedSceneDataState(normalized, "scene");
 }
 
-export async function loadAllVisibleBoards(role: PlayerRole = "GM", playerId?: string) {
-  const [privateScene, privateRoom, sharedScene, sharedRoom, gmShared] = await Promise.all([
-    loadPrivateBoardState("scene"), loadPrivateBoardState("room"), loadSharedBoardState("scene"), loadSharedBoardState("room"), loadGmSharedBoardState(),
+export async function loadAllVisibleBoards(_role: PlayerRole = "GM", _playerId?: string) {
+  const [privateScene, privateRoom, sharedScene, sharedRoom] = await Promise.all([
+    loadPrivateBoardState("scene"), loadPrivateBoardState("room"), loadSharedBoardState("scene"), loadSharedBoardState("room"),
   ]);
-  const sceneKey = await getSceneKey();
-  const visibleGm = gmShared.boards.filter((board) => (board.scope === "room" || board.sceneKey === sceneKey) && role === "GM" && board.ownerId !== playerId);
-  return { privateScene, privateRoom, sharedScene, sharedRoom, gmShared: { version: 1 as const, boards: visibleGm }, boards: [...privateScene.boards, ...privateRoom.boards, ...sharedScene.boards, ...sharedRoom.boards, ...visibleGm] };
+  return { privateScene, privateRoom, sharedScene, sharedRoom, boards: [...privateScene.boards, ...privateRoom.boards, ...sharedScene.boards, ...sharedRoom.boards] };
 }
 
 async function saveBoardToMetadata(board: Board) {
-  if (board.visibility === "gm-shared") return board;
   const load = board.visibility === "shared" ? loadSharedBoardState : loadPrivateBoardState;
   const save = board.visibility === "shared" ? saveSharedBoardState : savePrivateBoardState;
   const state = await load(board.scope);
   const nextBoard = { ...board, revision: board.revision + 1 };
-  if (nextBoard.visibility === "private") {
-    const published = (await loadGmSharedBoardState()).boards.filter((candidate) => candidate.id !== nextBoard.id);
-    if (nextBoard.showToGM) published.push({ ...nextBoard, visibility: "gm-shared", sceneKey: nextBoard.scope === "scene" ? await getSceneKey() : undefined });
-    await saveGmSharedBoardState({ version: 1, boards: published });
-  }
   const boards = state.boards.some((candidate) => candidate.id === board.id)
     ? state.boards.map((candidate) => (candidate.id === board.id ? nextBoard : candidate))
     : [...state.boards, nextBoard];
@@ -354,7 +333,6 @@ async function saveBoardToMetadata(board: Board) {
 }
 
 async function deleteBoardFromMetadata(board: Board) {
-  if (board.visibility === "gm-shared") return;
   if (board.visibility === "shared" && board.scope === "scene") {
     if (!OBR.isAvailable) return;
     await migrateLegacySharedSceneState();
@@ -369,7 +347,6 @@ async function deleteBoardFromMetadata(board: Board) {
   const save = board.visibility === "shared" ? saveSharedBoardState : savePrivateBoardState;
   const state = await load(board.scope);
   await save(board.scope, { version: 1, boards: state.boards.filter((candidate) => candidate.id !== board.id) });
-  if (board.visibility === "private") await saveGmSharedBoardState({ version: 1, boards: (await loadGmSharedBoardState()).boards.filter((candidate) => candidate.id !== board.id) });
 }
 
 async function relocateBoardInMetadata(board: Board) {
@@ -378,11 +355,6 @@ async function relocateBoardInMetadata(board: Board) {
   const moved = { ...board, scope: "scene" as const, revision: board.revision + 1 };
   await savePrivateBoardState("scene", { version: 1, boards: [...scene.boards.filter((candidate) => candidate.id !== board.id), moved] });
   await deleteBoardFromMetadata(board);
-  if (board.showToGM) {
-    const published = (await loadGmSharedBoardState()).boards.filter((candidate) => candidate.id !== board.id);
-    published.push({ ...moved, visibility: "gm-shared", sceneKey: await getSceneKey() });
-    await saveGmSharedBoardState({ version: 1, boards: published });
-  }
   return moved;
 }
 
@@ -395,8 +367,6 @@ export async function clearSceneBoardData() {
   const { [sceneKey]: _cleared, ...privateSceneOpenOrder } = preferences.privateSceneOpenOrder;
   await savePreferences({ ...preferences, privateSceneOpenOrder });
   if (OBR.isAvailable) await OBR.scene.setMetadata({ [SHARED_SCENE_STATE_KEY]: undefined });
-  const published = (await loadGmSharedBoardState()).boards.filter((board) => board.scope !== "scene");
-  await saveGmSharedBoardState({ version: 1, boards: published });
 }
 
 export async function clearRoomBoardData() {
@@ -404,8 +374,6 @@ export async function clearRoomBoardData() {
   await saveSharedBoardState("room", emptyState());
   const preferences = await loadPreferences();
   await savePreferences({ ...preferences, privateRoomOpenOrder: {} });
-  const published = (await loadGmSharedBoardState()).boards.filter((board) => board.scope !== "room");
-  await saveGmSharedBoardState({ version: 1, boards: published });
 }
 
 export async function clearAllBoardData() {
@@ -434,9 +402,24 @@ export function setBoardSavingBehavior(behavior: BoardSavingBehavior) {
   boardSaving = behavior;
 }
 
-export const saveBoard = (board: Board) => boardSaving.save(board);
-export const deleteBoard = (board: Board) => boardSaving.delete(board);
-export const movePrivateRoomBoardToScene = (board: Board) => boardSaving.relocate(board);
+async function broadcastBoardChange(action: "save" | "delete", boardId: string) {
+  if (OBR.isAvailable) await OBR.broadcast.sendMessage(BOARD_EVENT_CHANNEL, { action, boardId }, { destination: "REMOTE" });
+}
+
+export async function saveBoard(board: Board) {
+  const saved = await boardSaving.save(board);
+  await broadcastBoardChange("save", saved.id);
+  return saved;
+}
+export async function deleteBoard(board: Board) {
+  await boardSaving.delete(board);
+  await broadcastBoardChange("delete", board.id);
+}
+export async function movePrivateRoomBoardToScene(board: Board) {
+  const moved = await boardSaving.relocate(board);
+  await broadcastBoardChange("save", moved.id);
+  return moved;
+}
 
 export async function loadPreferences() {
   return readPlayerMetadata<PlayerPreferences>(PLAYER_PREFERENCES_KEY, emptyPreferences());

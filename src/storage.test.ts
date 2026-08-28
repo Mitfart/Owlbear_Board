@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PRIVATE_ROOM_STATE_KEY, SHARED_SCENE_STATE_KEY } from "./constants";
-import { beginSharedSceneTransition, carrySharedBoardAcrossSceneTransition, clearAllBoardData, clearRoomBoardData, clearSceneBoardData, deleteBoard, getSceneKey, loadAllVisibleBoards, loadGmSharedBoardState, loadPrivateBoardState, loadSharedBoardState, movePrivateRoomBoardToScene, normalizeBoardState, saveBoard, savePrivateBoardState, saveSharedBoardState, trackActiveSharedBoard } from "./storage";
+import { beginSharedSceneTransition, carrySharedBoardAcrossSceneTransition, clearAllBoardData, clearRoomBoardData, clearSceneBoardData, deleteBoard, getSceneKey, loadAllVisibleBoards, loadPrivateBoardState, loadSharedBoardState, movePrivateRoomBoardToScene, normalizeBoardState, saveBoard, savePrivateBoardState, saveSharedBoardState, trackActiveSharedBoard } from "./storage";
 import type { BoardItem } from "./types";
 
 const obr = vi.hoisted(() => ({
@@ -8,6 +8,7 @@ const obr = vi.hoisted(() => ({
   scene: { getMetadata: vi.fn(), setMetadata: vi.fn(), isReady: vi.fn(), items: { getItems: vi.fn(), addItems: vi.fn(), updateItems: vi.fn(), deleteItems: vi.fn() } },
   room: { getMetadata: vi.fn(), setMetadata: vi.fn() },
   player: { getMetadata: vi.fn(), setMetadata: vi.fn(), getId: vi.fn() },
+  broadcast: { sendMessage: vi.fn() },
 }));
 
 vi.mock("@owlbear-rodeo/sdk", () => ({ default: obr }));
@@ -94,35 +95,6 @@ describe("storage", () => {
 
     await expect(loadPrivateBoardState("room")).resolves.toEqual(state);
     await expect(loadPrivateBoardState("scene")).resolves.toMatchObject({ boards: [{ id: "saved", scope: "scene", revision: 2 }] });
-  });
-
-  it("republishes GM sharing with the destination scene when moving a room board", async () => {
-    const shared = { ...shareableBoard, showToGM: true };
-
-    await saveBoard(shared);
-    await movePrivateRoomBoardToScene(shared);
-
-    await expect(loadGmSharedBoardState()).resolves.toMatchObject({
-      boards: [{ id: "shareable", visibility: "gm-shared", scope: "scene", sceneKey: "no-scene" }],
-    });
-  });
-
-  it("persists default-off sharing and revocation", async () => {
-
-    await saveBoard(shareableBoard);
-    await expect(loadGmSharedBoardState()).resolves.toEqual(state);
-    await saveBoard({ ...shareableBoard, showToGM: true });
-    await expect(loadGmSharedBoardState()).resolves.toMatchObject({ boards: [{ id: "shareable", visibility: "gm-shared" }] });
-    await saveBoard({ ...shareableBoard, showToGM: false });
-    await expect(loadGmSharedBoardState()).resolves.toEqual(state);
-  });
-
-  it("only exposes enabled boards to GMs, not the private GM owner's copy", async () => {
-    await saveBoard({ ...shareableBoard, showToGM: true });
-
-    await expect(loadAllVisibleBoards("PLAYER", "other")).resolves.toMatchObject({ gmShared: { boards: [] } });
-    await expect(loadAllVisibleBoards("GM", "owner")).resolves.toMatchObject({ gmShared: { boards: [] } });
-    await expect(loadAllVisibleBoards("GM", "gm")).resolves.toMatchObject({ gmShared: { boards: [{ id: "shareable" }] } });
   });
 
   it("persists Fill Block and every vertical alignment through reload", async () => {

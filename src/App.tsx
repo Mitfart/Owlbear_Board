@@ -194,7 +194,7 @@ export default function App() {
     let unsubscribeItems: (() => void) | undefined;
     OBR.onReady(() => {
       if (cancelled) return;
-      setReady(true); void carrySharedBoardAcrossSceneTransition().then(refreshIfSafe); void OBR.theme.getTheme().then(setTheme);
+      setReady(true); void OBR.scene.isReady().then((sceneReady) => { if (sceneReady) void carrySharedBoardAcrossSceneTransition().then(refreshIfSafe); }); void OBR.theme.getTheme().then(setTheme);
       const subscribeItems = () => {
         if (unsubscribeItems) return;
         const items = (OBR.scene as unknown as { items?: { onChange?: (callback: () => void) => () => void } }).items;
@@ -209,7 +209,7 @@ export default function App() {
     return () => { cancelled = true; unsubscribe?.(); unsubscribeItems?.(); };
   }, [refreshIfSafe]);
   useEffect(() => { if (!OBR.isAvailable || !ready) return; return OBR.theme.onChange(setTheme); }, [ready]);
-  useEffect(() => { if (!OBR.isAvailable || !ready) return; return OBR.broadcast.onMessage(BOARD_EVENT_CHANNEL, () => void refresh()); }, [ready, refresh]);
+  useEffect(() => { if (!OBR.isAvailable || !ready) return; return OBR.broadcast.onMessage(BOARD_EVENT_CHANNEL, refreshIfSafe); }, [ready, refreshIfSafe]);
   useEffect(() => {
     if (!ready) return;
     const id = window.setInterval(refreshIfSafe, 2500);

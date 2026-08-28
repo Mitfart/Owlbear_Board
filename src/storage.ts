@@ -369,6 +369,15 @@ export async function clearRoomBoardData() {
   await saveGmSharedBoardState({ version: 1, boards: published });
 }
 
+export async function clearAllBoardData() {
+  await clearSceneBoardData();
+  await clearRoomBoardData();
+  await writePrivateSceneStates({});
+  await writePlayerMetadata(PRIVATE_ROOM_STATE_KEY, emptyState());
+  await savePreferences(emptyPreferences());
+  await saveWindowPreferences(DEFAULT_WINDOW);
+}
+
 export type BoardSavingBehavior = {
   save(board: Board): Promise<Board>;
   delete(board: Board): Promise<void>;

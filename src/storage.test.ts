@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SHARED_SCENE_STATE_KEY } from "./constants";
-import { beginSharedSceneTransition, carrySharedBoardAcrossSceneTransition, clearRoomBoardData, clearSceneBoardData, deleteBoard, getSceneKey, loadAllVisibleBoards, loadGmSharedBoardState, loadPrivateBoardState, loadSharedBoardState, movePrivateRoomBoardToScene, normalizeBoardState, saveBoard, savePrivateBoardState, saveSharedBoardState, trackActiveSharedBoard } from "./storage";
+import { beginSharedSceneTransition, carrySharedBoardAcrossSceneTransition, clearAllBoardData, clearRoomBoardData, clearSceneBoardData, deleteBoard, getSceneKey, loadAllVisibleBoards, loadGmSharedBoardState, loadPrivateBoardState, loadSharedBoardState, movePrivateRoomBoardToScene, normalizeBoardState, saveBoard, savePrivateBoardState, saveSharedBoardState, trackActiveSharedBoard } from "./storage";
 import type { BoardItem } from "./types";
 
 const obr = vi.hoisted(() => ({
@@ -290,8 +290,7 @@ describe("storage", () => {
     await savePrivateBoardState("scene", { ...privateState, boards: [{ ...privateState.boards[0], scope: "scene" as const }] });
     await savePrivateBoardState("room", privateState);
 
-    await clearSceneBoardData();
-    await clearRoomBoardData();
+    await clearAllBoardData();
 
     await expect(loadPrivateBoardState("scene")).resolves.toEqual(state);
     await expect(loadPrivateBoardState("room")).resolves.toEqual(state);

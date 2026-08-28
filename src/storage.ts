@@ -262,11 +262,22 @@ export async function saveSharedBoardState(scope: BoardScope, state: PersistedBo
   await writeSharedSceneDataState(normalizeBoardState(state), scope);
 }
 
-export async function loadAllVisibleBoards(_role: PlayerRole = "GM", _playerId?: string) {
-  const [privateScene, privateRoom, sharedScene, sharedRoom] = await Promise.all([
-    loadPrivateBoardState("scene"), loadPrivateBoardState("room"), loadSharedBoardState("scene"), loadSharedBoardState("room"),
+export async function loadAllVisibleBoards(role: PlayerRole = "GM", _playerId?: string) {
+  const [privateScene, privateRoom, sharedScene, sharedRoom, sceneKey] = await Promise.all([
+    loadPrivateBoardState("scene"), loadPrivateBoardState("room"), loadSharedBoardState("scene"), loadSharedBoardState("room"), getSceneKey(),
   ]);
-  return { privateScene, privateRoom, sharedScene, sharedRoom, boards: [...privateScene.boards, ...privateRoom.boards, ...sharedScene.boards, ...sharedRoom.boards] };
+  const privateBoards = [...privateScene.boards, ...privateRoom.boards];
+  if (role === "GM" && OBR.isAvailable) {
+    const players = await (OBR as unknown as { party?: { getPlayers(): Promise<Array<{ id: string; name: string; role: PlayerRole; metadata: Record<string, unknown> }>> } }).party?.getPlayers() ?? [];
+    const allPrivate = players.flatMap((player) => {
+      const room = player.metadata[PRIVATE_ROOM_STATE_KEY];
+      const scenes = player.metadata[PRIVATE_SCENE_STATES_KEY];
+      const states = [isPersistedBoardState(room) ? room : emptyState(), scenes && typeof scenes === "object" && isPersistedBoardState((scenes as PrivateSceneStates)[sceneKey]) ? (scenes as PrivateSceneStates)[sceneKey] : emptyState()];
+      return states.flatMap((state) => normalizeBoardState(state).boards.map((board) => ({ ...board, ownerId: board.ownerId ?? player.id, ownerName: `${board.ownerName ?? player.name}${player.role === "GM" ? " (GM)" : ""}` })));
+    });
+    return { privateScene, privateRoom, sharedScene, sharedRoom, boards: [...allPrivate, ...sharedScene.boards, ...sharedRoom.boards] };
+  }
+  return { privateScene, privateRoom, sharedScene, sharedRoom, boards: [...privateBoards, ...sharedScene.boards, ...sharedRoom.boards] };
 }
 
 async function saveBoardToMetadata(board: Board) {

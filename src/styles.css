@@ -1230,11 +1230,20 @@ input[type="color"] {
   gap: 8px;
 }
 
-.manageBoardGrid button {
+.manageBoard {
+  position: relative;
   display: grid;
-  gap: 4px;
   min-height: 72px;
-  text-align: left;
+  place-items: center;
+  text-align: center;
 }
 
-.manageBoardGrid span { color: var(--muted); font-size: 12px; }
+.manageBoardDate,
+.manageBoardSettings {
+  position: absolute;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.manageBoardDate { top: 6px; left: 8px; }
+.manageBoardSettings { top: 6px; right: 8px; }

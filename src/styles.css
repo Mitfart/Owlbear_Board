@@ -140,7 +140,6 @@ input[type="radio"] {
 
 .toolbar {
   min-width: 0;
-  overflow: hidden;
   position: relative;
   z-index: 2;
   display: flex;

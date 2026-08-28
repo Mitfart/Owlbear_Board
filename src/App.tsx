@@ -188,15 +188,22 @@ export default function App() {
     if (!OBR.isAvailable) { void refresh(); return; }
     let cancelled = false;
     let unsubscribe: (() => void) | undefined;
+    let unsubscribeItems: (() => void) | undefined;
     OBR.onReady(() => {
       if (cancelled) return;
       setReady(true); void carrySharedBoardAcrossSceneTransition().then(refresh); void OBR.theme.getTheme().then(setTheme);
+      const subscribeItems = () => {
+        if (unsubscribeItems) return;
+        const items = (OBR.scene as unknown as { items?: { onChange?: (callback: () => void) => () => void } }).items;
+        if (items?.onChange) unsubscribeItems = items.onChange(() => void refresh());
+      };
+      void OBR.scene.isReady().then((sceneReady) => { if (sceneReady) subscribeItems(); });
       unsubscribe = (OBR.scene as unknown as { onReadyChange(callback: (sceneReady: boolean) => void): () => void }).onReadyChange((sceneReady) => {
-        if (!sceneReady) beginSharedSceneTransition();
-        else { setReady(true); void carrySharedBoardAcrossSceneTransition().then(refresh); }
+        if (!sceneReady) { unsubscribeItems?.(); unsubscribeItems = undefined; beginSharedSceneTransition(); }
+        else { setReady(true); subscribeItems(); void carrySharedBoardAcrossSceneTransition().then(refresh); }
       });
     });
-    return () => { cancelled = true; unsubscribe?.(); };
+    return () => { cancelled = true; unsubscribe?.(); unsubscribeItems?.(); };
   }, [refresh]);
   useEffect(() => { if (!OBR.isAvailable || !ready) return; return OBR.theme.onChange(setTheme); }, [ready]);
   useEffect(() => { if (!OBR.isAvailable || !ready) return; return OBR.broadcast.onMessage(BOARD_EVENT_CHANNEL, () => void refresh()); }, [ready, refresh]);

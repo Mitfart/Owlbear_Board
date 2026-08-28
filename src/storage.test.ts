@@ -19,6 +19,7 @@ const shareableBoard = { id: "shareable", name: "Shareable", scope: "room" as co
 describe("storage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
     obr.isAvailable = true;
     let playerMetadata: Record<string, unknown> = {};
     let roomMetadata: Record<string, unknown> = {};
@@ -74,6 +75,13 @@ describe("storage", () => {
     await savePrivateBoardState("scene", saved);
 
     await expect(loadPrivateBoardState("scene")).resolves.toEqual({ version: 1, boards: [...existing.boards, ...saved.boards] });
+  });
+
+  it("restores a private board from its browser backup when Owlbear metadata disappears", async () => {
+    await savePrivateBoardState("room", privateState);
+    obr.player.getMetadata.mockResolvedValue({});
+
+    await expect(loadPrivateBoardState("room")).resolves.toEqual(privateState);
   });
 
   it("moves a private room board into the current scene", async () => {
@@ -276,4 +284,14 @@ describe("storage", () => {
 
     expect(obr.scene.items.deleteItems).not.toHaveBeenCalled();
   });
+  it("loads private boards when a legacy DATA item makes scene item reads fail", async () => {
+    const privateScene = { ...privateState, boards: [{ ...privateState.boards[0], scope: "scene" as const }] };
+    obr.scene.isReady.mockResolvedValue(true);
+    obr.scene.getMetadata.mockResolvedValue({ "com.owlbear-board.grid/scene-key": "active-scene", [SHARED_SCENE_STATE_KEY]: state });
+    await savePrivateBoardState("scene", privateScene);
+    obr.scene.items.getItems.mockRejectedValue({ error: { name: "ValidationError", message: "items[0].id is required" } });
+
+    await expect(loadAllVisibleBoards()).resolves.toMatchObject({ privateScene });
+  });
+
 });

@@ -59,14 +59,21 @@ export async function getSceneKey() {
   return sceneKey;
 }
 
+function playerMetadataBackupKey(key: string) { return `${EXTENSION_ID}/backup/${key}`; }
+
 async function readPlayerMetadata<T>(key: string, fallback: T): Promise<T> {
   if (!OBR.isAvailable) return fallback;
   const raw = (await OBR.player.getMetadata())[key];
-  return raw && typeof raw === "object" ? (raw as T) : fallback;
+  if (raw && typeof raw === "object") return raw as T;
+  try {
+    const backup = localStorage.getItem(playerMetadataBackupKey(key));
+    return backup ? JSON.parse(backup) as T : fallback;
+  } catch { return fallback; }
 }
 
 async function writePlayerMetadata<T>(key: string, value: T) {
   if (OBR.isAvailable) await OBR.player.setMetadata({ [key]: value });
+  try { localStorage.setItem(playerMetadataBackupKey(key), JSON.stringify(value)); } catch { /* unavailable storage */ }
 }
 
 async function readPrivateSceneStates() {
@@ -115,6 +122,7 @@ type SceneDataItem = { id?: string; type: string; data?: unknown; [key: string]:
 type SharedRoomTransition = { sourceSceneKey: string; state: PersistedBoardState; itemIds: string[]; destinationSceneKey?: string };
 let activeSharedRoom: { sceneKey: string; state: PersistedBoardState; itemIds: string[] } | undefined;
 let pendingSharedRoomTransition: SharedRoomTransition | undefined;
+let sharedSceneDataUnavailable = false;
 
 function sharedSceneRecord(item: SceneDataItem): SharedSceneDataRecord | undefined {
   const record = item.data;
@@ -128,8 +136,13 @@ type SharedSceneDataEntry = { item: SceneDataItem; record: SharedSceneDataRecord
 
 async function getSharedSceneDataItems(): Promise<SharedSceneDataEntry[]> {
   if (!OBR.isAvailable || !(OBR.scene as unknown as { items?: unknown }).items) return [];
-  const items = await (OBR.scene as unknown as { items: { getItems(): Promise<SceneDataItem[]> } }).items.getItems();
-  return items.filter((item) => item.type === "DATA").map((item) => ({ item, record: sharedSceneRecord(item) })).filter((entry): entry is SharedSceneDataEntry => !!entry.record);
+  try {
+    const items = await (OBR.scene as unknown as { items: { getItems(): Promise<SceneDataItem[]> } }).items.getItems();
+    return items.filter((item) => item.type === "DATA").map((item) => ({ item, record: sharedSceneRecord(item) })).filter((entry): entry is SharedSceneDataEntry => !!entry.record);
+  } catch {
+    sharedSceneDataUnavailable = true;
+    return [];
+  }
 }
 
 async function getSharedSceneDataItem(scope: BoardScope) {
@@ -153,6 +166,7 @@ async function updateSharedSceneDataItem(existing: SharedSceneDataEntry, state: 
 }
 
 async function writeSharedSceneDataState(state: PersistedBoardState, scope: BoardScope) {
+  if (sharedSceneDataUnavailable) return;
   const existing = await getSharedSceneDataItem(scope);
   const nextState = existing
     ? { version: 1 as const, boards: [...existing.record.state.boards.filter((board) => board.scope !== scope), ...state.boards] }
@@ -177,6 +191,7 @@ async function migrateLegacySharedSceneState() {
     const raw = metadata[SHARED_SCENE_STATE_KEY];
     if (!isPersistedBoardState(raw)) return undefined;
     const state = normalizeBoardState(raw);
+    if (sharedSceneDataUnavailable) return state;
     await writeSharedSceneDataState(state, "scene");
     await OBR.scene.setMetadata({ [SHARED_SCENE_STATE_KEY]: undefined });
     return state;
@@ -265,6 +280,10 @@ export async function saveSharedBoardState(scope: BoardScope, state: PersistedBo
   }
   if (!OBR.isAvailable) return;
   await migrateLegacySharedSceneState();
+  if (sharedSceneDataUnavailable) {
+    await OBR.scene.setMetadata({ [SHARED_SCENE_STATE_KEY]: normalized });
+    return;
+  }
   await writeSharedSceneDataState(normalized, "scene");
 }
 

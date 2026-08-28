@@ -1169,3 +1169,32 @@ input[type="color"] {
     max-height: calc(100vh - 20px);
   }
 }
+
+.debugPanel {
+  position: absolute;
+  z-index: 1;
+  inset: 53px 0 0;
+  overflow: auto;
+  padding: 16px;
+  background: var(--bg);
+}
+
+.debugHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.debugPanel h3 {
+  margin: 16px 0 6px;
+}
+
+.debugPanel pre {
+  overflow: auto;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel-soft);
+  white-space: pre-wrap;
+}

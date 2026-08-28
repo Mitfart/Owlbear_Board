@@ -209,6 +209,12 @@ input[type="radio"] {
   padding: 0;
 }
 
+.boardToggle.active,
+.manageBoardSettings:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
 .zoom {
   min-width: 48px;
   color: var(--muted);
@@ -1222,6 +1228,8 @@ input[type="color"] {
   background: var(--bg);
 }
 
+.manageBoardActions { display: flex; flex-wrap: wrap; gap: 8px; }
+
 .manageBoards h3 { margin: 20px 0 8px; }
 
 .manageBoardGrid {
@@ -1246,4 +1254,4 @@ input[type="color"] {
 }
 
 .manageBoardDate { top: 6px; left: 8px; }
-.manageBoardSettings { top: 6px; right: 8px; }
+.manageBoardSettings { top: 6px; right: 8px; padding: 3px; border-radius: 4px; cursor: pointer; }

@@ -1120,6 +1120,17 @@ input[type="color"] {
   overflow: auto;
 }
 
+.versionBadge {
+  position: absolute;
+  right: 36px;
+  bottom: 10px;
+  z-index: 10;
+  color: var(--muted);
+  font-size: 11px;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
 .resizeGrip {
   position: absolute;
   right: 4px;

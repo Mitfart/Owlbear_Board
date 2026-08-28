@@ -12,7 +12,7 @@ import { resizeAction } from "./owlbear";
 import { autoImageSize, autoTextSize, clampNumber, normalizeCounterValue, parseItemSize, textFillScale } from "./sizing";
 import { zoomPanToCursor } from "./viewport";
 import { toggleMarkdownStyle } from "./textFormatting";
-import { beginSharedSceneTransition, boardSaving, carrySharedBoardAcrossSceneTransition, getPlayerId, getPlayerName, getRoomOwnerId, getSceneKey, loadAllVisibleBoards, loadPreferences, loadWindowPreferences, markPrivateBoardOpened, savePreferences, saveViewport, saveWindowPreferences, trackActiveSharedBoard } from "./storage";
+import { beginSharedSceneTransition, boardSaving, carrySharedBoardAcrossSceneTransition, clearRoomBoardData, clearSceneBoardData, getPlayerId, getPlayerName, getRoomOwnerId, getSceneKey, loadAllVisibleBoards, loadPreferences, loadWindowPreferences, markPrivateBoardOpened, savePreferences, saveViewport, saveWindowPreferences, trackActiveSharedBoard } from "./storage";
 import { buildBoardPickerRows, groupPlayerBoards } from "./boardSession";
 import { canEditBoard, canRenameBoard, type PlayerRole } from "./boardPermissions";
 import type { Board, BoardItem, BoardScope, BoardVisibility, PlayerPreferences } from "./types";
@@ -277,6 +277,19 @@ export default function App() {
     setDebugSnapshot(snapshot);
     logDebug("Save/load diagnostics collected.");
     console.info("[Owlbear Board debug]", snapshot);
+  }
+
+  async function clearDebugData(scope: "scene" | "room") {
+    if (!confirm(`Clear all Owlbear Board ${scope} data? This cannot be undone.`)) return;
+    try {
+      await (scope === "scene" ? clearSceneBoardData() : clearRoomBoardData());
+      clearBoardUi(); setActiveBoardId(undefined); setOpenBoardIds([]); setDebugSnapshot(undefined);
+      logDebug(`Cleared Owlbear Board ${scope} data.`);
+      await refresh(); await openDebugTab();
+    } catch (reason) {
+      const message = formatDebugError(reason);
+      setError(message); logDebug(`Could not clear ${scope} data: ${message}`);
+    }
   }
 
   async function persistBoard(board: Board, pushHistory = true, reportSave = false) {
@@ -544,7 +557,7 @@ export default function App() {
       {activeBoard ? <>{!readOnly && canRenameBoard(activeBoard, playerRole) && <label>Name<input value={activeBoard.name} onChange={(event) => void updateActiveBoard({ name: event.target.value.slice(0, 60) })} /></label>}<div className="boardInlineFields"><label><span>Grid size</span><input disabled={readOnly} type="number" min={MIN_CELL_SIZE} max={MAX_CELL_SIZE} value={activeBoard.cellSizePx} onChange={(event) => void updateGridSize(Number(event.target.value))} /></label><label><span>Grid cell gap</span><input disabled={readOnly} type="number" min={MIN_CELL_GAP} max={MAX_CELL_GAP} value={activeBoard.cellGapPx} onChange={(event) => void updateActiveBoard({ cellGapPx: clampNumber(Number(event.target.value), MIN_CELL_GAP, MAX_CELL_GAP) })} /></label></div>{!readOnly && activeBoard.visibility === "private" && <label><input type="checkbox" checked={!!activeBoard.showToGM} onChange={(event) => void updateActiveBoard({ showToGM: event.target.checked })} /> Show to GM</label>}{!readOnly && <button title="Delete board" onClick={() => { if (confirm(`Delete ${activeBoard.name}? This cannot be undone.`)) void boardSaving.delete(activeBoard).then(refresh); }}><Trash2 size={16} /> Delete Board</button>}</> : <span className="emptyBoardGroup">Open a board or create one from the Boards menu.</span>}
     </section>}{boardPickerOpen && <section className="boardPanel boardPicker"><button className="primaryAction" onClick={() => { setCreateOpen(true); setBoardPickerOpen(false); }}><Plus size={16} /> Create Private Board</button><div className="boardGroups"><strong>Shared Boards</strong>{boards.filter((board) => board.visibility === "shared").map((board) => <button key={board.id} onClick={() => void chooseBoard(board)}>{board.name}</button>)}{!boards.some((board) => board.visibility === "shared" && board.scope === "scene") && <button onClick={() => void createShared()}>Shared Scene Board</button>}<strong>Private Scene Boards</strong>{boards.filter((board) => board.visibility === "private" && board.scope === "scene").map((board) => <button key={board.id} onClick={() => void chooseBoard(board)}>{board.name}</button>)}{!boards.some((board) => board.visibility === "private" && board.scope === "scene") && <span className="emptyBoardGroup">Empty</span>}{playerRole === "GM" && <><button className="boardGroupButton" disabled={playerBoards.length === 0}>Player Boards</button>{playerBoards.map((group) => <div key={group.playerName}><strong>{group.playerName}</strong>{group.boards.map((board) => <button key={board.id} onClick={() => void chooseBoard(board)}>{board.name}</button>)}</div>)}</>}</div></section>}</div><div className="tools">{showBoardActions && <><button disabled={readOnly} title="Save board" onClick={() => void persistBoard(activeBoard!, false, true)}><Save size={16} /> {saveStatus ?? "Save"}</button>{!readOnly && <button title="Add item" onClick={() => { setAddTarget(viewportCenterGrid()); setAddModalOpen(true); }}><Plus size={16} /> Add</button>}</>}<button title="Zoom out" onClick={() => setZoom((value) => clampNumber(value - 0.1, MIN_ZOOM, MAX_ZOOM))}><Minus size={16} /></button><span className="zoom">{Math.round(zoom * 100)}%</span><button title="Zoom in" onClick={() => setZoom((value) => clampNumber(value + 0.1, MIN_ZOOM, MAX_ZOOM))}><Plus size={16} /></button><button title="Reset view" onClick={() => { setPan(DEFAULT_PAN); setZoom(DEFAULT_ZOOM); }}><RefreshCw size={16} /></button><button title="Open save/load diagnostics" onClick={() => void openDebugTab()}>Debug</button></div></header>
 
-    {debugOpen && <DebugPanel snapshot={debugSnapshot} logs={debugLogs} onRefresh={() => void openDebugTab()} />}
+    {debugOpen && <DebugPanel snapshot={debugSnapshot} logs={debugLogs} onRefresh={() => void openDebugTab()} onClearScene={() => void clearDebugData("scene")} onClearRoom={() => void clearDebugData("room")} />}
     <div ref={gridRef} className="gridSurface" onDoubleClick={(event) => { if (!activeBoard || readOnly) return; const grid = pointerToGrid(event.clientX, event.clientY); if (!boardItemAt(activeBoard, grid.x, grid.y)) void createTextAt(grid); }} onPointerDown={handleGridPointerDown} onPointerMove={handleGridPointerMove} onPointerUp={(event) => void handleGridPointerUp(event)} onContextMenu={(event) => { event.preventDefault(); if (!activeBoard || readOnly) { if (!activeBoard) setCreateOpen(true); return; } const grid = pointerToGrid(event.clientX, event.clientY); const item = boardItemAt(activeBoard, grid.x, grid.y); if (item) setContextItem({ item, x: event.clientX, y: event.clientY }); else setEmptyContext({ gridX: grid.x, gridY: grid.y, x: event.clientX, y: event.clientY }); }} style={{ backgroundSize: `${cellSize}px ${cellSize}px`, backgroundPosition: `${pan.x}px ${pan.y}px` }}>
       <div key={displayBoard?.id ?? "empty"} className="gridPlane" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>{displayBoard?.items.map((item) => <BoardItemView key={item.id} item={resizeItemState?.itemId === item.id ? { ...item, gridWidth: resizeItemState.gridWidth, gridHeight: resizeItemState.gridHeight } : item} selected={selectedItemId === item.id} cellSize={displayBoard.cellSizePx} cellGap={displayBoard.cellGapPx} onResizePointerDown={startItemResize} onDoubleClick={openItemEditor} onCounterChange={changeCounter} readOnly={readOnly} />)}</div>
       {showPreview && <div className="emptyState" onPointerDown={(event) => event.stopPropagation()} onContextMenu={(event) => { event.preventDefault(); event.stopPropagation(); }}><strong>Preview Board</strong><button className="primaryAction" onClick={() => setCreateOpen(true)}><Plus size={16} /> Create Private Board</button><button onClick={async () => { const prefs = preferences ?? await loadPreferences(); await savePreferences({ ...prefs, previewDismissed: true }); setPreviewDismissed(true); }}>Dismiss</button></div>}
@@ -563,8 +576,8 @@ export default function App() {
   </main>;
 }
 
-function DebugPanel({ snapshot, logs, onRefresh }: { snapshot: unknown; logs: string[]; onRefresh(): void }) {
-  return <section className="debugPanel"><div className="debugHeader"><strong>Save / Load Debug</strong><button onClick={onRefresh}>Refresh</button></div><h3>Logs</h3><pre>{logs.join("\n") || "No application events recorded."}</pre><h3>Snapshot</h3><pre>{snapshot ? JSON.stringify(snapshot, null, 2) : "Collecting diagnostics..."}</pre></section>;
+function DebugPanel({ snapshot, logs, onRefresh, onClearScene, onClearRoom }: { snapshot: unknown; logs: string[]; onRefresh(): void; onClearScene(): void; onClearRoom(): void }) {
+  return <section className="debugPanel"><div className="debugHeader"><strong>Save / Load Debug</strong><span><button onClick={onRefresh}>Refresh</button><button onClick={onClearScene}>Clear Board Scene Data</button><button onClick={onClearRoom}>Clear Board Room Data</button></span></div><h3>Logs</h3><pre>{logs.join("\n") || "No application events recorded."}</pre><h3>Snapshot</h3><pre>{snapshot ? JSON.stringify(snapshot, null, 2) : "Collecting diagnostics..."}</pre></section>;
 }
 
 function MarkdownHelp({ open, panelRef }: { open: boolean; panelRef: React.RefObject<HTMLDivElement | null> }) {

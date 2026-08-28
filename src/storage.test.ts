@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SHARED_SCENE_STATE_KEY } from "./constants";
-import { beginSharedSceneTransition, carrySharedBoardAcrossSceneTransition, deleteBoard, getSceneKey, loadAllVisibleBoards, loadGmSharedBoardState, loadPrivateBoardState, loadSharedBoardState, movePrivateRoomBoardToScene, normalizeBoardState, saveBoard, savePrivateBoardState, saveSharedBoardState, trackActiveSharedBoard } from "./storage";
+import { beginSharedSceneTransition, carrySharedBoardAcrossSceneTransition, clearRoomBoardData, clearSceneBoardData, deleteBoard, getSceneKey, loadAllVisibleBoards, loadGmSharedBoardState, loadPrivateBoardState, loadSharedBoardState, movePrivateRoomBoardToScene, normalizeBoardState, saveBoard, savePrivateBoardState, saveSharedBoardState, trackActiveSharedBoard } from "./storage";
 import type { BoardItem } from "./types";
 
 const obr = vi.hoisted(() => ({
@@ -284,6 +284,21 @@ describe("storage", () => {
 
     expect(obr.scene.items.deleteItems).not.toHaveBeenCalled();
   });
+  it("clears only Owlbear Board data for the current scene and room", async () => {
+    obr.scene.isReady.mockResolvedValue(true);
+    obr.scene.getMetadata.mockResolvedValue({ "com.owlbear-board.grid/scene-key": "active-scene" });
+    await savePrivateBoardState("scene", { ...privateState, boards: [{ ...privateState.boards[0], scope: "scene" as const }] });
+    await savePrivateBoardState("room", privateState);
+
+    await clearSceneBoardData();
+    await clearRoomBoardData();
+
+    await expect(loadPrivateBoardState("scene")).resolves.toEqual(state);
+    await expect(loadPrivateBoardState("room")).resolves.toEqual(state);
+    expect(obr.scene.setMetadata).toHaveBeenCalledWith({ "com.owlbear-board.grid/shared-scene-state": undefined });
+    expect(obr.room.setMetadata).toHaveBeenCalledWith(expect.objectContaining({ "com.owlbear-board.grid/shared-room-state": state }));
+  });
+
   it("loads private boards when a legacy DATA item makes scene item reads fail", async () => {
     const privateScene = { ...privateState, boards: [{ ...privateState.boards[0], scope: "scene" as const }] };
     obr.scene.isReady.mockResolvedValue(true);

@@ -347,6 +347,28 @@ async function relocateBoardInMetadata(board: Board) {
   return moved;
 }
 
+export async function clearSceneBoardData() {
+  const sceneKey = await getSceneKey();
+  const states = await readPrivateSceneStates();
+  delete states[sceneKey];
+  await writePrivateSceneStates(states);
+  const preferences = await loadPreferences();
+  const { [sceneKey]: _cleared, ...privateSceneOpenOrder } = preferences.privateSceneOpenOrder;
+  await savePreferences({ ...preferences, privateSceneOpenOrder });
+  if (OBR.isAvailable) await OBR.scene.setMetadata({ [SHARED_SCENE_STATE_KEY]: undefined });
+  const published = (await loadGmSharedBoardState()).boards.filter((board) => board.scope !== "scene");
+  await saveGmSharedBoardState({ version: 1, boards: published });
+}
+
+export async function clearRoomBoardData() {
+  await savePrivateBoardState("room", emptyState());
+  await saveSharedBoardState("room", emptyState());
+  const preferences = await loadPreferences();
+  await savePreferences({ ...preferences, privateRoomOpenOrder: {} });
+  const published = (await loadGmSharedBoardState()).boards.filter((board) => board.scope !== "room");
+  await saveGmSharedBoardState({ version: 1, boards: published });
+}
+
 export type BoardSavingBehavior = {
   save(board: Board): Promise<Board>;
   delete(board: Board): Promise<void>;

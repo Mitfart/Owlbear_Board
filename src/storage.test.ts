@@ -37,7 +37,7 @@ describe("storage", () => {
     await saveSharedBoardState("scene", state);
 
     expect(obr.scene.items.addItems).toHaveBeenCalledWith([expect.objectContaining({
-      type: "DATA", visible: false, locked: true, disableHit: true,
+      id: expect.any(String), type: "DATA", visible: false, locked: true, disableHit: true,
       data: expect.objectContaining({ namespace: expect.stringContaining("shared-scene-board"), version: 1, state }),
     })]);
     expect(obr.scene.setMetadata).not.toHaveBeenCalled();

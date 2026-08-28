@@ -183,6 +183,9 @@ export default function App() {
     });
     tabsInitialized.current = true;
   }, []);
+  const refreshIfSafe = useCallback(() => {
+    if (!focusedItemId && !dragState && !resizeItemState && pendingCounterChanges.current === 0) void refresh();
+  }, [dragState, focusedItemId, refresh, resizeItemState]);
 
   useEffect(() => {
     if (!OBR.isAvailable) { void refresh(); return; }
@@ -191,31 +194,27 @@ export default function App() {
     let unsubscribeItems: (() => void) | undefined;
     OBR.onReady(() => {
       if (cancelled) return;
-      setReady(true); void carrySharedBoardAcrossSceneTransition().then(refresh); void OBR.theme.getTheme().then(setTheme);
+      setReady(true); void carrySharedBoardAcrossSceneTransition().then(refreshIfSafe); void OBR.theme.getTheme().then(setTheme);
       const subscribeItems = () => {
         if (unsubscribeItems) return;
         const items = (OBR.scene as unknown as { items?: { onChange?: (callback: () => void) => () => void } }).items;
-        if (items?.onChange) unsubscribeItems = items.onChange(() => {
-          if (!focusedItemId && !dragState && !resizeItemState && pendingCounterChanges.current === 0) void refresh();
-        });
+        if (items?.onChange) unsubscribeItems = items.onChange(refreshIfSafe);
       };
       void OBR.scene.isReady().then((sceneReady) => { if (sceneReady) subscribeItems(); });
       unsubscribe = (OBR.scene as unknown as { onReadyChange(callback: (sceneReady: boolean) => void): () => void }).onReadyChange((sceneReady) => {
         if (!sceneReady) { unsubscribeItems?.(); unsubscribeItems = undefined; beginSharedSceneTransition(); }
-        else { setReady(true); subscribeItems(); void carrySharedBoardAcrossSceneTransition().then(refresh); }
+        else { setReady(true); subscribeItems(); void carrySharedBoardAcrossSceneTransition().then(refreshIfSafe); }
       });
     });
     return () => { cancelled = true; unsubscribe?.(); unsubscribeItems?.(); };
-  }, [dragState, focusedItemId, refresh, resizeItemState]);
+  }, [refreshIfSafe]);
   useEffect(() => { if (!OBR.isAvailable || !ready) return; return OBR.theme.onChange(setTheme); }, [ready]);
   useEffect(() => { if (!OBR.isAvailable || !ready) return; return OBR.broadcast.onMessage(BOARD_EVENT_CHANNEL, () => void refresh()); }, [ready, refresh]);
   useEffect(() => {
     if (!ready) return;
-    const id = window.setInterval(() => {
-      if (!focusedItemId && !dragState && !resizeItemState && pendingCounterChanges.current === 0) void refresh();
-    }, 2500);
+    const id = window.setInterval(refreshIfSafe, 2500);
     return () => window.clearInterval(id);
-  }, [dragState, focusedItemId, ready, refresh, resizeItemState]);
+  }, [ready, refreshIfSafe]);
   useEffect(() => { if (!activeBoard || isPreview) return; const id = window.setTimeout(() => void saveViewport(activeBoard.id, { pan, zoom }), 250); return () => window.clearTimeout(id); }, [activeBoard, isPreview, pan, zoom]);
   useEffect(() => {
     if (focusedItemId) {

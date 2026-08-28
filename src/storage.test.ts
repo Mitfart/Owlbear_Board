@@ -175,22 +175,28 @@ describe("storage", () => {
     expect(obr.scene.items.deleteItems).toHaveBeenCalledWith(["room-item"]);
   });
 
-  it("preserves the destination room board when transition revisions are equal", async () => {
+  it("prefers the active source room board when transition revisions are equal", async () => {
     const sourceBoard = { ...shareableBoard, name: "Source", visibility: "shared" as const, scope: "room" as const, revision: 4 };
     const destinationBoard = { ...shareableBoard, name: "Destination", visibility: "shared" as const, scope: "room" as const, revision: 4 };
     obr.scene.isReady.mockResolvedValue(true);
     let sceneMetadata: Record<string, unknown> = { "com.owlbear-board.grid/scene-key": "source" };
     obr.scene.getMetadata.mockImplementation(() => Promise.resolve(sceneMetadata));
-    obr.scene.items.getItems.mockResolvedValue([{ id: "source-room-item", type: "DATA", data: { namespace: "com.owlbear-board.grid/shared-scene-board", version: 1, state: { version: 1, boards: [sourceBoard] } } }]);
-    obr.room.getMetadata.mockResolvedValue({ "com.owlbear-board.grid/shared-room-state": { version: 1, boards: [destinationBoard] } });
+    const sourceItem = { id: "source-room-item", type: "DATA", data: { namespace: "com.owlbear-board.grid/shared-scene-board", version: 1, state: { version: 1, boards: [sourceBoard] } } };
+    const destinationItem = { id: "destination-room-item", type: "DATA", data: { namespace: "com.owlbear-board.grid/shared-scene-board", version: 1, state: { version: 1, boards: [destinationBoard] } } };
+    let updatedItem = destinationItem;
+    obr.scene.items.getItems.mockImplementation(() => Promise.resolve([sceneMetadata["com.owlbear-board.grid/scene-key"] === "source" ? sourceItem : updatedItem]));
+    obr.scene.items.updateItems.mockImplementation(async (_ids, update) => {
+      const drafts = [{ ...updatedItem }];
+      update(drafts as never);
+      updatedItem = drafts[0] as typeof destinationItem;
+    });
 
     await trackActiveSharedBoard({ version: 1, boards: [sourceBoard] }, "source");
     beginSharedSceneTransition();
     sceneMetadata = { "com.owlbear-board.grid/scene-key": "destination" };
     await carrySharedBoardAcrossSceneTransition();
 
-    expect(obr.room.setMetadata).not.toHaveBeenCalled();
-    await expect(loadSharedBoardState("room")).resolves.toEqual({ version: 1, boards: [sourceBoard] });
+    expect(updatedItem.data.state.boards).toEqual([expect.objectContaining({ name: "Source", revision: 4 })]);
   });
 
   it("does not load shared scene state from legacy metadata", async () => {

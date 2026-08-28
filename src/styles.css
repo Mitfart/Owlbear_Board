@@ -1209,3 +1209,29 @@ input[type="color"] {
   background: var(--panel-soft);
   white-space: pre-wrap;
 }
+
+.manageBoards {
+  position: absolute;
+  z-index: 1;
+  inset: 53px 0 0;
+  overflow: auto;
+  padding: 16px;
+  background: var(--bg);
+}
+
+.manageBoards h3 { margin: 20px 0 8px; }
+
+.manageBoardGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.manageBoardGrid button {
+  display: grid;
+  gap: 4px;
+  min-height: 72px;
+  text-align: left;
+}
+
+.manageBoardGrid span { color: var(--muted); font-size: 12px; }

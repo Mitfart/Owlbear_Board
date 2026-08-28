@@ -25,7 +25,6 @@ export type BoardItem = {
   gridY: number;
   gridWidth: number;
   gridHeight: number;
-  createdAt: string;
   updatedAt: string;
 };
 
@@ -42,7 +41,6 @@ export type Board = {
   cellSizePx: number;
   cellGapPx: number;
   items: BoardItem[];
-  createdAt: string;
   updatedAt: string;
 };
 

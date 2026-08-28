@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { SHARED_SCENE_STATE_KEY } from "./constants";
+import { PRIVATE_ROOM_STATE_KEY, SHARED_SCENE_STATE_KEY } from "./constants";
 import { beginSharedSceneTransition, carrySharedBoardAcrossSceneTransition, clearAllBoardData, clearRoomBoardData, clearSceneBoardData, deleteBoard, getSceneKey, loadAllVisibleBoards, loadGmSharedBoardState, loadPrivateBoardState, loadSharedBoardState, movePrivateRoomBoardToScene, normalizeBoardState, saveBoard, savePrivateBoardState, saveSharedBoardState, trackActiveSharedBoard } from "./storage";
 import type { BoardItem } from "./types";
 
@@ -13,8 +13,8 @@ const obr = vi.hoisted(() => ({
 vi.mock("@owlbear-rodeo/sdk", () => ({ default: obr }));
 
 const state = { version: 1 as const, boards: [] };
-const privateState = { version: 1 as const, boards: [{ id: "saved", name: "Saved", scope: "room" as const, visibility: "private" as const, revision: 1, cellSizePx: 72, cellGapPx: 2, items: [], createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" }] };
-const shareableBoard = { id: "shareable", name: "Shareable", scope: "room" as const, visibility: "private" as const, ownerId: "owner", ownerName: "Owner", revision: 0, cellSizePx: 72, cellGapPx: 2, items: [], createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" };
+const privateState = { version: 1 as const, boards: [{ id: "saved", name: "Saved", scope: "room" as const, visibility: "private" as const, revision: 1, cellSizePx: 72, cellGapPx: 2, items: [], updatedAt: "2026-01-01T00:00:00.000Z" }] };
+const shareableBoard = { id: "shareable", name: "Shareable", scope: "room" as const, visibility: "private" as const, ownerId: "owner", ownerName: "Owner", revision: 0, cellSizePx: 72, cellGapPx: 2, items: [], updatedAt: "2026-01-01T00:00:00.000Z" };
 
 describe("storage", () => {
   beforeEach(() => {
@@ -60,10 +60,12 @@ describe("storage", () => {
     expect(obr.scene.items.addItems).not.toHaveBeenCalled();
   });
 
-  it("restores a private room board from player metadata", async () => {
-    await savePrivateBoardState("room", privateState);
+  it("stores only non-default board fields and restores them on load", async () => {
+    const board = { ...privateState.boards[0], items: [{ id: "counter", type: "counter" as const, gridX: 0, gridY: 0, gridWidth: 1, gridHeight: 1, updatedAt: "2026-01-01T00:00:00.000Z", counterValue: 0, counterLabelPosition: "top-center" as const, counterDimAtZero: true, borderColor: "#bb99ff", counterZeroColor: "#ff6b8a", counterMaxColor: "#ffd166" }] };
+    await savePrivateBoardState("room", { version: 1, boards: [board] });
 
-    await expect(loadPrivateBoardState("room")).resolves.toEqual(privateState);
+    expect(obr.player.setMetadata).toHaveBeenLastCalledWith({ [PRIVATE_ROOM_STATE_KEY]: { version: 1, boards: [{ id: "saved", name: "Saved", scope: "room", visibility: "private", revision: 1, items: [{ id: "counter", type: "counter", gridX: 0, gridY: 0, gridWidth: 1, gridHeight: 1, updatedAt: "2026-01-01T00:00:00.000Z" }], updatedAt: "2026-01-01T00:00:00.000Z" }] } });
+    await expect(loadPrivateBoardState("room")).resolves.toMatchObject({ boards: [{ cellSizePx: 72, cellGapPx: 2, items: [{ counterValue: 0, counterLabelPosition: "top-center", counterDimAtZero: true, borderColor: "#bb99ff", counterZeroColor: "#ff6b8a", counterMaxColor: "#ffd166" }] }] });
   });
 
   it("restores a scene board saved before scene readiness after reload", async () => {
@@ -127,7 +129,7 @@ describe("storage", () => {
     const items: BoardItem[] = alignments.flatMap((textVerticalAlignment) => [true, false].map((fillBlock, index) => ({
       id: `${textVerticalAlignment}-${index}`, type: "text" as const, text: "Saved text", textBaselineWidth: 2, fillBlock, textVerticalAlignment,
       gridX: index, gridY: 0, gridWidth: 2, gridHeight: 1,
-      createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
     })));
 
     await saveBoard({ ...shareableBoard, id: "presentation", items });
@@ -136,7 +138,7 @@ describe("storage", () => {
   });
 
   it("normalizes legacy derived occupancy when loading", () => {
-    const legacy = { ...shareableBoard, items: [{ id: "item", type: "text" as const, gridX: Infinity, gridY: 3.5, gridWidth: Infinity, gridHeight: -1, occupiedCells: [{ x: 99, y: 99 }], createdAt: "", updatedAt: "" }] };
+    const legacy = { ...shareableBoard, items: [{ id: "item", type: "text" as const, gridX: Infinity, gridY: 3.5, gridWidth: Infinity, gridHeight: -1, occupiedCells: [{ x: 99, y: 99 }], updatedAt: "" }] };
     const normalized = normalizeBoardState({ version: 1, boards: [legacy] });
 
     expect(normalized.boards[0].items[0]).toEqual(expect.objectContaining({ gridX: 0, gridY: 3, gridWidth: 1, gridHeight: 1 }));
@@ -167,10 +169,10 @@ describe("storage", () => {
     obr.scene.items.getItems.mockResolvedValue([]);
     await carrySharedBoardAcrossSceneTransition();
     expect(obr.room.setMetadata).toHaveBeenCalledWith(expect.objectContaining({
-      "com.owlbear-board.grid/shared-room-state": boardState,
+      "com.owlbear-board.grid/shared-room-state": expect.objectContaining({ boards: [expect.objectContaining({ id: "shareable" })] }),
     }));
     expect(obr.scene.items.addItems).toHaveBeenCalledWith([expect.objectContaining({
-      data: expect.objectContaining({ state: boardState }),
+      data: expect.objectContaining({ state: expect.objectContaining({ boards: [expect.objectContaining({ id: "shareable" })] }) }),
     })]);
 
     sceneMetadata = { "com.owlbear-board.grid/scene-key": "source" };
@@ -229,7 +231,7 @@ describe("storage", () => {
     await deleteBoard(requested);
 
     expect(obr.scene.items.updateItems).toHaveBeenCalledWith(["shared-item"], expect.any(Function));
-    expect(drafts[0]).toEqual(expect.objectContaining({ data: expect.objectContaining({ state: { version: 1, boards: [sibling] } }) }));
+    expect(drafts[0]).toEqual(expect.objectContaining({ data: expect.objectContaining({ state: expect.objectContaining({ version: 1, boards: [expect.objectContaining({ id: "sibling" })] }) }) }));
     expect(obr.scene.items.deleteItems).not.toHaveBeenCalled();
   });
 
@@ -265,7 +267,7 @@ describe("storage", () => {
     sceneMetadata = { "com.owlbear-board.grid/scene-key": "c" };
     await carrySharedBoardAcrossSceneTransition();
 
-    expect(obr.room.setMetadata).toHaveBeenLastCalledWith(expect.objectContaining({ "com.owlbear-board.grid/shared-room-state": { version: 1, boards: [boardB] } }));
+    expect(obr.room.setMetadata).toHaveBeenLastCalledWith(expect.objectContaining({ "com.owlbear-board.grid/shared-room-state": expect.objectContaining({ version: 1, boards: [expect.objectContaining({ id: "room-b" })] }) }));
     sceneMetadata = { "com.owlbear-board.grid/scene-key": "b" };
     await carrySharedBoardAcrossSceneTransition();
     expect(obr.scene.items.deleteItems).toHaveBeenCalledWith(["b-room-item"]);

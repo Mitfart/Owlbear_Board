@@ -4,7 +4,7 @@ import type React from "react";
 import type { Theme } from "@owlbear-rodeo/sdk";
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { DEFAULT_CELL_GAP, DEFAULT_CELL_SIZE, DEFAULT_WINDOW, EXTENSION_ID, MAX_CELL_GAP, MAX_CELL_SIZE, MIN_CELL_GAP, MIN_CELL_SIZE } from "./constants";
+import { DEFAULT_CELL_GAP, DEFAULT_CELL_SIZE, DEFAULT_COUNTER_MAX_COLOR, DEFAULT_COUNTER_ZERO_COLOR, DEFAULT_ITEM_BORDER_COLOR, DEFAULT_WINDOW, EXTENSION_ID, MAX_CELL_GAP, MAX_CELL_SIZE, MIN_CELL_GAP, MIN_CELL_SIZE } from "./constants";
 import { boardItemAt, collides, updateBoardItemPosition, updateBoardItemRect } from "./grid";
 import { createId, nowIso } from "./ids";
 import { MarkdownView } from "./markdown";
@@ -30,7 +30,6 @@ const MAX_ZOOM = 2;
 const DEFAULT_PAN = { x: 260, y: 180 };
 const SAMPLE_IMAGE = "https://images.unsplash.com/photo-1549880338-65ddcdfd017b?auto=format&fit=crop&w=900&q=80";
 const AUTO_SIZE = "auto";
-const DEFAULT_ITEM_BORDER_COLOR = "#bb99ff";
 const MAX_HISTORY = 20;
 
 function formatDebugError(reason: unknown) {
@@ -46,19 +45,17 @@ function boardMetadata(value: unknown) {
 function boardSceneItems(value: unknown) {
   return Array.isArray(value) ? value.filter((item) => !!item && typeof item === "object" && (item as { data?: { namespace?: unknown } }).data?.namespace === `${EXTENSION_ID}/shared-scene-board`) : value;
 }
-const DEFAULT_COUNTER_ZERO_COLOR = "#ff6b8a";
-const DEFAULT_COUNTER_MAX_COLOR = "#ffd166";
 const FALLBACK_THEME: Theme = { mode: "DARK", primary: { main: "#bb99ff", light: "#d2bdff", dark: "#826bb2", contrastText: "#ffffff" }, secondary: { main: "#03dac6", light: "#66fff8", dark: "#00a896", contrastText: "#ffffff" }, background: { default: "#1e2231", paper: "#2c3042" }, text: { primary: "#ffffff", secondary: "#ffffff", disabled: "#ffffff" } };
 
 function createItemBase(gridX: number, gridY: number, gridWidth: number, gridHeight: number) {
   const timestamp = nowIso();
-  return { id: createId("board_item"), gridX, gridY, gridWidth, gridHeight, createdAt: timestamp, updatedAt: timestamp };
+  return { id: createId("board_item"), gridX, gridY, gridWidth, gridHeight, updatedAt: timestamp };
 }
 
 function sampleBoard(): Board {
   const timestamp = nowIso();
   return {
-    id: "preview", name: "Preview Board", scope: "scene", visibility: "private", revision: 1, cellSizePx: DEFAULT_CELL_SIZE, cellGapPx: DEFAULT_CELL_GAP, createdAt: timestamp, updatedAt: timestamp,
+    id: "preview", name: "Preview Board", scope: "scene", visibility: "private", revision: 1, cellSizePx: DEFAULT_CELL_SIZE, cellGapPx: DEFAULT_CELL_GAP, updatedAt: timestamp,
     items: [
       { ...createItemBase(0, 0, 3, 2), type: "text", text: "## Clue\n- **Blood** on the door\n- A cold draft", borderColor: DEFAULT_ITEM_BORDER_COLOR },
       { ...createItemBase(4, 0, 3, 2), type: "image", imageUrl: SAMPLE_IMAGE, borderColor: "#03dac6" },
@@ -69,7 +66,7 @@ function sampleBoard(): Board {
 
 function makeBoard(scope: BoardScope, visibility: BoardVisibility, name?: string, ownerId?: string): Board {
   const timestamp = nowIso();
-  return { id: createId("board"), name: visibility === "shared" ? `Shared ${scope === "scene" ? "Scene" : "Room"} Board` : name || `New ${scope === "scene" ? "Scene" : "Room"} Board`, scope, visibility, ownerId, revision: 0, cellSizePx: DEFAULT_CELL_SIZE, cellGapPx: DEFAULT_CELL_GAP, items: [], createdAt: timestamp, updatedAt: timestamp };
+  return { id: createId("board"), name: visibility === "shared" ? `Shared ${scope === "scene" ? "Scene" : "Room"} Board` : name || `New ${scope === "scene" ? "Scene" : "Room"} Board`, scope, visibility, ownerId, revision: 0, cellSizePx: DEFAULT_CELL_SIZE, cellGapPx: DEFAULT_CELL_GAP, items: [], updatedAt: timestamp };
 }
 
 function firstFreeNear(board: Board, gridX: number, gridY: number, gridWidth: number, gridHeight: number) {

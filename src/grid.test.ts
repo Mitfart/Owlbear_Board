@@ -10,7 +10,6 @@ const item = (overrides: Partial<BoardItem>): BoardItem => ({
   gridY: 1,
   gridWidth: 2,
   gridHeight: 2,
-  createdAt: "",
   updatedAt: "",
   ...overrides,
 });
@@ -24,7 +23,6 @@ const board = (items: BoardItem[]): Board => ({
   cellSizePx: 72,
   cellGapPx: 0,
   items,
-  createdAt: "",
   updatedAt: "",
 });
 

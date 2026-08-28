@@ -19,7 +19,6 @@ const board = (overrides: Partial<Board> = {}): Board => ({
   cellSizePx: 72,
   cellGapPx: 2,
   items: [],
-  createdAt: "2026-01-01T00:00:00.000Z",
   updatedAt: "2026-01-01T00:00:00.000Z",
   ...overrides,
 });

@@ -1,5 +1,10 @@
 import OBR from "@owlbear-rodeo/sdk";
 import {
+  DEFAULT_CELL_GAP,
+  DEFAULT_CELL_SIZE,
+  DEFAULT_COUNTER_MAX_COLOR,
+  DEFAULT_COUNTER_ZERO_COLOR,
+  DEFAULT_ITEM_BORDER_COLOR,
   DEFAULT_WINDOW,
   EXTENSION_ID,
   PLAYER_PREFERENCES_KEY,
@@ -28,13 +33,46 @@ function normalizedGridValue(value: unknown, fallback: number, minimum?: number)
 export function normalizeBoardState(state: PersistedBoardState): PersistedBoardState {
   return {
     ...state,
-    boards: state.boards.map((board) => ({
-      ...board,
-      items: board.items.map((item) => {
-        const { occupiedCells: _legacyOccupiedCells, ...normalizedItem } = item as BoardItem & { occupiedCells?: unknown };
-        return { ...normalizedItem, gridX: normalizedGridValue(normalizedItem.gridX, 0), gridY: normalizedGridValue(normalizedItem.gridY, 0), gridWidth: normalizedGridValue(normalizedItem.gridWidth, 1, 1), gridHeight: normalizedGridValue(normalizedItem.gridHeight, 1, 1) };
-      }),
-    })),
+    boards: state.boards.map((board) => {
+      const normalizedBoard = { ...board };
+      delete (normalizedBoard as Board & { createdAt?: unknown }).createdAt;
+      return {
+        ...normalizedBoard,
+        cellSizePx: normalizedBoard.cellSizePx ?? DEFAULT_CELL_SIZE,
+        cellGapPx: normalizedBoard.cellGapPx ?? DEFAULT_CELL_GAP,
+        items: board.items.map((item) => {
+          const { occupiedCells: _legacyOccupiedCells, createdAt: _createdAt, ...normalizedItem } = item as BoardItem & { occupiedCells?: unknown; createdAt?: unknown };
+          const grid = { ...normalizedItem, gridX: normalizedGridValue(normalizedItem.gridX, 0), gridY: normalizedGridValue(normalizedItem.gridY, 0), gridWidth: normalizedGridValue(normalizedItem.gridWidth, 1, 1), gridHeight: normalizedGridValue(normalizedItem.gridHeight, 1, 1) };
+          if (grid.type === "text") return { ...grid, text: grid.text ?? "", fillBlock: grid.fillBlock !== false, textVerticalAlignment: grid.textVerticalAlignment ?? "top", borderColor: grid.borderColor ?? DEFAULT_ITEM_BORDER_COLOR };
+          if (grid.type === "image") return { ...grid, imageFit: grid.imageFit ?? "cover", borderColor: grid.borderColor ?? DEFAULT_ITEM_BORDER_COLOR };
+          if (grid.type === "counter") return { ...grid, counterValue: grid.counterValue ?? 0, counterLabel: grid.counterLabel ?? "", counterLabelPosition: grid.counterLabelPosition ?? "top-center", counterDimAtZero: grid.counterDimAtZero !== false, counterZeroColor: grid.counterZeroColor ?? DEFAULT_COUNTER_ZERO_COLOR, counterMaxColor: grid.counterMaxColor ?? DEFAULT_COUNTER_MAX_COLOR, borderColor: grid.borderColor ?? DEFAULT_ITEM_BORDER_COLOR };
+          return grid;
+        }),
+      };
+    }),
+  };
+}
+
+function compactBoardState(state: PersistedBoardState): PersistedBoardState {
+  const normalized = normalizeBoardState(state);
+  return {
+    ...normalized,
+    boards: normalized.boards.map((board) => {
+      const { cellSizePx, cellGapPx, ...compactBoard } = board;
+      const storedBoard = compactBoard as Omit<Board, "cellSizePx" | "cellGapPx"> & Partial<Pick<Board, "cellSizePx" | "cellGapPx">>;
+      if (cellSizePx !== DEFAULT_CELL_SIZE) storedBoard.cellSizePx = cellSizePx;
+      if (cellGapPx !== DEFAULT_CELL_GAP) storedBoard.cellGapPx = cellGapPx;
+      if (storedBoard.showToGM === false) delete storedBoard.showToGM;
+      storedBoard.items = board.items.map((item) => {
+        const compact = { ...item };
+        if (compact.borderColor === DEFAULT_ITEM_BORDER_COLOR) delete compact.borderColor;
+        if (compact.type === "text") { if (compact.text === "") delete compact.text; if (compact.fillBlock) delete compact.fillBlock; if (compact.textVerticalAlignment === "top") delete compact.textVerticalAlignment; }
+        if (compact.type === "image" && compact.imageFit === "cover") delete compact.imageFit;
+        if (compact.type === "counter") { if (compact.counterValue === 0) delete compact.counterValue; if (compact.counterLabel === "") delete compact.counterLabel; if (compact.counterLabelPosition === "top-center") delete compact.counterLabelPosition; if (compact.counterDimAtZero) delete compact.counterDimAtZero; if (!compact.counterZeroColorEnabled) delete compact.counterZeroColorEnabled; if (!compact.counterMaxColorEnabled) delete compact.counterMaxColorEnabled; if (compact.counterZeroColor === DEFAULT_COUNTER_ZERO_COLOR) delete compact.counterZeroColor; if (compact.counterMaxColor === DEFAULT_COUNTER_MAX_COLOR) delete compact.counterMaxColor; }
+        return compact;
+      });
+      return storedBoard as Board;
+    }),
   };
 }
 
@@ -103,12 +141,12 @@ export async function loadPrivateBoardState(scope: BoardScope) {
 
 export async function savePrivateBoardState(scope: BoardScope, state: PersistedBoardState) {
   if (scope === "room") {
-    await writePlayerMetadata(PRIVATE_ROOM_STATE_KEY, normalizeBoardState(state));
+    await writePlayerMetadata(PRIVATE_ROOM_STATE_KEY, compactBoardState(state));
     return;
   }
   const sceneKey = await getSceneKey();
   const states = await readPrivateSceneStates();
-  states[sceneKey] = normalizeBoardState(state);
+  states[sceneKey] = compactBoardState(state);
   await writePrivateSceneStates(states);
 }
 
@@ -157,7 +195,7 @@ async function getSharedSceneDataItemForBoard(board: Board) {
 
 async function updateSharedSceneDataItem(existing: SharedSceneDataEntry, state: PersistedBoardState) {
   if (!existing.item.id) return;
-  const data = { namespace: SHARED_SCENE_DATA_NAMESPACE, version: 1 as const, state: normalizeBoardState(state) } satisfies SharedSceneDataRecord;
+  const data = { namespace: SHARED_SCENE_DATA_NAMESPACE, version: 1 as const, state: compactBoardState(state) } satisfies SharedSceneDataRecord;
   const items = (OBR.scene as unknown as { items: { updateItems(ids: string[], update: (drafts: SceneDataItem[]) => void): Promise<void> } }).items;
   await items.updateItems([existing.item.id], (drafts) => {
     const draft = drafts.find((candidate) => candidate.id === existing.item.id);
@@ -171,7 +209,7 @@ async function writeSharedSceneDataState(state: PersistedBoardState, scope: Boar
   const nextState = existing
     ? { version: 1 as const, boards: [...existing.record.state.boards.filter((board) => board.scope !== scope), ...state.boards] }
     : state;
-  const data = { namespace: SHARED_SCENE_DATA_NAMESPACE, version: 1 as const, state: normalizeBoardState(nextState) } satisfies SharedSceneDataRecord;
+  const data = { namespace: SHARED_SCENE_DATA_NAMESPACE, version: 1 as const, state: compactBoardState(nextState) } satisfies SharedSceneDataRecord;
   const item = {
     type: "DATA", data, visible: false, locked: true, disableHit: true,
     position: { x: 0, y: 0 }, rotation: 0, scale: { x: 1, y: 1 }, layer: "FOREGROUND",
@@ -267,7 +305,7 @@ export async function loadGmSharedBoardState() {
 export async function saveGmSharedBoardState(state: PersistedBoardState) {
   if (!OBR.isAvailable) return;
   const metadata = await OBR.room.getMetadata();
-  await OBR.room.setMetadata({ ...metadata, [GM_SHARED_BOARD_STATE_KEY]: normalizeBoardState(state) });
+  await OBR.room.setMetadata({ ...metadata, [GM_SHARED_BOARD_STATE_KEY]: compactBoardState(state) });
 }
 
 export async function saveSharedBoardState(scope: BoardScope, state: PersistedBoardState) {
@@ -275,13 +313,13 @@ export async function saveSharedBoardState(scope: BoardScope, state: PersistedBo
   if (scope === "room") {
     if (!OBR.isAvailable) return;
     const metadata = await OBR.room.getMetadata();
-    await OBR.room.setMetadata({ ...metadata, [SHARED_ROOM_STATE_KEY]: normalized });
+    await OBR.room.setMetadata({ ...metadata, [SHARED_ROOM_STATE_KEY]: compactBoardState(normalized) });
     return;
   }
   if (!OBR.isAvailable) return;
   await migrateLegacySharedSceneState();
   if (sharedSceneDataUnavailable) {
-    await OBR.scene.setMetadata({ [SHARED_SCENE_STATE_KEY]: normalized });
+    await OBR.scene.setMetadata({ [SHARED_SCENE_STATE_KEY]: compactBoardState(normalized) });
     return;
   }
   await writeSharedSceneDataState(normalized, "scene");

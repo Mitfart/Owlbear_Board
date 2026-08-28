@@ -4,7 +4,7 @@ import type { Board } from "./types";
 
 const board = (visibility: Board["visibility"], ownerId?: string): Board => ({
   id: "board", name: "Board", scope: "room", visibility, ownerId, revision: 0,
-  cellSizePx: 72, cellGapPx: 2, items: [], createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z",
+  cellSizePx: 72, cellGapPx: 2, items: [], updatedAt: "2026-01-01T00:00:00.000Z",
 });
 
 describe("Board sharing permissions", () => {

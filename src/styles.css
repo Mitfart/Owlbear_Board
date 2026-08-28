@@ -139,6 +139,8 @@ input[type="radio"] {
 }
 
 .toolbar {
+  min-width: 0;
+  overflow: hidden;
   position: relative;
   z-index: 2;
   display: flex;
@@ -283,6 +285,8 @@ input[type="radio"] {
 }
 
 .gridSurface {
+  min-width: 0;
+  min-height: 0;
   position: relative;
   overflow: hidden;
   touch-action: none;

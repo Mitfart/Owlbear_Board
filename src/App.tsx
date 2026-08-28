@@ -246,6 +246,45 @@ export default function App() {
     return () => surface.removeEventListener("wheel", wheel);
   }, [ready]);
 
+  async function openDebugTab() {
+    const tab = window.open("", "_blank");
+    if (!tab) { setError("Allow pop-ups to open the debug tab."); return; }
+    const output = tab.document.createElement("pre");
+    output.style.whiteSpace = "pre-wrap";
+    output.style.padding = "16px";
+    output.textContent = "Loading Owlbear Board diagnostics...";
+    tab.document.title = "Owlbear Board Debug";
+    tab.document.body.replaceChildren(output);
+    try {
+      const sceneReady = OBR.isAvailable ? await OBR.scene.isReady() : false;
+      const [playerMetadata, roomMetadata, sceneMetadata, sceneItems, visible] = OBR.isAvailable
+        ? await Promise.all([
+          OBR.player.getMetadata(),
+          OBR.room.getMetadata(),
+          sceneReady ? OBR.scene.getMetadata() : undefined,
+          sceneReady ? (OBR.scene as unknown as { items: { getItems(): Promise<unknown[]> } }).items.getItems() : [],
+          loadAllVisibleBoards(playerRole, playerId),
+        ])
+        : [undefined, undefined, undefined, [], undefined];
+      const snapshot = {
+        capturedAt: new Date().toISOString(),
+        diagnostics: { available: OBR.isAvailable, sceneReady, ready, playerRole, playerId, sceneKey, activeBoardId, saveStatus, error },
+        uiBoards: boards,
+        visibleBoards: visible,
+        playerMetadata,
+        roomMetadata,
+        sceneMetadata,
+        sceneItems,
+      };
+      console.info("[Owlbear Board debug]", snapshot);
+      output.textContent = JSON.stringify(snapshot, null, 2);
+    } catch (reason) {
+      const message = reason instanceof Error ? `${reason.message}\n${reason.stack ?? ""}` : String(reason);
+      console.error("[Owlbear Board debug]", reason);
+      output.textContent = `Failed to collect diagnostics:\n${message}`;
+    }
+  }
+
   async function persistBoard(board: Board, pushHistory = true, reportSave = false) {
     if (!canEditBoard(board, playerRole, playerId)) return;
     try {
@@ -506,7 +545,7 @@ export default function App() {
   return <main className="app" style={{ width: windowSize.width, height: windowSize.height, ...themeVars }}>
     <header className="toolbar"><div className="boardTitle"><button className="boardToggle" title="Board settings" onClick={() => { setBoardPanelOpen((value) => !value); setBoardPickerOpen(false); }}><Settings size={16} /></button><button className="boardToggle" title="Boards" onClick={() => { setBoardPickerOpen((value) => !value); setBoardPanelOpen(false); }}><ChevronDown size={16} /></button><div className="boardTabs" onPointerDown={startTabDrag} onPointerMove={moveTabDrag} onPointerUp={endTabDrag} onPointerCancel={endTabDrag}>{openBoardIds.flatMap((id) => boards.filter((board) => board.id === id)).map((board) => <button key={board.id} className={`boardTab ${board.id === activeBoardId ? "active" : ""}`} onClick={() => void chooseBoard(board)} onContextMenu={(event) => { event.preventDefault(); void chooseBoard(board); setBoardPanelOpen(true); }}>{board.name}<X size={13} onClick={(event) => { event.stopPropagation(); closeBoardTab(board.id); }} /></button>)}</div>{boardPanelOpen && <section className="boardPanel">
       {activeBoard ? <>{!readOnly && canRenameBoard(activeBoard, playerRole) && <label>Name<input value={activeBoard.name} onChange={(event) => void updateActiveBoard({ name: event.target.value.slice(0, 60) })} /></label>}<div className="boardInlineFields"><label><span>Grid size</span><input disabled={readOnly} type="number" min={MIN_CELL_SIZE} max={MAX_CELL_SIZE} value={activeBoard.cellSizePx} onChange={(event) => void updateGridSize(Number(event.target.value))} /></label><label><span>Grid cell gap</span><input disabled={readOnly} type="number" min={MIN_CELL_GAP} max={MAX_CELL_GAP} value={activeBoard.cellGapPx} onChange={(event) => void updateActiveBoard({ cellGapPx: clampNumber(Number(event.target.value), MIN_CELL_GAP, MAX_CELL_GAP) })} /></label></div>{!readOnly && activeBoard.visibility === "private" && <label><input type="checkbox" checked={!!activeBoard.showToGM} onChange={(event) => void updateActiveBoard({ showToGM: event.target.checked })} /> Show to GM</label>}{!readOnly && <button title="Delete board" onClick={() => { if (confirm(`Delete ${activeBoard.name}? This cannot be undone.`)) void boardSaving.delete(activeBoard).then(refresh); }}><Trash2 size={16} /> Delete Board</button>}</> : <span className="emptyBoardGroup">Open a board or create one from the Boards menu.</span>}
-    </section>}{boardPickerOpen && <section className="boardPanel boardPicker"><button className="primaryAction" onClick={() => { setCreateOpen(true); setBoardPickerOpen(false); }}><Plus size={16} /> Create Private Board</button><div className="boardGroups"><strong>Shared Boards</strong>{boards.filter((board) => board.visibility === "shared").map((board) => <button key={board.id} onClick={() => void chooseBoard(board)}>{board.name}</button>)}{!boards.some((board) => board.visibility === "shared" && board.scope === "scene") && <button onClick={() => void createShared()}>Shared Scene Board</button>}<strong>Private Scene Boards</strong>{boards.filter((board) => board.visibility === "private" && board.scope === "scene").map((board) => <button key={board.id} onClick={() => void chooseBoard(board)}>{board.name}</button>)}{!boards.some((board) => board.visibility === "private" && board.scope === "scene") && <span className="emptyBoardGroup">Empty</span>}{playerRole === "GM" && <><button className="boardGroupButton" disabled={playerBoards.length === 0}>Player Boards</button>{playerBoards.map((group) => <div key={group.playerName}><strong>{group.playerName}</strong>{group.boards.map((board) => <button key={board.id} onClick={() => void chooseBoard(board)}>{board.name}</button>)}</div>)}</>}</div></section>}</div><div className="tools">{showBoardActions && <><button disabled={readOnly} title="Save board" onClick={() => void persistBoard(activeBoard!, false, true)}><Save size={16} /> {saveStatus ?? "Save"}</button>{!readOnly && <button title="Add item" onClick={() => { setAddTarget(viewportCenterGrid()); setAddModalOpen(true); }}><Plus size={16} /> Add</button>}</>}<button title="Zoom out" onClick={() => setZoom((value) => clampNumber(value - 0.1, MIN_ZOOM, MAX_ZOOM))}><Minus size={16} /></button><span className="zoom">{Math.round(zoom * 100)}%</span><button title="Zoom in" onClick={() => setZoom((value) => clampNumber(value + 0.1, MIN_ZOOM, MAX_ZOOM))}><Plus size={16} /></button><button title="Reset view" onClick={() => { setPan(DEFAULT_PAN); setZoom(DEFAULT_ZOOM); }}><RefreshCw size={16} /></button></div></header>
+    </section>}{boardPickerOpen && <section className="boardPanel boardPicker"><button className="primaryAction" onClick={() => { setCreateOpen(true); setBoardPickerOpen(false); }}><Plus size={16} /> Create Private Board</button><div className="boardGroups"><strong>Shared Boards</strong>{boards.filter((board) => board.visibility === "shared").map((board) => <button key={board.id} onClick={() => void chooseBoard(board)}>{board.name}</button>)}{!boards.some((board) => board.visibility === "shared" && board.scope === "scene") && <button onClick={() => void createShared()}>Shared Scene Board</button>}<strong>Private Scene Boards</strong>{boards.filter((board) => board.visibility === "private" && board.scope === "scene").map((board) => <button key={board.id} onClick={() => void chooseBoard(board)}>{board.name}</button>)}{!boards.some((board) => board.visibility === "private" && board.scope === "scene") && <span className="emptyBoardGroup">Empty</span>}{playerRole === "GM" && <><button className="boardGroupButton" disabled={playerBoards.length === 0}>Player Boards</button>{playerBoards.map((group) => <div key={group.playerName}><strong>{group.playerName}</strong>{group.boards.map((board) => <button key={board.id} onClick={() => void chooseBoard(board)}>{board.name}</button>)}</div>)}</>}</div></section>}</div><div className="tools">{showBoardActions && <><button disabled={readOnly} title="Save board" onClick={() => void persistBoard(activeBoard!, false, true)}><Save size={16} /> {saveStatus ?? "Save"}</button>{!readOnly && <button title="Add item" onClick={() => { setAddTarget(viewportCenterGrid()); setAddModalOpen(true); }}><Plus size={16} /> Add</button>}</>}<button title="Zoom out" onClick={() => setZoom((value) => clampNumber(value - 0.1, MIN_ZOOM, MAX_ZOOM))}><Minus size={16} /></button><span className="zoom">{Math.round(zoom * 100)}%</span><button title="Zoom in" onClick={() => setZoom((value) => clampNumber(value + 0.1, MIN_ZOOM, MAX_ZOOM))}><Plus size={16} /></button><button title="Reset view" onClick={() => { setPan(DEFAULT_PAN); setZoom(DEFAULT_ZOOM); }}><RefreshCw size={16} /></button><button title="Open save/load diagnostics" onClick={() => void openDebugTab()}>Debug</button></div></header>
 
     <div ref={gridRef} className="gridSurface" onDoubleClick={(event) => { if (!activeBoard || readOnly) return; const grid = pointerToGrid(event.clientX, event.clientY); if (!boardItemAt(activeBoard, grid.x, grid.y)) void createTextAt(grid); }} onPointerDown={handleGridPointerDown} onPointerMove={handleGridPointerMove} onPointerUp={(event) => void handleGridPointerUp(event)} onContextMenu={(event) => { event.preventDefault(); if (!activeBoard || readOnly) { if (!activeBoard) setCreateOpen(true); return; } const grid = pointerToGrid(event.clientX, event.clientY); const item = boardItemAt(activeBoard, grid.x, grid.y); if (item) setContextItem({ item, x: event.clientX, y: event.clientY }); else setEmptyContext({ gridX: grid.x, gridY: grid.y, x: event.clientX, y: event.clientY }); }} style={{ backgroundSize: `${cellSize}px ${cellSize}px`, backgroundPosition: `${pan.x}px ${pan.y}px` }}>
       <div key={displayBoard?.id ?? "empty"} className="gridPlane" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>{displayBoard?.items.map((item) => <BoardItemView key={item.id} item={resizeItemState?.itemId === item.id ? { ...item, gridWidth: resizeItemState.gridWidth, gridHeight: resizeItemState.gridHeight } : item} selected={selectedItemId === item.id} cellSize={displayBoard.cellSizePx} cellGap={displayBoard.cellGapPx} onResizePointerDown={startItemResize} onDoubleClick={openItemEditor} onCounterChange={changeCounter} readOnly={readOnly} />)}</div>

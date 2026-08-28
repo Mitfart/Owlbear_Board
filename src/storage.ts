@@ -210,8 +210,9 @@ async function writeSharedSceneDataState(state: PersistedBoardState, scope: Boar
     ? { version: 1 as const, boards: [...existing.record.state.boards.filter((board) => board.scope !== scope), ...state.boards] }
     : state;
   const data = { namespace: SHARED_SCENE_DATA_NAMESPACE, version: 1 as const, state: compactBoardState(nextState) } satisfies SharedSceneDataRecord;
+  const playerId = await getPlayerId();
   const item = {
-    id: createId("shared_scene_data"), type: "DATA", data, visible: false, locked: true, disableHit: true,
+    id: createId("shared_scene_data"), type: "DATA", name: "Owlbear Board data", createdUserId: playerId, lastModifiedUserId: playerId, lastModified: new Date().toISOString(), metadata: {}, zIndex: Date.now(), data, visible: false, locked: true, disableHit: true,
     position: { x: 0, y: 0 }, rotation: 0, scale: { x: 1, y: 1 }, layer: "FOREGROUND",
   };
   const items = (OBR.scene as unknown as { items: { addItems(items: SceneDataItem[]): Promise<void> } }).items;

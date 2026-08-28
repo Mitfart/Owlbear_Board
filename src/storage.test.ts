@@ -7,7 +7,7 @@ const obr = vi.hoisted(() => ({
   isAvailable: true,
   scene: { getMetadata: vi.fn(), setMetadata: vi.fn(), isReady: vi.fn(), items: { getItems: vi.fn(), addItems: vi.fn(), updateItems: vi.fn(), deleteItems: vi.fn() } },
   room: { getMetadata: vi.fn(), setMetadata: vi.fn() },
-  player: { getMetadata: vi.fn(), setMetadata: vi.fn() },
+  player: { getMetadata: vi.fn(), setMetadata: vi.fn(), getId: vi.fn() },
 }));
 
 vi.mock("@owlbear-rodeo/sdk", () => ({ default: obr }));
@@ -25,6 +25,7 @@ describe("storage", () => {
     let roomMetadata: Record<string, unknown> = {};
     obr.player.getMetadata.mockImplementation(() => Promise.resolve(playerMetadata));
     obr.player.setMetadata.mockImplementation((value) => { playerMetadata = { ...playerMetadata, ...value }; return Promise.resolve(); });
+    obr.player.getId.mockResolvedValue("player-1");
     obr.room.getMetadata.mockImplementation(() => Promise.resolve(roomMetadata));
     obr.room.setMetadata.mockImplementation((value) => { roomMetadata = value; return Promise.resolve(); });
     obr.scene.items.getItems.mockResolvedValue([]);
@@ -37,7 +38,7 @@ describe("storage", () => {
     await saveSharedBoardState("scene", state);
 
     expect(obr.scene.items.addItems).toHaveBeenCalledWith([expect.objectContaining({
-      id: expect.any(String), type: "DATA", visible: false, locked: true, disableHit: true,
+      id: expect.any(String), type: "DATA", name: "Owlbear Board data", createdUserId: "player-1", lastModifiedUserId: "player-1", metadata: {}, zIndex: expect.any(Number), visible: false, locked: true, disableHit: true,
       data: expect.objectContaining({ namespace: expect.stringContaining("shared-scene-board"), version: 1, state }),
     })]);
     expect(obr.scene.setMetadata).not.toHaveBeenCalled();

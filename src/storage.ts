@@ -146,13 +146,13 @@ function isPersistedBoardState(value: unknown): value is PersistedBoardState {
 
 const SHARED_SCENE_DATA_NAMESPACE = `${EXTENSION_ID}/shared-scene-board`;
 type SharedSceneDataRecord = { namespace: typeof SHARED_SCENE_DATA_NAMESPACE; version: 1; scope: BoardScope; state: PersistedBoardState };
-type SceneDataItem = { id?: string; type: string; data?: unknown; [key: string]: unknown };
+type SceneDataItem = { id?: string; type: string; data?: unknown; metadata?: Record<string, unknown>; [key: string]: unknown };
 type SharedRoomTransition = { sourceSceneKey: string; state: PersistedBoardState; itemIds: string[]; destinationSceneKey?: string };
 let activeSharedRoom: { sceneKey: string; state: PersistedBoardState; itemIds: string[] } | undefined;
 let pendingSharedRoomTransitions: SharedRoomTransition[] = [];
 
 function sharedSceneRecord(item: SceneDataItem): SharedSceneDataRecord | undefined {
-  const record = item.data;
+  const record = item.metadata?.[SHARED_SCENE_DATA_NAMESPACE] ?? item.data;
   if (!record || typeof record !== "object") return undefined;
   const candidate = record as Partial<SharedSceneDataRecord>;
   if (candidate.namespace !== SHARED_SCENE_DATA_NAMESPACE || candidate.version !== 1 || !isPersistedBoardState(candidate.state)) return undefined;
@@ -168,7 +168,7 @@ async function getSharedSceneDataItems(): Promise<SharedSceneDataEntry[]> {
   if (!OBR.isAvailable || !(OBR.scene as unknown as { items?: unknown }).items) return [];
   try {
     const items = await (OBR.scene as unknown as { items: { getItems(): Promise<SceneDataItem[]> } }).items.getItems();
-    return items.filter((item) => item.type === "DATA").map((item) => ({ item, record: sharedSceneRecord(item) })).filter((entry): entry is SharedSceneDataEntry => !!entry.record);
+    return items.map((item) => ({ item, record: sharedSceneRecord(item) })).filter((entry): entry is SharedSceneDataEntry => !!entry.record);
   } catch {
     return [];
   }
@@ -190,7 +190,7 @@ async function updateSharedSceneDataItem(existing: SharedSceneDataEntry, state: 
   const items = (OBR.scene as unknown as { items: { updateItems(ids: string[], update: (drafts: SceneDataItem[]) => void): Promise<void> } }).items;
   await items.updateItems([existing.item.id], (drafts) => {
     const draft = drafts.find((candidate) => candidate.id === existing.item.id);
-    if (draft) Object.assign(draft, { type: "DATA", data, visible: false, locked: true, disableHit: true });
+    if (draft) Object.assign(draft, draft.type === "DATA" ? { data } : { metadata: { ...draft.metadata, [SHARED_SCENE_DATA_NAMESPACE]: data } }, { visible: false, locked: true, disableHit: true });
   });
 }
 
@@ -200,8 +200,8 @@ async function writeSharedSceneDataState(state: PersistedBoardState, scope: Boar
   const data = { namespace: SHARED_SCENE_DATA_NAMESPACE, version: 1 as const, scope, state: compactBoardState(nextState) } satisfies SharedSceneDataRecord;
   const playerId = await getPlayerId();
   const item = {
-    id: createId("shared_scene_data"), type: "DATA", name: "Owlbear Board data", createdUserId: playerId, lastModifiedUserId: playerId, lastModified: new Date().toISOString(), metadata: {}, zIndex: Date.now(), data, visible: false, locked: true, disableHit: true,
-    position: { x: 0, y: 0 }, rotation: 0, scale: { x: 1, y: 1 }, layer: "FOREGROUND",
+    id: createId("shared_scene_data"), type: "LABEL", name: "Owlbear Board data", createdUserId: playerId, lastModifiedUserId: playerId, lastModified: new Date().toISOString(), metadata: { [SHARED_SCENE_DATA_NAMESPACE]: data }, zIndex: Date.now(), visible: false, locked: true, disableHit: true,
+    position: { x: 0, y: 0 }, rotation: 0, scale: { x: 1, y: 1 }, layer: "TEXT", text: { richText: [{ type: "paragraph", children: [{ text: "" }] }], plainText: "", style: { padding: 8, fontFamily: "Roboto", fontSize: 16, fontWeight: 400, textAlign: "CENTER", textAlignVertical: "MIDDLE", fillColor: "white", fillOpacity: 1, strokeColor: "white", strokeOpacity: 1, strokeWidth: 0, lineHeight: 1.5 }, type: "PLAIN", width: "AUTO", height: "AUTO" }, style: { backgroundColor: "#3D4051", backgroundOpacity: 1, cornerRadius: 8 },
   };
   const items = (OBR.scene as unknown as { items: { addItems(items: SceneDataItem[]): Promise<void> } }).items;
   if (existing?.item.id) await updateSharedSceneDataItem(existing, nextState);
@@ -275,7 +275,7 @@ export async function loadAllVisibleBoards(role: PlayerRole = "GM", _playerId?: 
       const states = [isPersistedBoardState(room) ? room : emptyState(), scenes && typeof scenes === "object" && isPersistedBoardState((scenes as PrivateSceneStates)[sceneKey]) ? (scenes as PrivateSceneStates)[sceneKey] : emptyState()];
       return states.flatMap((state) => normalizeBoardState(state).boards.map((board) => ({ ...board, ownerId: board.ownerId ?? player.id, ownerName: `${board.ownerName ?? player.name}${player.role === "GM" ? " (GM)" : ""}` })));
     });
-    return { privateScene, privateRoom, sharedScene, sharedRoom, boards: [...allPrivate, ...sharedScene.boards, ...sharedRoom.boards] };
+    return { privateScene, privateRoom, sharedScene, sharedRoom, boards: [...privateBoards, ...allPrivate.filter((board) => board.ownerId !== _playerId), ...sharedScene.boards, ...sharedRoom.boards] };
   }
   return { privateScene, privateRoom, sharedScene, sharedRoom, boards: [...privateBoards, ...sharedScene.boards, ...sharedRoom.boards] };
 }

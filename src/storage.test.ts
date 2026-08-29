@@ -9,6 +9,7 @@ const obr = vi.hoisted(() => ({
   room: { getMetadata: vi.fn(), setMetadata: vi.fn() },
   player: { getMetadata: vi.fn(), setMetadata: vi.fn(), getId: vi.fn() },
   broadcast: { sendMessage: vi.fn() },
+  party: { getPlayers: vi.fn() },
 }));
 
 vi.mock("@owlbear-rodeo/sdk", () => ({ default: obr }));
@@ -33,14 +34,15 @@ describe("storage", () => {
     obr.scene.items.addItems.mockResolvedValue([]);
     obr.scene.items.updateItems.mockResolvedValue([]);
     obr.scene.items.deleteItems.mockResolvedValue([]);
+    obr.party.getPlayers.mockResolvedValue([]);
   });
 
-  it("persists a shared scene board as a hidden namespaced data item", async () => {
+  it("persists a shared scene board as a hidden valid LABEL item", async () => {
     await saveSharedBoardState("scene", state);
 
     expect(obr.scene.items.addItems).toHaveBeenCalledWith([expect.objectContaining({
-      id: expect.any(String), type: "DATA", name: "Owlbear Board data", createdUserId: "player-1", lastModifiedUserId: "player-1", metadata: {}, zIndex: expect.any(Number), visible: false, locked: true, disableHit: true,
-      data: expect.objectContaining({ namespace: expect.stringContaining("shared-scene-board"), version: 1, state }),
+      id: expect.any(String), type: "LABEL", name: "Owlbear Board data", createdUserId: "player-1", lastModifiedUserId: "player-1", zIndex: expect.any(Number), visible: false, locked: true, disableHit: true,
+      metadata: expect.objectContaining({ "com.owlbear-board.grid/shared-scene-board": expect.objectContaining({ namespace: expect.stringContaining("shared-scene-board"), version: 1, state }) }),
     })]);
     expect(obr.scene.setMetadata).not.toHaveBeenCalled();
   });
@@ -142,6 +144,12 @@ describe("storage", () => {
     expect(obr.player.setMetadata).not.toHaveBeenCalled();
   });
 
+  it("includes player private boards for GMs", async () => {
+    obr.party.getPlayers.mockResolvedValue([{ id: "player-2", name: "Player Two", role: "PLAYER", metadata: { [PRIVATE_ROOM_STATE_KEY]: privateState } }]);
+
+    await expect(loadAllVisibleBoards("GM", "gm-1")).resolves.toMatchObject({ boards: [expect.objectContaining({ id: "saved", ownerId: "player-2", ownerName: "Player Two" })] });
+  });
+
   it("uses the demo scene key without Owlbear", async () => {
     obr.isAvailable = false;
 
@@ -167,7 +175,7 @@ describe("storage", () => {
     await carrySharedBoardAcrossSceneTransition();
     expect(obr.room.setMetadata).not.toHaveBeenCalled();
     expect(obr.scene.items.addItems).toHaveBeenCalledWith([expect.objectContaining({
-      data: expect.objectContaining({ state: expect.objectContaining({ boards: [expect.objectContaining({ id: "shareable" })] }) }),
+      metadata: expect.objectContaining({ "com.owlbear-board.grid/shared-scene-board": expect.objectContaining({ state: expect.objectContaining({ boards: [expect.objectContaining({ id: "shareable" })] }) }) }),
     })]);
 
     sceneMetadata = { "com.owlbear-board.grid/scene-key": "source" };

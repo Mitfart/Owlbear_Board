@@ -43,7 +43,7 @@ function boardMetadata(value: unknown) {
 }
 
 function boardSceneItems(value: unknown) {
-  return Array.isArray(value) ? value.filter((item) => !!item && typeof item === "object" && (item as { data?: { namespace?: unknown } }).data?.namespace === `${EXTENSION_ID}/shared-scene-board`) : value;
+  return Array.isArray(value) ? value.filter((item) => !!item && typeof item === "object" && ((item as { data?: { namespace?: unknown } }).data?.namespace === `${EXTENSION_ID}/shared-scene-board` || (item as { metadata?: Record<string, unknown> }).metadata?.[`${EXTENSION_ID}/shared-scene-board`])) : value;
 }
 const FALLBACK_THEME: Theme = { mode: "DARK", primary: { main: "#bb99ff", light: "#d2bdff", dark: "#826bb2", contrastText: "#ffffff" }, secondary: { main: "#03dac6", light: "#66fff8", dark: "#00a896", contrastText: "#ffffff" }, background: { default: "#1e2231", paper: "#2c3042" }, text: { primary: "#ffffff", secondary: "#ffffff", disabled: "#ffffff" } };
 
@@ -146,6 +146,7 @@ export default function App() {
   const tabDrag = useRef<{ x: number; scrollLeft: number; moved: boolean; pointerId: number } | undefined>(undefined);
   const counterChangeQueue = useRef(Promise.resolve());
   const pendingCounterChanges = useRef(0);
+  const pendingBoardSaves = useRef(0);
   const boardDraft = useRef<Board | undefined>(undefined);
   const activeBoard = useMemo(() => boards.find((board) => board.id === activeBoardId), [activeBoardId, boards]);
   boardDraft.current = activeBoard;
@@ -185,7 +186,7 @@ export default function App() {
     tabsInitialized.current = true;
   }, []);
   const refreshIfSafe = useCallback(() => {
-    if (!focusedItemId && !dragState && !resizeItemState && pendingCounterChanges.current === 0) void refresh();
+    if (!focusedItemId && !dragState && !resizeItemState && pendingCounterChanges.current === 0 && pendingBoardSaves.current === 0) void refresh();
   }, [dragState, focusedItemId, refresh, resizeItemState]);
 
   useEffect(() => {
@@ -315,6 +316,7 @@ export default function App() {
 
   async function persistBoard(board: Board, pushHistory = true, reportSave = false) {
     if (!canEditBoard(board, playerRole, playerId)) return;
+    pendingBoardSaves.current += 1;
     try {
       await counterChangeQueue.current;
       if (pushHistory && activeBoard && activeBoard.id === board.id) setHistory((current) => ({ ...current, [board.id]: { undo: [activeBoard, ...(current[board.id]?.undo ?? [])].slice(0, MAX_HISTORY), redo: [] } }));
@@ -328,6 +330,9 @@ export default function App() {
       const message = formatDebugError(reason);
       setError(message);
       logDebug(`Save failed: ${message}`);
+    } finally {
+      pendingBoardSaves.current -= 1;
+      if (pendingBoardSaves.current === 0) void refresh();
     }
   }
 

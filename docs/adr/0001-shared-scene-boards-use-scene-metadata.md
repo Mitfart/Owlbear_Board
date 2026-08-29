@@ -1,5 +1,5 @@
-# Shared board states use scene data items
+# Shared board states use Owlbear metadata
 
-Shared scene and room board states are stored in extension-owned, versioned Owlbear scene `LABEL` items, with the payload in item metadata. Items are hidden, locked, and non-hittable. Scene board state belongs to the active scene. Room state is copied from the active in-memory record into the next active scene; this keeps room state available without room metadata or browser storage.
+Shared scene board state is stored under the extension-owned scene metadata key. Shared room board state is stored under the extension-owned room metadata key, so it remains available across scene changes without copying scene items. Private board state stays in player metadata.
 
-When duplicate valid records exist, the record with the highest board revision is authoritative. Shared edits remain last-write-wins.
+The Owlbear API merges partial metadata updates, and shared edits remain last-write-wins.

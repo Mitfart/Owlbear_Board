@@ -12,7 +12,7 @@ import { resizeAction } from "./owlbear";
 import { autoImageSize, autoTextSize, clampNumber, normalizeCounterValue, parseItemSize, textFillScale } from "./sizing";
 import { zoomPanToCursor } from "./viewport";
 import { toggleMarkdownStyle } from "./textFormatting";
-import { beginSharedSceneTransition, carrySharedBoardAcrossSceneTransition, clearAllBoardData, deleteBoard, getPlayerId, getPlayerName, getRoomOwnerId, getSceneKey, loadAllVisibleBoards, loadPreferences, loadWindowPreferences, markPrivateBoardOpened, movePrivateRoomBoardToScene, saveBoard, savePreferences, saveViewport, saveWindowPreferences, trackActiveSharedBoard } from "./storage";
+import { clearAllBoardData, deleteBoard, getPlayerId, getPlayerName, getRoomOwnerId, getSceneKey, loadAllVisibleBoards, loadPreferences, loadWindowPreferences, markPrivateBoardOpened, movePrivateRoomBoardToScene, saveBoard, savePreferences, saveViewport, saveWindowPreferences } from "./storage";
 import { buildBoardPickerRows } from "./boardSession";
 import { canEditBoard, canRenameBoard, type PlayerRole } from "./boardPermissions";
 import type { Board, BoardItem, BoardScope, BoardVisibility, PlayerPreferences } from "./types";
@@ -170,7 +170,7 @@ export default function App() {
       preferences: prefs,
       sceneKey: key,
     }).flatMap((row) => row.kind === "board" ? [row.board] : []);
-    setSceneKey(key); setPlayerId(id); setPreferences(prefs); setPlayerRole(role); setPreviewDismissed(!!prefs.previewDismissed); setBoards(ordered); setWindowSize(win); await resizeAction(win.width, win.height); await trackActiveSharedBoard(visible.sharedRoom, key);
+    setSceneKey(key); setPlayerId(id); setPreferences(prefs); setPlayerRole(role); setPreviewDismissed(!!prefs.previewDismissed); setBoards(ordered); setWindowSize(win); await resizeAction(win.width, win.height);
     setOpenBoardIds((ids) => ids.filter((id) => ordered.some((board) => board.id === id)));
     setActiveBoardId((current) => {
       const preserved = ordered.find((board) => board.id === current);
@@ -194,9 +194,11 @@ export default function App() {
     let cancelled = false;
     let unsubscribe: (() => void) | undefined;
     let unsubscribeItems: (() => void) | undefined;
+    let unsubscribeSceneMetadata: (() => void) | undefined;
+    let unsubscribeRoomMetadata: (() => void) | undefined;
     OBR.onReady(() => {
       if (cancelled) return;
-      setReady(true); void refreshIfSafe(); void OBR.scene.isReady().then((sceneReady) => { if (sceneReady) void carrySharedBoardAcrossSceneTransition().then(refreshIfSafe); }); void OBR.theme.getTheme().then(setTheme);
+      setReady(true); void refreshIfSafe(); unsubscribeSceneMetadata = OBR.scene.onMetadataChange(refreshIfSafe); unsubscribeRoomMetadata = OBR.room.onMetadataChange(refreshIfSafe); void OBR.theme.getTheme().then(setTheme);
       const subscribeItems = () => {
         if (unsubscribeItems) return;
         const items = (OBR.scene as unknown as { items?: { onChange?: (callback: () => void) => () => void } }).items;
@@ -204,11 +206,11 @@ export default function App() {
       };
       void OBR.scene.isReady().then((sceneReady) => { if (sceneReady) subscribeItems(); });
       unsubscribe = (OBR.scene as unknown as { onReadyChange(callback: (sceneReady: boolean) => void): () => void }).onReadyChange((sceneReady) => {
-        if (!sceneReady) { unsubscribeItems?.(); unsubscribeItems = undefined; beginSharedSceneTransition(); }
-        else { setReady(true); subscribeItems(); void carrySharedBoardAcrossSceneTransition().then(refreshIfSafe); }
+        if (!sceneReady) { unsubscribeItems?.(); unsubscribeItems = undefined; }
+        else { setReady(true); subscribeItems(); refreshIfSafe(); }
       });
     });
-    return () => { cancelled = true; unsubscribe?.(); unsubscribeItems?.(); };
+    return () => { cancelled = true; unsubscribe?.(); unsubscribeItems?.(); unsubscribeSceneMetadata?.(); unsubscribeRoomMetadata?.(); };
   }, [refreshIfSafe]);
   useEffect(() => { if (!OBR.isAvailable || !ready) return; return OBR.theme.onChange(setTheme); }, [ready]);
   useEffect(() => { if (!OBR.isAvailable || !ready) return; return OBR.broadcast.onMessage(BOARD_EVENT_CHANNEL, refreshIfSafe); }, [ready, refreshIfSafe]);

@@ -201,7 +201,7 @@ async function writeSharedSceneDataState(state: PersistedBoardState, scope: Boar
   const playerId = await getPlayerId();
   const item = {
     id: createId("shared_scene_data"), type: "LABEL", name: "Owlbear Board data", createdUserId: playerId, lastModifiedUserId: playerId, lastModified: new Date().toISOString(), metadata: { [SHARED_SCENE_DATA_NAMESPACE]: data }, zIndex: Date.now(), visible: false, locked: true, disableHit: true,
-    position: { x: 0, y: 0 }, rotation: 0, scale: { x: 1, y: 1 }, layer: "TEXT", text: { richText: [{ type: "paragraph", children: [{ text: "" }] }], plainText: "", style: { padding: 8, fontFamily: "Roboto", fontSize: 16, fontWeight: 400, textAlign: "CENTER", textAlignVertical: "MIDDLE", fillColor: "white", fillOpacity: 1, strokeColor: "white", strokeOpacity: 1, strokeWidth: 0, lineHeight: 1.5 }, type: "PLAIN", width: "AUTO", height: "AUTO" }, style: { backgroundColor: "#3D4051", backgroundOpacity: 1, cornerRadius: 8 },
+    position: { x: 0, y: 0 }, rotation: 0, scale: { x: 1, y: 1 }, layer: "TEXT", text: { richText: [{ type: "paragraph", children: [{ text: "" }] }], plainText: "", style: { padding: 8, fontFamily: "Roboto", fontSize: 16, fontWeight: 400, textAlign: "CENTER", textAlignVertical: "MIDDLE", fillColor: "white", fillOpacity: 1, strokeColor: "white", strokeOpacity: 1, strokeWidth: 0, lineHeight: 1.5 }, type: "PLAIN", width: "AUTO", height: "AUTO" }, style: { backgroundColor: "#3D4051", backgroundOpacity: 1, cornerRadius: 8, pointerDirection: "DOWN", pointerWidth: 4, pointerHeight: 4 },
   };
   const items = (OBR.scene as unknown as { items: { addItems(items: SceneDataItem[]): Promise<void> } }).items;
   if (existing?.item.id) await updateSharedSceneDataItem(existing, nextState);

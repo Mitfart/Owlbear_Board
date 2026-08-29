@@ -43,6 +43,7 @@ describe("storage", () => {
     expect(obr.scene.items.addItems).toHaveBeenCalledWith([expect.objectContaining({
       id: expect.any(String), type: "LABEL", name: "Owlbear Board data", createdUserId: "player-1", lastModifiedUserId: "player-1", zIndex: expect.any(Number), visible: false, locked: true, disableHit: true,
       metadata: expect.objectContaining({ "com.owlbear-board.grid/shared-scene-board": expect.objectContaining({ namespace: expect.stringContaining("shared-scene-board"), version: 1, state }) }),
+      style: expect.objectContaining({ pointerDirection: "DOWN", pointerWidth: 4, pointerHeight: 4 }),
     })]);
     expect(obr.scene.setMetadata).not.toHaveBeenCalled();
   });

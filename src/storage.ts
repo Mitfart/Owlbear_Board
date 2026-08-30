@@ -209,6 +209,14 @@ async function relocateBoardInMetadata(board: Board) {
   return moved;
 }
 
+async function clearLegacySharedSceneItems() {
+  try {
+    const items = await (OBR.scene as unknown as { items: { getItems(): Promise<Array<{ id?: string; metadata?: Record<string, unknown> }>>; deleteItems(ids: string[]): Promise<void> } }).items.getItems();
+    const ids = items.filter((item) => !!item.metadata?.[`${EXTENSION_ID}/shared-scene-board`]).map((item) => item.id).filter((id): id is string => !!id);
+    if (ids.length) await (OBR.scene as unknown as { items: { deleteItems(ids: string[]): Promise<void> } }).items.deleteItems(ids);
+  } catch {}
+}
+
 export async function clearSceneBoardData() {
   const sceneKey = await getSceneKey();
   const states = await readPrivateSceneStates();
@@ -218,6 +226,7 @@ export async function clearSceneBoardData() {
   const { [sceneKey]: _cleared, ...privateSceneOpenOrder } = preferences.privateSceneOpenOrder;
   await savePreferences({ ...preferences, privateSceneOpenOrder });
   await saveSharedBoardState("scene", emptyState());
+  await clearLegacySharedSceneItems();
 }
 
 export async function clearRoomBoardData() {

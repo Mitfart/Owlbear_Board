@@ -90,12 +90,14 @@ describe("storage", () => {
     expect(normalizeBoardState({ version: 1, boards: [legacy] }).boards[0].items[0]).toEqual(expect.objectContaining({ gridX: 0, gridY: 3, gridWidth: 1, gridHeight: 1 }));
   });
 
-  it("clears only this extension's board state", async () => {
+  it("clears current metadata and stale legacy shared items", async () => {
+    obr.scene.items.getItems.mockResolvedValue([{ id: "legacy", type: "LABEL", metadata: { "com.owlbear-board.grid/shared-scene-board": {} } }]);
     await saveSharedBoardState("scene", { version: 1, boards: [board({ scope: "scene", visibility: "shared" })] });
     await saveSharedBoardState("room", { version: 1, boards: [board({ visibility: "shared" })] });
     await clearAllBoardData();
     await expect(loadSharedBoardState("scene")).resolves.toEqual(empty);
     await expect(loadSharedBoardState("room")).resolves.toEqual(empty);
+    expect(obr.scene.items.deleteItems).toHaveBeenCalledWith(["legacy"]);
   });
 
   it("uses the demo scene key without Owlbear", async () => {

@@ -162,7 +162,7 @@ export default function App() {
     const role = OBR.isAvailable ? await OBR.player.getRole() : "GM" as const;
     const id = await getPlayerId();
     const [visible, prefs, win, key] = await Promise.all([loadAllVisibleBoards(role, id), loadPreferences(), loadWindowPreferences(), getSceneKey()]);
-    const ordered = buildBoardPickerRows({
+    const ordered = role === "GM" ? visible.boards : buildBoardPickerRows({
       privateSceneBoards: visible.privateScene.boards,
       privateRoomBoards: visible.privateRoom.boards,
       sharedSceneBoards: visible.sharedScene.boards,

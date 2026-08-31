@@ -22,3 +22,4 @@ export const DEFAULT_COUNTER_MAX_COLOR = "#ffd166";
 export const MIN_CELL_GAP = 0;
 export const MAX_CELL_GAP = 32;
 export const DEFAULT_WINDOW = { width: 960, height: 720 };
+export const BOARD_DATA_LIMIT_BYTES = 1_000_000;

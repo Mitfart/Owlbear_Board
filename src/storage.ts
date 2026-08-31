@@ -1,6 +1,6 @@
 import OBR, { buildShape } from "@owlbear-rodeo/sdk";
 import {
-  BOARD_EVENT_CHANNEL, BOARD_STATE_KEY, DEFAULT_CELL_GAP, DEFAULT_CELL_SIZE,
+  BOARD_DATA_LIMIT_BYTES, BOARD_EVENT_CHANNEL, BOARD_STATE_KEY, DEFAULT_CELL_GAP, DEFAULT_CELL_SIZE,
   DEFAULT_COUNTER_MAX_COLOR, DEFAULT_COUNTER_ZERO_COLOR, DEFAULT_ITEM_BORDER_COLOR,
   DEFAULT_WINDOW, PLAYER_PREFERENCES_KEY, PRIVATE_ROOM_STATE_KEY, PRIVATE_SCENE_STATES_KEY,
   ROOM_BOARD_IDS_KEY, ROOM_BOARD_STATE_KEY, ROOM_OWNER_KEY, SCENE_KEY_METADATA,
@@ -40,6 +40,20 @@ export function normalizeBoardState(state: PersistedBoardState): PersistedBoardS
       };
     }),
   };
+}
+
+export function boardByteSize(board: Board) { return new TextEncoder().encode(JSON.stringify(board)).byteLength; }
+
+function fitBoardText(board: Board) {
+  let fitted = board;
+  while (boardByteSize(fitted) > BOARD_DATA_LIMIT_BYTES) {
+    const item = [...fitted.items].filter((candidate) => candidate.type === "text" && candidate.text).sort((a, b) => (b.text?.length ?? 0) - (a.text?.length ?? 0))[0];
+    if (!item?.text) throw new Error("Board data exceeds the 1 MB Scene Data Item limit.");
+    let low = 0; let high = item.text.length;
+    while (low < high) { const middle = Math.ceil((low + high) / 2); const candidate = { ...fitted, items: fitted.items.map((entry) => entry.id === item.id ? { ...entry, text: item.text!.slice(0, middle) } : entry) }; if (boardByteSize(candidate) <= BOARD_DATA_LIMIT_BYTES) low = middle; else high = middle - 1; }
+    fitted = { ...fitted, items: fitted.items.map((entry) => entry.id === item.id ? { ...entry, text: item.text!.slice(0, low) } : entry) };
+  }
+  return fitted;
 }
 
 function isBoard(value: unknown): value is Board { return !!value && typeof value === "object" && typeof (value as Board).id === "string" && Array.isArray((value as Board).items); }
@@ -154,7 +168,7 @@ async function saveBoardToMetadata(board: Board) {
   const load = board.scope === "room" ? loadRoomBoardState : loadSceneBoardState;
   const save = board.scope === "room" ? saveRoomBoardState : saveSceneBoardState;
   const current = await load();
-  const saved = { ...board, revision: board.revision + 1 };
+  const saved = fitBoardText({ ...board, revision: board.revision + 1 });
   await save({ version: 1, boards: [...current.boards.filter((candidate) => candidate.id !== board.id), saved] });
   if (saved.scope === "room") { await setRoomBoardActive(saved.id, true); await carryRoomBoardsToCurrentScene(); }
   return saved;

@@ -4,7 +4,7 @@ import type React from "react";
 import type { Theme } from "@owlbear-rodeo/sdk";
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { DEFAULT_CELL_GAP, DEFAULT_CELL_SIZE, DEFAULT_COUNTER_MAX_COLOR, DEFAULT_COUNTER_ZERO_COLOR, DEFAULT_ITEM_BORDER_COLOR, DEFAULT_WINDOW, EXTENSION_ID, BOARD_EVENT_CHANNEL, MAX_CELL_GAP, MAX_CELL_SIZE, MIN_CELL_GAP, MIN_CELL_SIZE } from "./constants";
+import { BOARD_DATA_LIMIT_BYTES, DEFAULT_CELL_GAP, DEFAULT_CELL_SIZE, DEFAULT_COUNTER_MAX_COLOR, DEFAULT_COUNTER_ZERO_COLOR, DEFAULT_ITEM_BORDER_COLOR, DEFAULT_WINDOW, EXTENSION_ID, BOARD_EVENT_CHANNEL, MAX_CELL_GAP, MAX_CELL_SIZE, MIN_CELL_GAP, MIN_CELL_SIZE } from "./constants";
 import { boardItemAt, collides, updateBoardItemPosition, updateBoardItemRect } from "./grid";
 import { createId, nowIso } from "./ids";
 import { MarkdownView } from "./markdown";
@@ -12,7 +12,7 @@ import { resizeAction } from "./owlbear";
 import { autoImageSize, autoTextSize, clampNumber, normalizeCounterValue, parseItemSize, textFillScale } from "./sizing";
 import { zoomPanToCursor } from "./viewport";
 import { toggleMarkdownStyle } from "./textFormatting";
-import { carryRoomBoardsToCurrentScene, clearAllBoardData, deleteBoard, getPlayerId, getPlayerName, getSceneKey, loadAllVisibleBoards, loadPreferences, loadWindowPreferences, markPrivateBoardOpened, movePrivateRoomBoardToScene, saveBoard, savePreferences, saveViewport, saveWindowPreferences } from "./storage";
+import { boardByteSize, carryRoomBoardsToCurrentScene, clearAllBoardData, deleteBoard, getPlayerId, getPlayerName, getSceneKey, loadAllVisibleBoards, loadPreferences, loadWindowPreferences, markPrivateBoardOpened, movePrivateRoomBoardToScene, saveBoard, savePreferences, saveViewport, saveWindowPreferences } from "./storage";
 import { buildBoardPickerRows } from "./boardSession";
 import { canDeleteBoard, canEditBoard, canRenameBoard, type PlayerRole } from "./boardPermissions";
 import type { Board, BoardItem, BoardScope, BoardVisibility, PlayerPreferences } from "./types";
@@ -90,6 +90,7 @@ export default function App() {
   const [activeBoardId, setActiveBoardId] = useState<string>();
   const [previewDismissed, setPreviewDismissed] = useState(false);
   const [error, setError] = useState<string>();
+  const [warning, setWarning] = useState<string>();
   const [saveStatus, setSaveStatus] = useState<string>();
   const [debugOpen, setDebugOpen] = useState(false);
   const [manageBoardsOpen, setManageBoardsOpen] = useState(false);
@@ -155,6 +156,7 @@ export default function App() {
   const isPreview = displayBoard?.id === "preview";
   const readOnly = !!activeBoard && !canEditBoard(activeBoard, playerRole, playerId);
   const canDeleteActiveBoard = !!activeBoard && canDeleteBoard(activeBoard, playerRole, playerId);
+  const boardAtLimit = !!activeBoard && boardByteSize(activeBoard) >= BOARD_DATA_LIMIT_BYTES;
   const themeVars = useMemo(() => ({ "--bg": "#1e2231", "--surface": "#202435", "--panel": "#25293c", "--panel-soft": "#1c2030", "--panel-raised": "#2c3042", "--border": "rgba(187, 153, 255, 0.14)", "--border-strong": "rgba(187, 153, 255, 0.28)", "--text": "#ffffff", "--muted": "#ffffff", "--muted-2": "#ffffff", "--accent": "#bb99ff", "--accent-strong": "#d2bdff", "--accent-dark": "#826bb2", "--accent-soft": "rgba(187, 153, 255, 0.16)", "--danger": "#ff6b8a", "--shadow": "rgba(4, 6, 14, 0.42)" }) as CSSProperties, []);
 
   const logDebug = useCallback((message: string) => setDebugLogs((logs) => [`${new Date().toISOString()} ${message}`, ...logs].slice(0, 100)), []);
@@ -236,10 +238,10 @@ export default function App() {
   }, [focusedItemId]);
 
   useEffect(() => {
-    if (!error) return;
-    const timeout = window.setTimeout(() => setError(undefined), 5000);
+    if (!error && !warning) return;
+    const timeout = window.setTimeout(() => { setError(undefined); setWarning(undefined); }, 5000);
     return () => window.clearTimeout(timeout);
-  }, [error]);
+  }, [error, warning]);
 
   useEffect(() => {
     if (!markdownHelpOpen) return;
@@ -434,6 +436,7 @@ export default function App() {
 
   async function createTextAt(target: { x: number; y: number }) {
     if (!activeBoard || readOnly) return;
+    if (boardAtLimit) { setWarning("Board has reached the 1 MB data limit."); return; }
     textEditorReturnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const size = resolveItemSize("text");
     const gridWidth = clampNumber(size.width, 1, 24); const gridHeight = clampNumber(size.height, 1, 24);
@@ -497,8 +500,10 @@ export default function App() {
 
   async function saveFocusedImage() {
     if (!activeBoard || !imageEdit) return;
+    const next = { ...activeBoard, items: activeBoard.items.map((item) => item.id === imageEdit.itemId ? { ...item, imageUrl: imageEdit.url.trim(), borderColor: imageEdit.borderColor, imageFit: imageEdit.imageFit, updatedAt: nowIso() } : item) };
+    if (boardByteSize(next) > BOARD_DATA_LIMIT_BYTES) { setWarning("Image link was not changed: Board data is limited to 1 MB."); return; }
     try { const url = new URL(imageEdit.url.trim()); if (!["http:", "https:"].includes(url.protocol)) return; } catch { return; }
-    await persistBoard({ ...activeBoard, items: activeBoard.items.map((item) => item.id === imageEdit.itemId ? { ...item, imageUrl: imageEdit.url.trim(), borderColor: imageEdit.borderColor, imageFit: imageEdit.imageFit, updatedAt: nowIso() } : item) });
+    await persistBoard(next);
     setImageEdit(undefined); setFocusedItemId(undefined);
   }
 
@@ -600,10 +605,11 @@ export default function App() {
 
     {manageBoardsOpen && <ManageBoards boards={boards} activeBoardId={activeBoardId} onCreate={() => setCreateOpen(true)} onCreateShared={(scope) => void createShared(scope)} onOpen={(board) => void chooseBoard(board)} onSettings={(board, event) => { void chooseBoard(board); const rect = event.currentTarget.getBoundingClientRect(); const x = rect.right + 8 + 360 <= window.innerWidth ? rect.right + 8 : Math.max(8, rect.left - 368); setBoardPanelPosition({ x, y: rect.top }); setBoardPanelOpen(true); }} />}
     {debugOpen && <DebugPanel snapshot={debugSnapshot} logs={debugLogs} onRefresh={() => void openDebugTab()} onClear={() => void clearDebugData()} />}
-    <div ref={gridRef} className="gridSurface" onDoubleClick={(event) => { if (!activeBoard || readOnly) return; const grid = pointerToGrid(event.clientX, event.clientY); if (!boardItemAt(activeBoard, grid.x, grid.y)) void createTextAt(grid); }} onPointerDown={handleGridPointerDown} onPointerMove={handleGridPointerMove} onPointerUp={(event) => void handleGridPointerUp(event)} onContextMenu={(event) => { event.preventDefault(); if (!activeBoard || readOnly) { if (!activeBoard) setCreateOpen(true); return; } const grid = pointerToGrid(event.clientX, event.clientY); const item = boardItemAt(activeBoard, grid.x, grid.y); if (item) setContextItem({ item, x: event.clientX, y: event.clientY }); else setEmptyContext({ gridX: grid.x, gridY: grid.y, x: event.clientX, y: event.clientY }); }} style={{ backgroundSize: `${cellSize}px ${cellSize}px`, backgroundPosition: `${pan.x}px ${pan.y}px` }}>
+    <div ref={gridRef} className={`gridSurface ${boardAtLimit ? "boardAtLimit" : ""}`} onDoubleClick={(event) => { if (!activeBoard || readOnly) return; const grid = pointerToGrid(event.clientX, event.clientY); if (!boardItemAt(activeBoard, grid.x, grid.y)) void createTextAt(grid); }} onPointerDown={handleGridPointerDown} onPointerMove={handleGridPointerMove} onPointerUp={(event) => void handleGridPointerUp(event)} onContextMenu={(event) => { event.preventDefault(); if (!activeBoard || readOnly) { if (!activeBoard) setCreateOpen(true); return; } const grid = pointerToGrid(event.clientX, event.clientY); const item = boardItemAt(activeBoard, grid.x, grid.y); if (item) setContextItem({ item, x: event.clientX, y: event.clientY }); else setEmptyContext({ gridX: grid.x, gridY: grid.y, x: event.clientX, y: event.clientY }); }} style={{ backgroundSize: `${cellSize}px ${cellSize}px`, backgroundPosition: `${pan.x}px ${pan.y}px` }}>
       <div key={displayBoard?.id ?? "empty"} className="gridPlane" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>{displayBoard?.items.map((item) => <BoardItemView key={item.id} item={resizeItemState?.itemId === item.id ? { ...item, gridWidth: resizeItemState.gridWidth, gridHeight: resizeItemState.gridHeight } : item} selected={selectedItemId === item.id} cellSize={displayBoard.cellSizePx} cellGap={displayBoard.cellGapPx} onResizePointerDown={startItemResize} onDoubleClick={openItemEditor} onCounterChange={changeCounter} readOnly={readOnly} />)}</div>
       {showPreview && <div className="emptyState" onPointerDown={(event) => event.stopPropagation()} onContextMenu={(event) => { event.preventDefault(); event.stopPropagation(); }}><strong>Preview Board</strong><button className="primaryAction" onClick={() => setCreateOpen(true)}><Plus size={16} /> Create Private Board</button><button onClick={async () => { const prefs = preferences ?? await loadPreferences(); await savePreferences({ ...prefs, previewDismissed: true }); setPreviewDismissed(true); }}>Dismiss</button></div>}
-      {error && <div className="saveError" role="alert"><CircleAlert size={18} /><span>{error}</span><button aria-label="Dismiss error" onClick={() => setError(undefined)}><X size={16} /></button></div>}
+      {warning && <div className="saveError saveWarning" role="status"><CircleAlert size={18} /><span>{warning}</span><button aria-label="Dismiss warning" onClick={() => setWarning(undefined)}><X size={16} /></button></div>}
+       {error && <div className="saveError" role="alert"><CircleAlert size={18} /><span>{error}</span><button aria-label="Dismiss error" onClick={() => setError(undefined)}><X size={16} /></button></div>}
       <div className="surfaceHud"><span>{displayBoard?.items.length ?? 0} items</span><span>{Math.round(cellSize)} px cells</span></div>
     </div>
 

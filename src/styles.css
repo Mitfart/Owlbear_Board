@@ -1208,6 +1208,9 @@ input[type="color"] {
 }
 
 .saveError svg { color: var(--danger); flex: none; }
+.saveWarning { border-color: #ffd166; }
+.saveWarning svg { color: #ffd166; }
+.boardAtLimit .boardItem { border-color: #ffd166 !important; }
 .saveError button { margin-left: auto; padding: 0; background: none; }
 
 .debugPanel {

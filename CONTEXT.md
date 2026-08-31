@@ -21,7 +21,7 @@ An element placed on a board at a grid position. A board item occupies one or mo
 _Avoid_: Kanban item, card, token, note
 
 **Scene Data Item**:
-A hidden, locked, non-hittable Owlbear scene object that holds one complete Board record in its item metadata. It is the authoritative persisted board data for that scene.
+A hidden, locked, non-hittable Owlbear scene object that holds one complete Board record in its item metadata. It is the authoritative persisted board data for that scene and is limited to 1 MB.
 _Avoid_: Asset, token, room metadata
 
 **Counter Board Item**:

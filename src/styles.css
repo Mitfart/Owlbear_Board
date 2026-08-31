@@ -442,6 +442,14 @@ input[type="radio"] {
   width: 100%;
 }
 
+.counterAddNumbers {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 8px;
+}
+
+.counterAddNumbers label { flex: 1; }
+
 .counterEditNumbers {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -860,6 +868,8 @@ input[type="radio"] {
   justify-content: flex-start;
 }
 
+.creationMenu { width: 90px; }
+
 .colorMenuItem {
   display: grid;
   grid-template-columns: 1fr 34px;
@@ -1019,11 +1029,16 @@ input[type="color"] {
   background: var(--accent-strong);
 }
 
-.boardPanelActions button:last-child:hover,
-.contextMenu button:hover {
+.boardPanelActions button:last-child:hover {
   border-color: var(--danger);
   color: var(--text);
   background: rgba(255, 107, 138, 0.14);
+}
+
+.contextMenu button:hover {
+  border-color: var(--accent);
+  color: var(--text);
+  background: var(--accent-soft);
 }
 
 .boardGroups {
@@ -1261,9 +1276,11 @@ input[type="color"] {
   gap: 8px;
 }
 
+.manageBoardCard { position: relative; }
+
 .manageBoard {
-  position: relative;
   display: grid;
+  width: 100%;
   min-height: 72px;
   place-items: center;
   text-align: center;
@@ -1277,4 +1294,4 @@ input[type="color"] {
 }
 
 .manageBoardDate { top: 6px; left: 8px; }
-.manageBoardSettings { top: 6px; right: 8px; padding: 3px; border-radius: 4px; cursor: pointer; }
+.manageBoardSettings { top: 6px; right: 8px; width: auto; padding: 3px; border-radius: 4px; }

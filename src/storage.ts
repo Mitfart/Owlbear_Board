@@ -106,6 +106,8 @@ async function loadSceneBoardState(): Promise<PersistedBoardState> {
 async function saveSceneBoardState(state: PersistedBoardState) {
   if (!OBR.isAvailable || !await OBR.scene.isReady()) return;
   const boards = normalizeBoardState(state).boards;
+  // Clear migrated state so an empty Scene Data Item set cannot fall back to deleted boards.
+  await OBR.scene.setMetadata({ [BOARD_STATE_KEY]: undefined, [SHARED_SCENE_STATE_KEY]: undefined });
   const items = await sceneBoardItems();
   const itemByBoardId = new Map(items.map((item) => [(item.metadata[BOARD_STATE_KEY] as Board).id, item]));
   const add = boards.filter((board) => !itemByBoardId.has(board.id)).map((board) => buildShape().name("Owl-Boards data").metadata({ [BOARD_STATE_KEY]: board }).locked(true).visible(false).disableHit(true).layer("CONTROL").width(1).height(1).shapeType("RECTANGLE").build());

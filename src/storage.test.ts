@@ -69,6 +69,14 @@ describe("board storage", () => {
     expect(sceneItems).toEqual([]);
   });
 
+
+  it("does not resurrect a deleted board from legacy scene metadata", async () => {
+    sceneMetadata[BOARD_STATE_KEY] = { version: 1, boards: [board()] };
+    const saved = (await loadAllVisibleBoards()).boards[0];
+    await deleteBoard(saved);
+    await expect(loadAllVisibleBoards()).resolves.toMatchObject({ boards: [] });
+  });
+
   it("broadcasts creates and deletes so other Manage Boards views refresh immediately", async () => {
     const saved = await saveBoard(board());
     await deleteBoard(saved);

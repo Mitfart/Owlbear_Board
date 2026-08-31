@@ -1,14 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { BOARD_STATE_KEY } from "./constants";
-import { carryRoomBoardsToCurrentScene, clearAllBoardData, loadAllVisibleBoards, normalizeBoardState, saveBoard } from "./storage";
+import { BOARD_EVENT_CHANNEL, BOARD_STATE_KEY, ROOM_BOARD_STATE_KEY } from "./constants";
+import { carryRoomBoardsToCurrentScene, clearAllBoardData, deleteBoard, loadAllVisibleBoards, normalizeBoardState, saveBoard } from "./storage";
 
 let playerMetadata: Record<string, unknown>;
+let roomMetadata: Record<string, unknown>;
 let sceneMetadata: Record<string, unknown>;
 const obr = vi.hoisted(() => ({
   isAvailable: true,
-  scene: { getMetadata: vi.fn(), setMetadata: vi.fn(), isReady: vi.fn(), items: { getItems: vi.fn(), deleteItems: vi.fn() } },
+  scene: { getMetadata: vi.fn(), setMetadata: vi.fn(), isReady: vi.fn() },
   room: { getMetadata: vi.fn(), setMetadata: vi.fn() },
-  player: { getMetadata: vi.fn(), setMetadata: vi.fn(), getId: vi.fn() },
+  player: { getMetadata: vi.fn(), setMetadata: vi.fn(), getId: vi.fn(), getRole: vi.fn() },
   broadcast: { sendMessage: vi.fn() },
 }));
 vi.mock("@owlbear-rodeo/sdk", () => ({ default: obr }));
@@ -19,46 +20,54 @@ const board = (overrides: Record<string, unknown> = {}) => ({
   items: [], updatedAt: "2026-01-01T00:00:00.000Z", ...overrides,
 });
 
-describe("scene board storage", () => {
+describe("board storage", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
-    playerMetadata = {};
-    sceneMetadata = { "com.owlbear-board.grid/scene-key": "scene" };
+    playerMetadata = {}; roomMetadata = {}; sceneMetadata = { "com.owlbear-board.grid/scene-key": "scene" };
     obr.player.getMetadata.mockImplementation(async () => playerMetadata);
     obr.player.setMetadata.mockImplementation(async (update) => { playerMetadata = { ...playerMetadata, ...update }; });
+    obr.player.getId.mockResolvedValue("owner"); obr.player.getRole.mockResolvedValue("GM");
+    obr.room.getMetadata.mockImplementation(async () => roomMetadata);
+    obr.room.setMetadata.mockImplementation(async (update) => { roomMetadata = { ...roomMetadata, ...update }; });
     obr.scene.getMetadata.mockImplementation(async () => sceneMetadata);
     obr.scene.setMetadata.mockImplementation(async (update) => { sceneMetadata = { ...sceneMetadata, ...update }; });
-    obr.scene.isReady.mockResolvedValue(true);
-    obr.broadcast.sendMessage.mockResolvedValue(undefined);
+    obr.scene.isReady.mockResolvedValue(true); obr.broadcast.sendMessage.mockResolvedValue(undefined);
     await clearAllBoardData();
     vi.clearAllMocks();
   });
 
   it("reloads private boards from scene metadata after player metadata is lost", async () => {
     await saveBoard(board());
-    playerMetadata = {}; // Simulates Owlbear rebuilding the player object on extension reload.
+    playerMetadata = {}; // Owlbear rebuilds the player object on extension reload.
     await expect(loadAllVisibleBoards("PLAYER", "owner")).resolves.toMatchObject({ boards: [expect.objectContaining({ id: "board" })] });
     await expect(loadAllVisibleBoards("PLAYER", "other")).resolves.toMatchObject({ boards: [] });
-    await expect(loadAllVisibleBoards("GM", "gm")).resolves.toMatchObject({ boards: [expect.objectContaining({ id: "board" })] });
     expect(sceneMetadata[BOARD_STATE_KEY]).toBeDefined();
   });
 
-  it("copies the newest room board into the next scene", async () => {
-    await saveBoard(board({ scope: "room", updatedAt: "2026-01-02T00:00:00.000Z" }));
-    sceneMetadata = { "com.owlbear-board.grid/scene-key": "next" };
-    await carryRoomBoardsToCurrentScene();
-    const copied = (sceneMetadata[BOARD_STATE_KEY] as { boards: Array<{ id: string }> }).boards;
-    expect(copied).toEqual([expect.objectContaining({ id: "board", scope: "room" })]);
+  it("uses room metadata as the Room Board registry and prunes stale scene copies", async () => {
+    const roomBoard = await saveBoard(board({ scope: "room", updatedAt: "2026-01-02T00:00:00.000Z" }));
+    expect(roomMetadata[ROOM_BOARD_STATE_KEY]).toMatchObject({ boards: [expect.objectContaining({ id: "board" })] });
 
-    sceneMetadata[BOARD_STATE_KEY] = { version: 1, boards: [board({ scope: "room", name: "Newer", updatedAt: "2026-01-03T00:00:00.000Z" })] };
+    sceneMetadata = { "com.owlbear-board.grid/scene-key": "next", [BOARD_STATE_KEY]: { version: 1, boards: [board({ id: "stale", scope: "room" })] } };
     await carryRoomBoardsToCurrentScene();
-    expect((sceneMetadata[BOARD_STATE_KEY] as { boards: Array<{ name: string }> }).boards[0].name).toBe("Newer");
+    expect((sceneMetadata[BOARD_STATE_KEY] as { boards: Array<{ id: string }> }).boards).toEqual([expect.objectContaining({ id: "board" })]);
+
+    await deleteBoard(roomBoard);
+    expect(roomMetadata[ROOM_BOARD_STATE_KEY]).toMatchObject({ boards: [] });
+    expect((sceneMetadata[BOARD_STATE_KEY] as { boards: Array<{ id: string }> }).boards).toEqual([]);
   });
 
-  it("clears scene-backed board data", async () => {
-    await saveBoard(board());
-    await clearAllBoardData();
-    await expect(loadAllVisibleBoards("GM", "gm")).resolves.toMatchObject({ boards: [] });
+  it("broadcasts creates and deletes so other Manage Boards views refresh immediately", async () => {
+    const saved = await saveBoard(board());
+    await deleteBoard(saved);
+    expect(obr.broadcast.sendMessage).toHaveBeenNthCalledWith(1, BOARD_EVENT_CHANNEL, { action: "save", boardId: "board" }, { destination: "REMOTE" });
+    expect(obr.broadcast.sendMessage).toHaveBeenNthCalledWith(2, BOARD_EVENT_CHANNEL, { action: "delete", boardId: "board" }, { destination: "REMOTE" });
+  });
+
+  it("rejects deletion by a non-owner player", async () => {
+    const saved = await saveBoard(board());
+    obr.player.getRole.mockResolvedValue("PLAYER"); obr.player.getId.mockResolvedValue("other");
+    await expect(deleteBoard(saved)).rejects.toThrow("Only the board creator or a GM");
   });
 
   it("normalizes legacy occupancy and defaults", () => {

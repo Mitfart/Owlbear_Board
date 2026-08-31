@@ -13,3 +13,7 @@ export function canRenameBoard(board: Board, role: PlayerRole) {
 export function canEditBoard(board: Board, role: PlayerRole, playerId?: string) {
   return canViewBoard(board, role, playerId);
 }
+
+export function canDeleteBoard(board: Board, role: PlayerRole, playerId?: string) {
+  return role === "GM" || board.ownerId === playerId;
+}

@@ -860,8 +860,8 @@ input[type="radio"] {
   justify-content: flex-start;
 }
 
-.creationMenu { display: flex; flex-direction: column; width: max-content; }
-.creationMenu button { width: auto; white-space: nowrap; }
+.creationMenu { display: flex; flex-direction: column; gap: 6px; width: max-content; }
+.creationMenu button { width: auto; padding-right: 14px; white-space: nowrap; }
 .creationMenu svg { width: 20px; height: 20px; }
 
 .colorMenuItem {
@@ -943,7 +943,7 @@ input[type="radio"] {
 
 .modalGrid {
   display: grid;
-  grid-template-columns: auto auto auto 1fr auto auto;
+  grid-template-columns: auto auto auto minmax(0, 1fr) minmax(0, 1fr) auto;
   gap: 8px;
   align-items: end;
   padding: 10px;
@@ -974,6 +974,8 @@ input[type="radio"] {
   grid-column: span 1;
   min-width: 220px;
 }
+
+.modalGrid > .counterAddField input { width: 100%; }
 
 .imageAddRow,
 .imagePreviewPanel {

@@ -1,5 +1,8 @@
 export const EXTENSION_ID = "com.owlbear-board.grid";
 export const PLAYER_PREFERENCES_KEY = `${EXTENSION_ID}/preferences`;
+export const ROOM_BOARD_IDS_KEY = `${EXTENSION_ID}/room-board-ids`;
+export const BOARD_STATE_KEY = `${EXTENSION_ID}/board-state`;
+// Read only for one-release migration from the previous storage layout.
 export const PRIVATE_SCENE_STATES_KEY = `${EXTENSION_ID}/private-scene-states`;
 export const PRIVATE_ROOM_STATE_KEY = `${EXTENSION_ID}/private-room-state`;
 export const SHARED_SCENE_STATE_KEY = `${EXTENSION_ID}/shared-scene-state`;

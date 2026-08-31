@@ -35,6 +35,8 @@ export type Board = {
   visibility: BoardVisibility;
   ownerId?: string;
   ownerName?: string;
+  /** UI-only access control. GMs always have access. */
+  allowedUserIds?: string[];
   revision: number;
   cellSizePx: number;
   cellGapPx: number;

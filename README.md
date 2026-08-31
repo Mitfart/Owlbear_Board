@@ -21,6 +21,13 @@
 
 > **Beta project.** Owl-Boards is actively being tested. Please report problems, suggest features, and contribute improvements through [GitHub Issues](https://github.com/Mitfart/Owlbear_Board/issues).
 
+## What’s new in 0.2
+
+- **Reliable board persistence** — Scene Boards are saved with their scene; Room Boards use a room-level registry and follow the table across scene changes.
+- **Clear board access** — private boards can be shared with selected players; GMs can always access them, while only the creator or a GM can delete a board.
+- **Live board lists** — board saves, edits, and deletions refresh the board menu and Manage Boards view across connected clients.
+- **Refined editing** — improved Markdown help and formatting, responsive text items, safer numeric inputs, and stronger board placement and resize handling.
+
 ## Install the beta
 
 1. In Owlbear Rodeo, add a custom extension from its manifest URL.
@@ -48,7 +55,7 @@ The extension is loaded from its `manifest.json`, the standard Owlbear Rodeo ext
 
 Use Owl-Boards as a compact **Kanban board**, a reusable **character sheet**, a GM reference panel, a party resource tracker, or a visual session dashboard. Board items are independent of Owlbear scene objects, so the board stays focused on the information your group needs.
 
-Private data is stored in the player's Owlbear metadata, while shared boards are stored in room or scene metadata. Local storage provides a fallback outside Owlbear Rodeo. Shared edits use the latest saved version, so coordinate with your table when editing the same item at once.
+Board data is stored in Owlbear metadata: Scene Boards, including private boards, are stored in scene metadata. Room Boards use room metadata as their authoritative registry and are carried into ready scenes. Player metadata retains only the current player’s active Room Board IDs. Local storage provides a fallback outside Owlbear Rodeo. Shared edits use the latest saved version, so coordinate with your table when editing the same item at once.
 
 ## Screenshots
 

@@ -6,7 +6,7 @@ const commitCount = (() => { try { return execFileSync("git", ["rev-list", "--co
 
 export default defineConfig({
   base: "/Owlbear_Board/",
-  define: { __APP_VERSION__: JSON.stringify(`0.1.${commitCount}`) },
+  define: { __APP_VERSION__: JSON.stringify(`0.2.${commitCount}`) },
   plugins: [react()],
   build: {
     outDir: "dist",

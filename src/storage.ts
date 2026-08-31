@@ -1,4 +1,4 @@
-import OBR from "@owlbear-rodeo/sdk";
+import OBR, { buildShape } from "@owlbear-rodeo/sdk";
 import {
   BOARD_EVENT_CHANNEL, BOARD_STATE_KEY, DEFAULT_CELL_GAP, DEFAULT_CELL_SIZE,
   DEFAULT_COUNTER_MAX_COLOR, DEFAULT_COUNTER_ZERO_COLOR, DEFAULT_ITEM_BORDER_COLOR,
@@ -42,6 +42,8 @@ export function normalizeBoardState(state: PersistedBoardState): PersistedBoardS
   };
 }
 
+function isBoard(value: unknown): value is Board { return !!value && typeof value === "object" && typeof (value as Board).id === "string" && Array.isArray((value as Board).items); }
+
 function isState(value: unknown): value is PersistedBoardState {
   return !!value && typeof value === "object" && (value as PersistedBoardState).version === 1 && Array.isArray((value as PersistedBoardState).boards);
 }
@@ -75,14 +77,28 @@ export async function getSceneKey() {
   return sceneKey;
 }
 
+async function sceneBoardItems() {
+  if (!OBR.isAvailable || !await OBR.scene.isReady()) return [];
+  return (await OBR.scene.items.getItems()).filter((item) => isBoard(item.metadata[BOARD_STATE_KEY]));
+}
 async function loadSceneBoardState(): Promise<PersistedBoardState> {
   if (!OBR.isAvailable || !await OBR.scene.isReady()) return emptyState();
+  const items = await sceneBoardItems();
+  if (items.length) return normalizeBoardState({ version: 1, boards: items.map((item) => item.metadata[BOARD_STATE_KEY] as Board) });
   const metadata = await OBR.scene.getMetadata();
   const current = metadata[BOARD_STATE_KEY];
   return normalizeBoardState(isState(current) ? current : isState(metadata[SHARED_SCENE_STATE_KEY]) ? metadata[SHARED_SCENE_STATE_KEY] : emptyState());
 }
 async function saveSceneBoardState(state: PersistedBoardState) {
-  if (OBR.isAvailable) await OBR.scene.setMetadata({ [BOARD_STATE_KEY]: normalizeBoardState(state) });
+  if (!OBR.isAvailable || !await OBR.scene.isReady()) return;
+  const boards = normalizeBoardState(state).boards;
+  const items = await sceneBoardItems();
+  const itemByBoardId = new Map(items.map((item) => [(item.metadata[BOARD_STATE_KEY] as Board).id, item]));
+  const add = boards.filter((board) => !itemByBoardId.has(board.id)).map((board) => buildShape().name("Owl-Boards data").metadata({ [BOARD_STATE_KEY]: board }).locked(true).visible(false).disableHit(true).layer("CONTROL").width(1).height(1).shapeType("RECTANGLE").build());
+  if (add.length) await OBR.scene.items.addItems(add);
+  await OBR.scene.items.updateItems(items.filter((item) => boards.some((board) => board.id === (item.metadata[BOARD_STATE_KEY] as Board).id)), (drafts) => { for (const item of drafts) { const board = boards.find((candidate) => candidate.id === (item.metadata[BOARD_STATE_KEY] as Board).id); if (board) item.metadata[BOARD_STATE_KEY] = board; } });
+  const remove = items.filter((item) => !boards.some((board) => board.id === (item.metadata[BOARD_STATE_KEY] as Board).id)).map((item) => item.id);
+  if (remove.length) await OBR.scene.items.deleteItems(remove);
 }
 
 async function loadRoomBoardState(): Promise<PersistedBoardState> {

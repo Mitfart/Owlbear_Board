@@ -1190,6 +1190,26 @@ input[type="color"] {
   }
 }
 
+.saveError {
+  position: fixed;
+  z-index: 10;
+  left: 16px;
+  bottom: 16px;
+  display: flex;
+  max-width: min(420px, calc(100vw - 32px));
+  gap: 8px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--danger);
+  border-radius: 8px;
+  background: var(--panel-raised);
+  box-shadow: 0 8px 24px var(--shadow);
+  color: var(--text);
+}
+
+.saveError svg { color: var(--danger); flex: none; }
+.saveError button { margin-left: auto; padding: 0; background: none; }
+
 .debugPanel {
   position: absolute;
   z-index: 1;

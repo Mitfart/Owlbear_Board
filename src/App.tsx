@@ -1,5 +1,5 @@
 import OBR from "@owlbear-rodeo/sdk";
-import { AlignCenter, AlignJustify, AlignLeft, AlignRight, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalJustifyStart, Bold, ChevronDown, Grip, ImagePlus, Italic, Maximize2, Minus, PanelsTopLeft, Pencil, Plus, Save, Settings, Trash2, Type, X } from "lucide-react";
+import { AlignCenter, AlignJustify, AlignLeft, AlignRight, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalJustifyStart, Bold, ChevronDown, CircleAlert, Grip, ImagePlus, Italic, Maximize2, Minus, PanelsTopLeft, Pencil, Plus, Save, Settings, Trash2, Type, X } from "lucide-react";
 import type React from "react";
 import type { Theme } from "@owlbear-rodeo/sdk";
 import type { CSSProperties } from "react";
@@ -234,6 +234,12 @@ export default function App() {
   useEffect(() => {
     if (!focusedItemId) setMarkdownHelpOpen(false);
   }, [focusedItemId]);
+
+  useEffect(() => {
+    if (!error) return;
+    const timeout = window.setTimeout(() => setError(undefined), 5000);
+    return () => window.clearTimeout(timeout);
+  }, [error]);
 
   useEffect(() => {
     if (!markdownHelpOpen) return;
@@ -597,7 +603,7 @@ export default function App() {
     <div ref={gridRef} className="gridSurface" onDoubleClick={(event) => { if (!activeBoard || readOnly) return; const grid = pointerToGrid(event.clientX, event.clientY); if (!boardItemAt(activeBoard, grid.x, grid.y)) void createTextAt(grid); }} onPointerDown={handleGridPointerDown} onPointerMove={handleGridPointerMove} onPointerUp={(event) => void handleGridPointerUp(event)} onContextMenu={(event) => { event.preventDefault(); if (!activeBoard || readOnly) { if (!activeBoard) setCreateOpen(true); return; } const grid = pointerToGrid(event.clientX, event.clientY); const item = boardItemAt(activeBoard, grid.x, grid.y); if (item) setContextItem({ item, x: event.clientX, y: event.clientY }); else setEmptyContext({ gridX: grid.x, gridY: grid.y, x: event.clientX, y: event.clientY }); }} style={{ backgroundSize: `${cellSize}px ${cellSize}px`, backgroundPosition: `${pan.x}px ${pan.y}px` }}>
       <div key={displayBoard?.id ?? "empty"} className="gridPlane" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>{displayBoard?.items.map((item) => <BoardItemView key={item.id} item={resizeItemState?.itemId === item.id ? { ...item, gridWidth: resizeItemState.gridWidth, gridHeight: resizeItemState.gridHeight } : item} selected={selectedItemId === item.id} cellSize={displayBoard.cellSizePx} cellGap={displayBoard.cellGapPx} onResizePointerDown={startItemResize} onDoubleClick={openItemEditor} onCounterChange={changeCounter} readOnly={readOnly} />)}</div>
       {showPreview && <div className="emptyState" onPointerDown={(event) => event.stopPropagation()} onContextMenu={(event) => { event.preventDefault(); event.stopPropagation(); }}><strong>Preview Board</strong><button className="primaryAction" onClick={() => setCreateOpen(true)}><Plus size={16} /> Create Private Board</button><button onClick={async () => { const prefs = preferences ?? await loadPreferences(); await savePreferences({ ...prefs, previewDismissed: true }); setPreviewDismissed(true); }}>Dismiss</button></div>}
-      {error && <div className="saveError">Could not save Board: {error}</div>}
+      {error && <div className="saveError" role="alert"><CircleAlert size={18} /><span>{error}</span><button aria-label="Dismiss error" onClick={() => setError(undefined)}><X size={16} /></button></div>}
       <div className="surfaceHud"><span>{displayBoard?.items.length ?? 0} items</span><span>{Math.round(cellSize)} px cells</span></div>
     </div>
 

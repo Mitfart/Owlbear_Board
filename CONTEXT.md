@@ -13,12 +13,16 @@ A board with no fixed edges where board items may be placed at positive or negat
 _Avoid_: Canvas, finite grid
 
 **Scene Board**:
-A board tied to a single Owlbear scene. It is relevant only while that scene is active.
+A board tied to a single Owlbear scene. Its complete board record is stored in an extension-owned hidden Scene Data Item in that scene. It is relevant only while that scene is active.
 _Avoid_: Sceen board, project board
 
 **Board Item**:
 An element placed on a board at a grid position. A board item occupies one or more grid cells and is independent from Owlbear scene objects.
 _Avoid_: Kanban item, card, token, note
+
+**Scene Data Item**:
+A hidden, locked, non-hittable Owlbear scene object that holds one complete Board record in its item metadata. It is the authoritative persisted board data for that scene.
+_Avoid_: Asset, token, room metadata
 
 **Counter Board Item**:
 A Board Item that displays and changes a numeric value.
@@ -89,7 +93,7 @@ A per-user ordering of boards by most recent activation. The first available boa
 _Avoid_: Last active scene, global recent board
 
 **Room Board**:
-A board tied to the Owlbear room. It remains relevant across scene changes in that room.
+A board tied to the Owlbear room. Room metadata contains only its compact ID, source-scene ID, revision, update time, and deletion tombstone; the complete board record is an extension-owned hidden Scene Data Item copied into ready scenes.
 _Avoid_: Global board, project board
 
 **Private Board**:

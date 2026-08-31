@@ -860,7 +860,7 @@ input[type="radio"] {
   justify-content: flex-start;
 }
 
-.creationMenu { width: max-content; }
+.creationMenu { display: flex; flex-direction: column; width: max-content; }
 .creationMenu button { width: auto; white-space: nowrap; }
 .creationMenu svg { width: 20px; height: 20px; }
 

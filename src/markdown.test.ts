@@ -23,4 +23,8 @@ describe("renderMarkdown", () => {
     expect(html).toContain("<blockquote>quote</blockquote>");
     expect(html).toContain("<pre><code>block\n</code></pre>");
   });
+
+  it("renders task list items with their completion state", () => {
+    expect(renderMarkdown("- [ ] Todo\n- [x] Done")).toContain('<ul><li class="taskItem"><input type="checkbox" data-task-line="0" aria-label="Toggle task" />Todo</li><li class="taskItem complete"><input type="checkbox" data-task-line="1" aria-label="Toggle task" checked />Done</li></ul>');
+  });
 });

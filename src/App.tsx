@@ -560,6 +560,30 @@ export default function App() {
     });
   }
 
+  function toggleTextTask(item: BoardItem, line: number) {
+    const board = boardDraft.current; if (!board || readOnly || item.type !== "text") return;
+    const current = board.items.find((candidate) => candidate.id === item.id); if (!current) return;
+    const text = (current.text ?? "").split(/\r?\n/);
+    if (!text[line]?.match(/^((?:\^[1-3]\s+)?\s*(?:[-*]|\d+\.)\s+)\[([ xX])\]/)) return;
+    text[line] = text[line].replace(/^((?:\^[1-3]\s+)?\s*(?:[-*]|\d+\.)\s+)\[([ xX])\]/, (_match, prefix: string, state: string) => `${prefix}[${state.toLowerCase() === "x" ? " " : "x"}]`);
+    const next = { ...board, items: board.items.map((candidate) => candidate.id === item.id ? { ...candidate, text: text.join("\n"), updatedAt: nowIso() } : candidate) };
+    boardDraft.current = next; setBoards((boards) => boards.map((candidate) => candidate.id === next.id ? next : candidate));
+    setHistory((history) => ({ ...history, [board.id]: { undo: [board, ...(history[board.id]?.undo ?? [])].slice(0, MAX_HISTORY), redo: [] } }));
+    pendingCounterChanges.current += 1;
+    counterChangeQueue.current = counterChangeQueue.current.then(async () => {
+      try {
+        const draft = boardDraft.current; const saved = await saveBoard({ ...next, revision: draft?.revision ?? next.revision });
+        const current = boardDraft.current; if (current?.id === saved.id) {
+          const revised = { ...current, revision: saved.revision, updatedAt: saved.updatedAt }; boardDraft.current = revised;
+          setBoards((boards) => boards.map((candidate) => candidate.id === revised.id ? revised : candidate));
+        }
+        setError(undefined);
+      }
+      catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)); }
+      finally { pendingCounterChanges.current -= 1; }
+    });
+  }
+
   function restoreTextSelection(start: number, end: number) {
     requestAnimationFrame(() => { focusTextarea.current?.focus(); focusTextarea.current?.setSelectionRange(start, end); });
   }
@@ -625,7 +649,7 @@ export default function App() {
     {manageBoardsOpen && <ManageBoards boards={boards} activeBoardId={activeBoardId} onCreate={() => setCreateOpen(true)} onCreateShared={(scope) => void createShared(scope)} onOpen={(board) => void chooseBoard(board)} onSettings={(board, event) => { event.stopPropagation(); setBoardPanelBoard(board); const rect = event.currentTarget.getBoundingClientRect(); const x = rect.right + 8 + 360 <= window.innerWidth ? rect.right + 8 : Math.max(8, rect.left - 368); setBoardPanelPosition({ x, y: rect.top }); setBoardPanelOpen(true); }} />}
     {debugOpen && <DebugPanel snapshot={debugSnapshot} logs={debugLogs} onRefresh={() => void openDebugTab()} onClear={() => void clearDebugData()} />}
     <div ref={gridRef} className={`gridSurface ${boardAtLimit ? "boardAtLimit" : ""}`} onDoubleClick={(event) => { if (!activeBoard || readOnly) return; const grid = pointerToGrid(event.clientX, event.clientY); if (!boardItemAt(activeBoard, grid.x, grid.y)) void createTextAt(grid); }} onPointerDown={handleGridPointerDown} onPointerMove={handleGridPointerMove} onPointerUp={(event) => void handleGridPointerUp(event)} onContextMenu={(event) => { event.preventDefault(); if (!activeBoard || readOnly) { if (!activeBoard) setCreateOpen(true); return; } const grid = pointerToGrid(event.clientX, event.clientY); const item = boardItemAt(activeBoard, grid.x, grid.y); if (item) setContextItem({ item, x: event.clientX, y: event.clientY }); else setEmptyContext({ gridX: grid.x, gridY: grid.y, x: event.clientX, y: event.clientY }); }} style={{ backgroundSize: `${cellSize}px ${cellSize}px`, backgroundPosition: `${pan.x}px ${pan.y}px` }}>
-      <div key={displayBoard?.id ?? "empty"} className="gridPlane" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>{displayBoard?.items.map((item) => <BoardItemView key={item.id} item={resizeItemState?.itemId === item.id ? { ...item, gridWidth: resizeItemState.gridWidth, gridHeight: resizeItemState.gridHeight } : item} selected={selectedItemId === item.id} cellSize={displayBoard.cellSizePx} cellGap={displayBoard.cellGapPx} onResizePointerDown={startItemResize} onDoubleClick={openItemEditor} onCounterChange={changeCounter} readOnly={readOnly} />)}</div>
+      <div key={displayBoard?.id ?? "empty"} className="gridPlane" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>{displayBoard?.items.map((item) => <BoardItemView key={item.id} item={resizeItemState?.itemId === item.id ? { ...item, gridWidth: resizeItemState.gridWidth, gridHeight: resizeItemState.gridHeight } : item} selected={selectedItemId === item.id} cellSize={displayBoard.cellSizePx} cellGap={displayBoard.cellGapPx} onResizePointerDown={startItemResize} onDoubleClick={openItemEditor} onCounterChange={changeCounter} onTaskToggle={toggleTextTask} readOnly={readOnly} />)}</div>
       {showPreview && <div className="emptyState" onPointerDown={(event) => event.stopPropagation()} onContextMenu={(event) => { event.preventDefault(); event.stopPropagation(); }}><strong>Preview Board</strong><button className="primaryAction" onClick={() => setCreateOpen(true)}><Plus size={16} /> Create Private Board</button><button onClick={async () => { const prefs = preferences ?? await loadPreferences(); await savePreferences({ ...prefs, previewDismissed: true }); setPreviewDismissed(true); }}>Dismiss</button></div>}
       {warning && <div className="saveError saveWarning" role="status"><CircleAlert size={18} /><span>{warning}</span><button aria-label="Dismiss warning" onClick={() => setWarning(undefined)}><X size={16} /></button></div>}
        {error && <div className="saveError" role="alert"><CircleAlert size={18} /><span>{error}</span><button aria-label="Dismiss error" onClick={() => setError(undefined)}><X size={16} /></button></div>}
@@ -686,13 +710,13 @@ function MarkdownHelp({ open, panelRef }: { open: boolean; panelRef: React.RefOb
   </div>;
 }
 
-function BoardItemView({ item, selected, cellSize, cellGap, onResizePointerDown, onDoubleClick, onCounterChange, readOnly = false }: { item: BoardItem; selected: boolean; cellSize: number; cellGap: number; onResizePointerDown: (event: React.PointerEvent<HTMLElement>, item: BoardItem) => void; onDoubleClick: (item: BoardItem) => void; onCounterChange: (item: BoardItem, delta: number) => void; readOnly?: boolean }) {
+function BoardItemView({ item, selected, cellSize, cellGap, onResizePointerDown, onDoubleClick, onCounterChange, onTaskToggle, readOnly = false }: { item: BoardItem; selected: boolean; cellSize: number; cellGap: number; onResizePointerDown: (event: React.PointerEvent<HTMLElement>, item: BoardItem) => void; onDoubleClick: (item: BoardItem) => void; onCounterChange: (item: BoardItem, delta: number) => void; onTaskToggle: (item: BoardItem, line: number) => void; readOnly?: boolean }) {
   const inset = Math.min(cellGap, Math.max(0, (Math.min(item.gridWidth, item.gridHeight) * cellSize) / 2 - 4)); const value = item.counterValue ?? 0; const atMax = item.type === "counter" && item.counterMax !== undefined && value === item.counterMax;
   const borderColor = atMax && item.counterMaxColorEnabled ? item.counterMaxColor : item.type === "counter" && value === 0 && item.counterZeroColorEnabled ? item.counterZeroColor : item.borderColor ?? DEFAULT_ITEM_BORDER_COLOR;
   const stopControl = (event: React.SyntheticEvent) => event.stopPropagation();
   const textScale = item.type === "text" && item.fillBlock !== false ? textFillScale(item.gridWidth, item.textBaselineWidth ?? item.gridWidth) : 1;
   return <article className={`boardItem ${item.type} ${selected ? "selected" : ""} ${item.type === "counter" && value === 0 && item.counterDimAtZero !== false ? "zeroDim" : ""}`} style={{ left: item.gridX * cellSize + inset, top: item.gridY * cellSize + inset, width: Math.max(8, item.gridWidth * cellSize - inset * 2), height: Math.max(8, item.gridHeight * cellSize - inset * 2), borderColor }} onMouseDown={(event) => { if (event.detail === 2) { event.stopPropagation(); onDoubleClick(item); } }} onDoubleClick={(event) => { event.stopPropagation(); onDoubleClick(item); }}>
-    {item.type === "image" && item.imageUrl ? <img src={item.imageUrl} alt="Board item" style={{ objectFit: item.imageFit ?? "cover" }} /> : item.type === "counter" ? <>{!readOnly && <button className="counterControl" aria-label="Decrease counter" disabled={value === 0} onPointerDown={stopControl} onMouseDown={stopControl} onDoubleClick={stopControl} onClick={(event) => { stopControl(event); void onCounterChange(item, -1); }}><Minus size={16} /></button>}<div className={`counterContent ${item.counterLabelPosition ?? "top-center"}`}>{item.counterLabel && <span className="counterLabel" title={item.counterLabel}>{item.counterLabel}</span>}<div className="counterNumbers"><strong>{value}</strong>{item.counterMax !== undefined && <span>/ {item.counterMax}</span>}</div></div>{!readOnly && <button className="counterControl" aria-label="Increase counter" disabled={atMax} onPointerDown={stopControl} onMouseDown={stopControl} onDoubleClick={stopControl} onClick={(event) => { stopControl(event); void onCounterChange(item, 1); }}><Plus size={16} /></button>}</> : <div className={`textPreview textAlign-${item.textVerticalAlignment ?? "top"}`} style={{ "--text-scale": textScale } as CSSProperties}><div className="textScaleContent"><MarkdownView value={item.text || ""} /></div></div>}
+    {item.type === "image" && item.imageUrl ? <img src={item.imageUrl} alt="Board item" style={{ objectFit: item.imageFit ?? "cover" }} /> : item.type === "counter" ? <>{!readOnly && <button className="counterControl" aria-label="Decrease counter" disabled={value === 0} onPointerDown={stopControl} onMouseDown={stopControl} onDoubleClick={stopControl} onClick={(event) => { stopControl(event); void onCounterChange(item, -1); }}><Minus size={16} /></button>}<div className={`counterContent ${item.counterLabelPosition ?? "top-center"}`}>{item.counterLabel && <span className="counterLabel" title={item.counterLabel}>{item.counterLabel}</span>}<div className="counterNumbers"><strong>{value}</strong>{item.counterMax !== undefined && <span>/ {item.counterMax}</span>}</div></div>{!readOnly && <button className="counterControl" aria-label="Increase counter" disabled={atMax} onPointerDown={stopControl} onMouseDown={stopControl} onDoubleClick={stopControl} onClick={(event) => { stopControl(event); void onCounterChange(item, 1); }}><Plus size={16} /></button>}</> : <div className={`textPreview textAlign-${item.textVerticalAlignment ?? "top"}`} style={{ "--text-scale": textScale } as CSSProperties}><div className="textScaleContent"><MarkdownView value={item.text || ""} onTaskToggle={readOnly ? undefined : (line) => onTaskToggle(item, line)} /></div></div>}
     {!readOnly && <button className="itemResizeHandle" title="Resize item" onPointerDown={(event) => onResizePointerDown(event, item)}><Maximize2 size={13} /></button>}
   </article>;
 }

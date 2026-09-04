@@ -1101,6 +1101,19 @@ input[type="color"] {
   padding-left: 18px;
 }
 
+.markdown .taskItem {
+  list-style: none;
+}
+
+.markdown .taskItem.complete {
+  opacity: 0.55;
+}
+
+.markdown .taskItem input {
+  margin: 0 0.45em 0 0;
+  vertical-align: middle;
+}
+
 .markdown a,
 .markdownHelpPanel a {
   color: var(--accent-strong);

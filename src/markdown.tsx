@@ -36,14 +36,14 @@ function className(align?: string) {
   return align ? ` class="align-${align}"` : "";
 }
 
-export function renderMarkdown(markdown: string) {
+export function renderMarkdown(markdown: string, taskInputsDisabled = false) {
   const lines = markdown.split(/\r?\n/);
   const html: string[] = [];
   let listType: "ul" | "ol" | undefined;
   let inCode = false;
   let codeAlign: string | undefined;
 
-  for (const source of lines) {
+  for (const [lineIndex, source] of lines.entries()) {
     const { align, text: line } = aligned(source);
     if (line.trim().startsWith("```")) {
       if (inCode) html.push("</code></pre>");
@@ -64,7 +64,11 @@ export function renderMarkdown(markdown: string) {
         html.push(`<${nextListType}>`);
         listType = nextListType;
       }
-      html.push(`<li${className(align)}>${inlineMarkdown(listItem[2])}</li>`);
+      const task = listItem[2].match(/^\[([ xX])\]\s+(.+)/);
+      const complete = task?.[1].toLowerCase() === "x";
+      const classes = task ? ` class="taskItem${complete ? " complete" : ""}${align ? ` align-${align}` : ""}"` : className(align);
+      const content = task ? `<input type="checkbox" data-task-line="${lineIndex}" aria-label="Toggle task"${complete ? " checked" : ""}${taskInputsDisabled ? " disabled" : ""} />${inlineMarkdown(task[2])}` : inlineMarkdown(listItem[2]);
+      html.push(`<li${classes}>${content}</li>`);
       continue;
     }
     if (listType) {
@@ -89,6 +93,9 @@ export function renderMarkdown(markdown: string) {
   return html.join("");
 }
 
-export function MarkdownView({ value }: { value: string }) {
-  return <div className="markdown" dangerouslySetInnerHTML={{ __html: renderMarkdown(value) }} />;
+export function MarkdownView({ value, onTaskToggle }: { value: string; onTaskToggle?: (line: number) => void }) {
+  return <div className="markdown" onPointerDown={(event) => { if (event.target instanceof HTMLInputElement && event.target.dataset.taskLine) event.stopPropagation(); }} onDoubleClick={(event) => { if (event.target instanceof HTMLInputElement && event.target.dataset.taskLine) event.stopPropagation(); }} onChange={(event) => {
+    const target = event.target;
+    if (onTaskToggle && target instanceof HTMLInputElement && target.dataset.taskLine) onTaskToggle(Number(target.dataset.taskLine));
+  }} dangerouslySetInnerHTML={{ __html: renderMarkdown(value, !onTaskToggle) }} />;
 }

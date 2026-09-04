@@ -40,6 +40,10 @@ _Avoid_: Max value, limit
 A board item whose content is Markdown text rendered for display.
 _Avoid_: Card, note, rich text item, node
 
+**Task List Item**:
+A Text Board Item list item marked with a Markdown checkbox that records its completion state and is rendered in a dim color when complete.
+_Avoid_: Checkbox, todo, task
+
 **Text Editor**:
 The dialog for editing a Text Board Item. Its Markdown textarea and rendered preview are equal-height panes.
 _Avoid_: Composer, rich-text editor

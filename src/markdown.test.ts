@@ -24,7 +24,10 @@ describe("renderMarkdown", () => {
     expect(html).toContain("<pre><code>block\n</code></pre>");
   });
 
-  it("renders task list items with their completion state", () => {
-    expect(renderMarkdown("- [ ] Todo\n- [x] Done")).toContain('<ul><li class="taskItem"><input type="checkbox" data-task-line="0" aria-label="Toggle task" />Todo</li><li class="taskItem complete"><input type="checkbox" data-task-line="1" aria-label="Toggle task" checked />Done</li></ul>');
+  it("renders custom task controls for unchecked and marked items", () => {
+    const html = renderMarkdown("- [ ] Todo\n- [*] Done");
+    expect(html).toContain('<button type="button" class="taskToggle" role="checkbox" aria-checked="false" data-task-line="0" aria-label="Toggle task"></button>Todo');
+    expect(html).toContain('<button type="button" class="taskToggle" role="checkbox" aria-checked="true" data-task-line="1" aria-label="Toggle task">');
+    expect(html).toContain("taskCheckIcon");
   });
 });

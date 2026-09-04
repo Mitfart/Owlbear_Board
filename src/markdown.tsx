@@ -1,4 +1,8 @@
 import React from "react";
+import { Check } from "lucide-react";
+import { renderToStaticMarkup } from "react-dom/server";
+
+const taskCheckIcon = renderToStaticMarkup(<Check className="taskCheckIcon" size={12} strokeWidth={3} aria-hidden />);
 
 function escapeHtml(value: string) {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;").replace(/'/g, "&#39;");
@@ -64,10 +68,10 @@ export function renderMarkdown(markdown: string, taskInputsDisabled = false) {
         html.push(`<${nextListType}>`);
         listType = nextListType;
       }
-      const task = listItem[2].match(/^\[([ xX])\]\s+(.+)/);
-      const complete = task?.[1].toLowerCase() === "x";
+      const task = listItem[2].match(/^\[([ *xX])\]\s+(.+)/);
+      const complete = task?.[1] !== " ";
       const classes = task ? ` class="taskItem${complete ? " complete" : ""}${align ? ` align-${align}` : ""}"` : className(align);
-      const content = task ? `<input type="checkbox" data-task-line="${lineIndex}" aria-label="Toggle task"${complete ? " checked" : ""}${taskInputsDisabled ? " disabled" : ""} />${inlineMarkdown(task[2])}` : inlineMarkdown(listItem[2]);
+      const content = task ? `<button type="button" class="taskToggle" role="checkbox" aria-checked="${complete}" data-task-line="${lineIndex}" aria-label="Toggle task"${taskInputsDisabled ? " disabled" : ""}>${complete ? taskCheckIcon : ""}</button>${inlineMarkdown(task[2])}` : inlineMarkdown(listItem[2]);
       html.push(`<li${classes}>${content}</li>`);
       continue;
     }
@@ -94,8 +98,9 @@ export function renderMarkdown(markdown: string, taskInputsDisabled = false) {
 }
 
 export function MarkdownView({ value, onTaskToggle }: { value: string; onTaskToggle?: (line: number) => void }) {
-  return <div className="markdown" onPointerDown={(event) => { if (event.target instanceof HTMLInputElement && event.target.dataset.taskLine) event.stopPropagation(); }} onDoubleClick={(event) => { if (event.target instanceof HTMLInputElement && event.target.dataset.taskLine) event.stopPropagation(); }} onChange={(event) => {
-    const target = event.target;
-    if (onTaskToggle && target instanceof HTMLInputElement && target.dataset.taskLine) onTaskToggle(Number(target.dataset.taskLine));
+  const taskToggle = (target: EventTarget | null) => target instanceof Element ? target.closest<HTMLButtonElement>(".taskToggle[data-task-line]") : null;
+  return <div className="markdown" onPointerDown={(event) => { if (taskToggle(event.target)) event.stopPropagation(); }} onDoubleClick={(event) => { if (taskToggle(event.target)) event.stopPropagation(); }} onClick={(event) => {
+    const toggle = taskToggle(event.target);
+    if (onTaskToggle && toggle) { event.stopPropagation(); onTaskToggle(Number(toggle.dataset.taskLine)); }
   }} dangerouslySetInnerHTML={{ __html: renderMarkdown(value, !onTaskToggle) }} />;
 }

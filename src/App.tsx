@@ -1,5 +1,5 @@
 import OBR from "@owlbear-rodeo/sdk";
-import { AlignCenter, AlignJustify, AlignLeft, AlignRight, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalJustifyStart, Bold, ChevronDown, CircleAlert, Grip, ImagePlus, Italic, Maximize2, Minus, PanelsTopLeft, Pencil, Plus, Save, Settings, Trash2, Type, X } from "lucide-react";
+import { AlignCenter, AlignJustify, AlignLeft, AlignRight, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalJustifyStart, Bold, Check, ChevronDown, CircleAlert, Grip, ImagePlus, Italic, Maximize2, Minus, PanelsTopLeft, Pencil, Plus, Save, Settings, Trash2, Type, X } from "lucide-react";
 import type React from "react";
 import type { Theme } from "@owlbear-rodeo/sdk";
 import type { CSSProperties } from "react";
@@ -564,8 +564,8 @@ export default function App() {
     const board = boardDraft.current; if (!board || readOnly || item.type !== "text") return;
     const current = board.items.find((candidate) => candidate.id === item.id); if (!current) return;
     const text = (current.text ?? "").split(/\r?\n/);
-    if (!text[line]?.match(/^((?:\^[1-3]\s+)?\s*(?:[-*]|\d+\.)\s+)\[([ xX])\]/)) return;
-    text[line] = text[line].replace(/^((?:\^[1-3]\s+)?\s*(?:[-*]|\d+\.)\s+)\[([ xX])\]/, (_match, prefix: string, state: string) => `${prefix}[${state.toLowerCase() === "x" ? " " : "x"}]`);
+    if (!text[line]?.match(/^((?:\^[1-3]\s+)?\s*(?:[-*]|\d+\.)\s+)\[([ *xX])\]/)) return;
+    text[line] = text[line].replace(/^((?:\^[1-3]\s+)?\s*(?:[-*]|\d+\.)\s+)\[([ *xX])\]/, (_match, prefix: string, state: string) => `${prefix}[${state === " " ? "*" : " "}]`);
     const next = { ...board, items: board.items.map((candidate) => candidate.id === item.id ? { ...candidate, text: text.join("\n"), updatedAt: nowIso() } : candidate) };
     boardDraft.current = next; setBoards((boards) => boards.map((candidate) => candidate.id === next.id ? next : candidate));
     setHistory((history) => ({ ...history, [board.id]: { undo: [board, ...(history[board.id]?.undo ?? [])].slice(0, MAX_HISTORY), redo: [] } }));
@@ -698,7 +698,7 @@ function MarkdownHelp({ open, panelRef }: { open: boolean; panelRef: React.RefOb
       <div className="markdownSample"><code>{"> quote"}</code><blockquote>Quoted text</blockquote></div>
       <div className="markdownSample"><code>- unordered item</code><ul><li>Unordered item</li></ul></div>
       <div className="markdownSample"><code>1. ordered item</code><ol><li>Ordered item</li></ol></div>
-      <div className="markdownSample"><code>- [ ] Task</code><label className="taskHelpSample"><input type="checkbox" readOnly />Task</label></div>
+      <div className="markdownSample"><code>- [ ] / [*] Task</code><span className="taskHelpSample"><button type="button" className="taskToggle" role="checkbox" aria-checked="false" disabled />Open<button type="button" className="taskToggle" role="checkbox" aria-checked="true" disabled><Check className="taskCheckIcon" size={12} strokeWidth={3} aria-hidden /></button>Done</span></div>
       <div className="markdownSample"><code>{"```"} code {"```"}</code><pre><code>block code</code></pre></div>
     </div></section>
     <section className="markdownHelpGroup"><strong>Links and alignment</strong><div className="markdownSamples">

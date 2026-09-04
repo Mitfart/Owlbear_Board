@@ -68,7 +68,7 @@ export function renderMarkdown(markdown: string, taskInputsDisabled = false) {
       const task = listItem[2].match(/^\[([ *xX])\]\s+(.+)/);
       const complete = task?.[1] !== " ";
       const classes = task ? ` class="taskItem${complete ? " complete" : ""}${align ? ` align-${align}` : ""}"` : className(align);
-      const content = task ? `<label class="taskToggle"><input type="checkbox" data-task-line="${lineIndex}" aria-label="Toggle task"${complete ? " checked" : ""}${taskInputsDisabled ? " disabled" : ""} /><span class="taskToggleVisual">${complete ? taskCheckIcon : ""}</span></label>${inlineMarkdown(task[2])}` : inlineMarkdown(listItem[2]);
+      const content = task ? `<label class="taskToggle"><input type="checkbox" data-task-line="${lineIndex}" aria-label="Toggle task"${complete ? " checked" : ""}${taskInputsDisabled ? " disabled" : ""} /><span class="taskToggleVisual">${complete ? taskCheckIcon : ""}</span></label><span class="taskText">${inlineMarkdown(task[2])}</span>` : inlineMarkdown(listItem[2]);
       html.push(`<li${classes}>${content}</li>`);
       continue;
     }

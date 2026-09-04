@@ -2,7 +2,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "dev"]
   workflow_dispatch:
 
 permissions:
@@ -21,9 +21,18 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout stable
         uses: actions/checkout@v4
         with:
+          ref: main
+          path: stable
+          fetch-depth: 0
+
+      - name: Checkout preview
+        uses: actions/checkout@v4
+        with:
+          ref: dev
+          path: preview
           fetch-depth: 0
 
       - name: Setup Node
@@ -31,22 +40,29 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: stable/package-lock.json
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Build stable extension
+        working-directory: stable
+        run: npm ci && npm run build
 
-      - name: Build
-        run: npm run build
+      - name: Build preview extension
+        working-directory: preview
+        run: npm ci && VITE_BASE=/Owlbear_Board/dev/ npm run build
 
-      - name: Copy extension manifest assets
+      - name: Assemble Pages site
         run: |
-          cp manifest.json dist/manifest.json
-          cp icon.svg dist/icon.svg
+          mkdir site site/dev
+          cp -R stable/dist/. site/
+          cp stable/manifest.json stable/icon.svg site/
+          cp -R preview/dist/. site/dev/
+          cp preview/manifest.json preview/icon.svg site/dev/
+          sed -i 's|https://mitfart.github.io/Owlbear_Board/|https://mitfart.github.io/Owlbear_Board/dev/|' site/dev/manifest.json
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v5
         with:
-          path: dist
+          path: site
 
       - name: Deploy to GitHub Pages
         id: deployment

@@ -24,10 +24,10 @@ describe("renderMarkdown", () => {
     expect(html).toContain("<pre><code>block\n</code></pre>");
   });
 
-  it("renders custom task controls for unchecked and marked items", () => {
+  it("renders scalable square task controls for unchecked and marked items", () => {
     const html = renderMarkdown("- [ ] Todo\n- [*] Done");
-    expect(html).toContain('<button type="button" class="taskToggle" role="checkbox" aria-checked="false" data-task-line="0" aria-label="Toggle task"></button>Todo');
-    expect(html).toContain('<button type="button" class="taskToggle" role="checkbox" aria-checked="true" data-task-line="1" aria-label="Toggle task">');
-    expect(html).toContain("taskCheckIcon");
+    expect(html).toContain('<label class="taskToggle"><input type="checkbox" data-task-line="0" aria-label="Toggle task" /><span class="taskToggleVisual"></span></label>Todo');
+    expect(html).toContain('<label class="taskToggle"><input type="checkbox" data-task-line="1" aria-label="Toggle task" checked /><span class="taskToggleVisual">');
+    expect(html).toContain("taskToggleIcon");
   });
 });

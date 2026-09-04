@@ -1110,45 +1110,77 @@ input[type="color"] {
 }
 
 .taskToggle {
-  box-sizing: border-box;
-  display: inline-grid;
-  width: 20px;
-  min-width: 20px;
-  height: 20px;
-  min-height: 20px;
-  place-items: center;
-  margin: 0 9px 0 0;
-  padding: 0;
-  border: 1px solid var(--accent-dark);
-  border-radius: 6px;
-  background: linear-gradient(145deg, var(--panel-raised), var(--panel-soft));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.09), 0 1px 2px rgba(4, 6, 14, 0.28);
-  color: var(--bg);
+  --task-toggle-size: 1.35em;
+  display: inline-block;
+  position: relative;
+  width: var(--task-toggle-size);
+  height: var(--task-toggle-size);
+  margin: 0 0.55em 0 0;
+  vertical-align: -0.22em;
   cursor: pointer;
+  user-select: none;
 }
 
-.taskToggle[aria-checked="true"] {
-  border-color: var(--accent-strong);
-  background: linear-gradient(145deg, var(--accent-strong), var(--accent-dark));
+.taskToggle input {
+  position: absolute;
+  pointer-events: none;
+  inset: 0;
+  opacity: 0;
 }
 
-.taskToggle:hover:not(:disabled) {
-  border-color: var(--accent-strong);
-  box-shadow: 0 0 0 2px var(--accent-soft), inset 0 1px 0 rgba(255, 255, 255, 0.13);
+.taskToggleVisual {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  color: var(--accent-strong);
+  opacity: 0.72;
+  transition: opacity 150ms ease, color 150ms ease;
 }
 
-.taskToggle:focus-visible {
-  outline: 2px solid var(--accent-strong);
-  outline-offset: 2px;
+.taskToggle:hover input:not(:disabled) + .taskToggleVisual {
+  color: var(--text);
+  opacity: 0.9;
 }
 
-.taskToggle:disabled {
+.taskToggle input:checked + .taskToggleVisual {
+  color: var(--accent-strong);
   opacity: 1;
+}
+
+.taskToggle input:focus-visible + .taskToggleVisual {
+  outline: 0.14em solid var(--accent-strong);
+  outline-offset: 0.14em;
+  border-radius: 0.3em;
+}
+
+.taskToggle input:disabled + .taskToggleVisual {
   cursor: default;
 }
 
-.taskCheckIcon {
-  display: block;
+.taskToggleIcon {
+  width: var(--task-toggle-size);
+  height: var(--task-toggle-size);
+}
+
+.taskToggleIcon rect {
+  stroke-dasharray: 88 0;
+  stroke-dashoffset: 73;
+  transition: stroke-dasharray 100ms ease;
+}
+
+.taskToggle input:checked + .taskToggleVisual .taskToggleIcon rect {
+  stroke-dasharray: 80 18;
+}
+
+.taskToggleIcon polyline {
+  stroke-dasharray: 0 30;
+  stroke-dashoffset: 1;
+  transition: stroke-dasharray 150ms ease;
+}
+
+.taskToggle input:checked + .taskToggleVisual .taskToggleIcon polyline {
+  stroke-dasharray: 30 30;
 }
 
 .taskHelpSample {

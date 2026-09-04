@@ -1,5 +1,5 @@
 import OBR from "@owlbear-rodeo/sdk";
-import { AlignCenter, AlignJustify, AlignLeft, AlignRight, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalJustifyStart, Bold, Check, ChevronDown, CircleAlert, Grip, ImagePlus, Italic, Maximize2, Minus, PanelsTopLeft, Pencil, Plus, Save, Settings, Trash2, Type, X } from "lucide-react";
+import { AlignCenter, AlignJustify, AlignLeft, AlignRight, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalJustifyStart, Bold, ChevronDown, CircleAlert, Grip, ImagePlus, Italic, Maximize2, Minus, PanelsTopLeft, Pencil, Plus, Save, Settings, Trash2, Type, X } from "lucide-react";
 import type React from "react";
 import type { Theme } from "@owlbear-rodeo/sdk";
 import type { CSSProperties } from "react";
@@ -698,7 +698,7 @@ function MarkdownHelp({ open, panelRef }: { open: boolean; panelRef: React.RefOb
       <div className="markdownSample"><code>{"> quote"}</code><blockquote>Quoted text</blockquote></div>
       <div className="markdownSample"><code>- unordered item</code><ul><li>Unordered item</li></ul></div>
       <div className="markdownSample"><code>1. ordered item</code><ol><li>Ordered item</li></ol></div>
-      <div className="markdownSample"><code>- [ ] / [*] Task</code><span className="taskHelpSample"><button type="button" className="taskToggle" role="checkbox" aria-checked="false" disabled />Open<button type="button" className="taskToggle" role="checkbox" aria-checked="true" disabled><Check className="taskCheckIcon" size={12} strokeWidth={3} aria-hidden /></button>Done</span></div>
+      <div className="markdownSample"><code>- [ ] / [*] Task</code><span className="taskHelpSample"><label className="taskToggle"><input type="checkbox" disabled /><span className="taskToggleVisual" /></label>Open<label className="taskToggle"><input type="checkbox" defaultChecked disabled /><span className="taskToggleVisual"><svg className="taskToggleIcon" viewBox="0 0 24 24" aria-hidden><g fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"><rect x="1.5" y="1.5" width="21" height="21" rx="5" ry="5" strokeWidth="3" /><polyline points="7 10 12 16 22 2" strokeWidth="4" /></g></svg></span></label>Done</span></div>
       <div className="markdownSample"><code>{"```"} code {"```"}</code><pre><code>block code</code></pre></div>
     </div></section>
     <section className="markdownHelpGroup"><strong>Links and alignment</strong><div className="markdownSamples">

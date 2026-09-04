@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { renderMarkdown } from "./markdown";
+import { renderMarkdown, toggleTaskMarkdown } from "./markdown";
 
 describe("renderMarkdown", () => {
   it("renders alignment markers and escaped Markdown punctuation", () => {
@@ -24,9 +24,14 @@ describe("renderMarkdown", () => {
     expect(html).toContain("<pre><code>block\n</code></pre>");
   });
 
+  it("persists task marker changes in the Markdown source", () => {
+    expect(toggleTaskMarkdown("- [ ] Todo\n- [*] Done", 0)).toBe("- [*] Todo\n- [*] Done");
+    expect(toggleTaskMarkdown("- [*] Todo", 0)).toBe("- [ ] Todo");
+  });
+
   it("renders scalable square task controls for unchecked and marked items", () => {
     const html = renderMarkdown("- [ ] Todo\n- [*] Done");
-    expect(html).toContain('<label class="taskToggle"><input type="checkbox" data-task-line="0" aria-label="Toggle task" /><span class="taskToggleVisual"></span></label><span class="taskText">Todo</span>');
+    expect([...html.matchAll(/<span class="taskToggleVisual"><svg class="taskToggleIcon"/g)]).toHaveLength(2);
     expect(html).toContain('<label class="taskToggle"><input type="checkbox" data-task-line="1" aria-label="Toggle task" checked /><span class="taskToggleVisual">');
     expect(html).toContain('<span class="taskText">Done</span>');
     expect(html).toContain("taskToggleIcon");

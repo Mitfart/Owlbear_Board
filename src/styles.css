@@ -536,6 +536,16 @@ input[type="radio"] {
   background: var(--accent-soft);
 }
 
+.fontSizeField {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.fontSizeField input { width: 58px; }
+
 .boardGroupButton {
   justify-content: flex-start;
   margin-top: 4px;
@@ -820,7 +830,7 @@ input[type="radio"] {
 .textScaleContent {
   flex: 0 0 auto;
   width: 100%;
-  font-size: calc(1em * var(--text-scale, 1));
+  font-size: calc(var(--text-font-size, 16px) * var(--text-scale, 1));
   text-align: left;
 }
 
@@ -1014,6 +1024,17 @@ input[type="radio"] {
   background: var(--accent);
 }
 
+.owlbearColorPicker {
+  width: 34px;
+  min-width: 34px;
+  height: 28px;
+  padding: 2px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--panel-soft);
+  cursor: pointer;
+}
+
 input[type="color"] {
   width: 34px;
   min-width: 34px;
@@ -1105,12 +1126,13 @@ input[type="color"] {
   list-style: none;
 }
 
-.markdown .taskItem.complete .taskText {
+.markdown .taskItem.complete .taskText,
+.markdown .taskItem.complete .taskToggleVisual {
   opacity: 0.55;
 }
 
 .taskToggle {
-  --task-toggle-size: 1em;
+  --task-toggle-size: 0.67em;
   display: inline-block;
   position: relative;
   width: var(--task-toggle-size);

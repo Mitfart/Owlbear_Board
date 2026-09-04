@@ -32,7 +32,7 @@ export function normalizeBoardState(state: PersistedBoardState): PersistedBoardS
         items: board.items.map((item) => {
           const { occupiedCells: _occupiedCells, createdAt: _itemCreatedAt, ...clean } = item as BoardItem & { occupiedCells?: unknown; createdAt?: unknown };
           const grid = { ...clean, gridX: normalizedGridValue(clean.gridX, 0), gridY: normalizedGridValue(clean.gridY, 0), gridWidth: normalizedGridValue(clean.gridWidth, 1, 1), gridHeight: normalizedGridValue(clean.gridHeight, 1, 1) };
-          if (grid.type === "text") return { ...grid, text: grid.text ?? "", fillBlock: grid.fillBlock !== false, textVerticalAlignment: grid.textVerticalAlignment ?? "top", borderColor: grid.borderColor ?? DEFAULT_ITEM_BORDER_COLOR };
+          if (grid.type === "text") return { ...grid, text: grid.text ?? "", fontSize: typeof grid.fontSize === "number" && Number.isFinite(grid.fontSize) ? Math.max(1, grid.fontSize) : 16, fillBlock: grid.fillBlock !== false, textVerticalAlignment: grid.textVerticalAlignment ?? "top", borderColor: grid.borderColor ?? DEFAULT_ITEM_BORDER_COLOR };
           if (grid.type === "image") return { ...grid, imageFit: grid.imageFit ?? "cover", borderColor: grid.borderColor ?? DEFAULT_ITEM_BORDER_COLOR };
           if (grid.type === "counter") return { ...grid, counterValue: grid.counterValue ?? 0, counterLabel: grid.counterLabel ?? "", counterLabelPosition: grid.counterLabelPosition ?? "top-center", counterDimAtZero: grid.counterDimAtZero !== false, counterZeroColor: grid.counterZeroColor ?? DEFAULT_COUNTER_ZERO_COLOR, counterMaxColor: grid.counterMaxColor ?? DEFAULT_COUNTER_MAX_COLOR, borderColor: grid.borderColor ?? DEFAULT_ITEM_BORDER_COLOR };
           return grid;

@@ -7,6 +7,7 @@ export type BoardItem = {
   type: BoardItemType;
   text?: string;
   textBaselineWidth?: number;
+  fontSize?: number;
   fillBlock?: boolean;
   textVerticalAlignment?: "top" | "center" | "bottom";
   imageUrl?: string;

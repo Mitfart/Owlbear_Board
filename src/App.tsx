@@ -698,6 +698,7 @@ function MarkdownHelp({ open, panelRef }: { open: boolean; panelRef: React.RefOb
       <div className="markdownSample"><code>{"> quote"}</code><blockquote>Quoted text</blockquote></div>
       <div className="markdownSample"><code>- unordered item</code><ul><li>Unordered item</li></ul></div>
       <div className="markdownSample"><code>1. ordered item</code><ol><li>Ordered item</li></ol></div>
+      <div className="markdownSample"><code>- [ ] Task</code><label className="taskHelpSample"><input type="checkbox" readOnly />Task</label></div>
       <div className="markdownSample"><code>{"```"} code {"```"}</code><pre><code>block code</code></pre></div>
     </div></section>
     <section className="markdownHelpGroup"><strong>Links and alignment</strong><div className="markdownSamples">

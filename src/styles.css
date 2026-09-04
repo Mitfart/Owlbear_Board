@@ -595,11 +595,11 @@ input[type="radio"] {
 
 .markdownHelpContent {
   display: grid;
-  gap: 14px;
+  gap: 20px;
   width: 100%;
   height: 100%;
   min-height: 0;
-  padding: 17px;
+  padding: 20px;
   overflow: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
@@ -613,8 +613,8 @@ input[type="radio"] {
 
 .markdownHelpGroup {
   display: grid;
-  gap: 10px;
-  padding-top: 4px;
+  gap: 14px;
+  padding-top: 6px;
 }
 
 .markdownHelpGroup > strong {
@@ -626,13 +626,13 @@ input[type="radio"] {
 
 .markdownSamples {
   display: grid;
-  gap: 14px;
+  gap: 18px;
   margin: 0;
 }
 
 .markdownSample {
   display: grid;
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -1109,9 +1109,31 @@ input[type="color"] {
   opacity: 0.55;
 }
 
-.markdown .taskItem input {
-  margin: 0 0.45em 0 0;
+.markdown .taskItem input,
+.taskHelpSample input {
+  width: 18px;
+  min-width: 18px;
+  height: 18px;
+  min-height: 18px;
+  margin: 0 0.5em 0 0;
   vertical-align: middle;
+  accent-color: var(--accent-strong);
+  cursor: pointer;
+}
+
+.markdown .taskItem input:focus-visible {
+  outline: 2px solid var(--accent-strong);
+  outline-offset: 2px;
+}
+
+.taskHelpSample {
+  display: flex;
+  align-items: center;
+  color: var(--text);
+}
+
+.taskHelpSample input {
+  cursor: default;
 }
 
 .markdown a,

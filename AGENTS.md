@@ -7,6 +7,7 @@
 - Main entry points: `src/App.tsx` (UI), `src/styles.css` (layout), `src/storage.ts` and `src/owlbear.ts` (persistence/SDK), and focused `*.test.ts` files.
 - For visual defects, trace the DOM and CSS layout chain before changing styles. In the text editor, keep the textarea and preview as equal-height panes; Markdown help toggles from `?`, closes on outside click or Escape, and scrolls inside its single dashed border.
 - Keep product commits free of generated `.pi/fabric/mesh/state.json`.
+- Work on `dev` by default. Use `main` only when explicitly requested or for a minor or major release.
 
 ## Agent skills
 

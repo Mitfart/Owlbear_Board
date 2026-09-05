@@ -1017,22 +1017,72 @@ input[type="radio"] {
 }
 
 .owlbearColorPicker {
-  width: 34px;
-  min-width: 34px;
-  height: 28px;
-  padding: 2px;
-  border: 1px solid var(--accent);
-  border-radius: 6px;
-  background: var(--panel-soft);
+  position: relative;
+  display: inline-flex;
+}
+
+.owlbearColorPicker > button,
+.owlbearColorMenu > button,
+.owlbearColorMenu > label {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 4px;
+  border: 0;
+  border-radius: 50%;
+  color: var(--text);
+  background: transparent;
   cursor: pointer;
 }
 
-input[type="color"] {
-  width: 34px;
-  min-width: 34px;
-  height: 32px;
-  padding: 2px;
+.owlbearColorPicker > button:hover,
+.owlbearColorMenu > button:hover,
+.owlbearColorMenu > label:hover { background: rgba(255, 255, 255, 0.08); }
+.owlbearColorPicker > button > span,
+.owlbearColorMenu > button > span {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.7);
+  border-radius: 50%;
 }
+
+.owlbearColorMenu {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 6px);
+  left: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 32px);
+  gap: 2px;
+  padding: 12px;
+  border-radius: 16px;
+  background-color: rgba(30, 34, 49, 0.75);
+  background-image: linear-gradient(rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.08));
+  box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.2), 0 4px 5px rgba(0, 0, 0, 0.14), 0 1px 10px rgba(0, 0, 0, 0.12);
+  backdrop-filter: blur(30px);
+}
+
+.owlbearColorMenu button[aria-checked="true"] > span { outline: 2px solid white; outline-offset: 2px; }
+.owlbearColorMenu label { position: relative; }
+.owlbearColorMenu label input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+
+.owlbearFontSizePicker {
+  display: flex;
+  align-items: center;
+  width: 72px;
+  height: 34px;
+  padding-left: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.23);
+  border-radius: 4px;
+  color: var(--text);
+}
+
+.owlbearFontSizePicker:focus-within { border-color: var(--accent-strong); }
+.owlbearFontSizePicker input { width: 100%; min-width: 0; padding: 0; border: 0; background: transparent; color: inherit; }
+.owlbearFontSizePicker svg { flex: none; color: var(--muted); pointer-events: none; }
+
+input[type="color"] { width: 34px; min-width: 34px; height: 32px; padding: 2px; }
 
 .primaryAction:hover {
   background: var(--accent-strong);
@@ -1129,8 +1179,7 @@ input[type="color"] {
   position: relative;
   width: var(--task-toggle-size);
   height: var(--task-toggle-size);
-  margin: 0 0.55em 0 0;
-  vertical-align: 0.05em;
+  margin: 0 0.25em 0 0;
   cursor: pointer;
   user-select: none;
 }

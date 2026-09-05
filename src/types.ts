@@ -8,6 +8,7 @@ export type BoardItem = {
   text?: string;
   textBaselineWidth?: number;
   fontSize?: number;
+  textColor?: string;
   fillBlock?: boolean;
   textVerticalAlignment?: "top" | "center" | "bottom";
   imageUrl?: string;

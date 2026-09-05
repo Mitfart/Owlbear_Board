@@ -92,6 +92,6 @@ describe("board storage", () => {
 
   it("normalizes legacy occupancy and defaults", () => {
     const legacy = board({ items: [{ id: "item", type: "text", gridX: Infinity, gridY: 3.5, gridWidth: Infinity, gridHeight: -1, occupiedCells: [{ x: 1, y: 1 }], updatedAt: "" }] }) as unknown as import("./types").Board;
-    expect(normalizeBoardState({ version: 1, boards: [legacy] }).boards[0].items[0]).toEqual(expect.objectContaining({ gridX: 0, gridY: 3, gridWidth: 1, gridHeight: 1, fontSize: 16 }));
+    expect(normalizeBoardState({ version: 1, boards: [legacy] }).boards[0].items[0]).toEqual(expect.objectContaining({ gridX: 0, gridY: 3, gridWidth: 1, gridHeight: 1, fontSize: 16, textColor: "#ffffff" }));
   });
 });

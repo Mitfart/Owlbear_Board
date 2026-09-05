@@ -22,7 +22,7 @@ The extension-owned hidden, locked, non-hittable Scene Data Item is authoritativ
 
 ## Editing and collaboration
 
-Text drafts save after 500 ms idle and flush on save, outside click, close, and unmount. A failed save keeps the editor and draft open. Edit presence is transient and expiring, contains only authorized Board and item identity, and is never persisted. Remote updates during local editing retain the draft and display a conflict warning; no locks or merge behavior are introduced.
+Text drafts save after 500 ms idle and flush on save, outside click, close, and unmount. A failed save keeps the editor and draft open. Shared-Board edit presence is transient, expiring, and never persisted. Private Board presence is not broadcast because the OBR broadcast API cannot target authorized viewers; this prevents disclosing private Board activity or editor identity. Remote updates during local editing retain the draft and display a conflict warning; no locks or merge behavior are introduced.
 
 ## Scope boundaries
 

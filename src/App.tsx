@@ -12,9 +12,9 @@ import { resizeAction } from "./owlbear";
 import { autoImageSize, autoTextSize, clampNumber, normalizeCounterValue, parseItemSize, textFillScale } from "./sizing";
 import { zoomPanToCursor } from "./viewport";
 import { toggleMarkdownStyle } from "./textFormatting";
-import { mutateBoard } from "./boardCoordinator";
+import { createBoardMutationCoordinator, type BoardMutationCoordinator } from "./boardCoordinator";
 import { boardByteSize, carryRoomBoardsToCurrentScene, clearAllBoardData, deleteBoard, getPlayerId, getPlayerName, getSceneKey, loadAllVisibleBoards, loadPreferences, loadWindowPreferences, markPrivateBoardOpened, movePrivateRoomBoardToScene, saveBoard, savePreferences, saveViewport, saveWindowPreferences } from "./storage";
-import { activeEditPresence, visibleEditPresence, type EditPresence } from "./editingPresence";
+import { activeEditPresence, shouldBroadcastEditPresence, visibleEditPresence, type EditPresence } from "./editingPresence";
 import { buildBoardPickerRows } from "./boardSession";
 import { canDeleteBoard, canEditBoard, canRenameBoard, type PlayerRole } from "./boardPermissions";
 import type { Board, BoardItem, BoardScope, BoardVisibility, PlayerPreferences } from "./types";
@@ -22,7 +22,6 @@ import type { Board, BoardItem, BoardScope, BoardVisibility, PlayerPreferences }
 type DragState = { itemId: string; offsetX: number; offsetY: number; startX: number; startY: number; moved: boolean };
 type ResizeItemState = { itemId: string; gridX: number; gridY: number; gridWidth: number; gridHeight: number };
 type AddTarget = { x: number; y: number } | undefined;
-type History = { undo: Board[]; redo: Board[] };
 type ImageEdit = { itemId: string; url: string; borderColor: string; imageFit: "cover" | "contain" };
 type CounterEdit = { itemId: string; label: string; labelPosition: NonNullable<BoardItem["counterLabelPosition"]>; value: string; max: string; borderColor: string; zeroColorEnabled: boolean; zeroColor: string; maxColorEnabled: boolean; maxColor: string; dimAtZero: boolean };
 
@@ -39,7 +38,6 @@ const MAX_ZOOM = 2;
 const DEFAULT_PAN = { x: 260, y: 180 };
 const SAMPLE_IMAGE = "https://images.unsplash.com/photo-1549880338-65ddcdfd017b?auto=format&fit=crop&w=900&q=80";
 const AUTO_SIZE = "auto";
-const MAX_HISTORY = 20;
 
 function formatDebugError(reason: unknown) {
   if (reason instanceof Error) return `${reason.message}${reason.stack ? `\n${reason.stack}` : ""}`;
@@ -149,7 +147,6 @@ export default function App() {
   const [dragState, setDragState] = useState<DragState>();
   const [resizeItemState, setResizeItemState] = useState<ResizeItemState>();
   const [panning, setPanning] = useState<{ x: number; y: number }>();
-  const [history, setHistory] = useState<Record<string, History>>({});
   const [theme, setTheme] = useState<Theme>(FALLBACK_THEME);
   const gridRef = useRef<HTMLDivElement>(null);
   const focusTextarea = useRef<HTMLTextAreaElement>(null);
@@ -162,10 +159,8 @@ export default function App() {
   const counterChangeQueue = useRef(Promise.resolve());
   const saveFocusedTextRef = useRef<() => Promise<boolean>>(async () => false);
   const pendingCounterChanges = useRef(0);
-  const pendingBoardSaves = useRef(0);
-  const boardDraft = useRef<Board | undefined>(undefined);
+  const mutationCoordinator = useRef<BoardMutationCoordinator | undefined>(undefined);
   const activeBoard = useMemo(() => boards.find((board) => board.id === activeBoardId), [activeBoardId, boards]);
-  boardDraft.current = activeBoard;
   const showPreview = !activeBoard && boards.length === 0 && !previewDismissed;
   const displayBoard = activeBoard ?? (showPreview ? sampleBoard() : undefined);
   const isPreview = displayBoard?.id === "preview";
@@ -204,6 +199,12 @@ export default function App() {
   }, [theme]);
 
   const logDebug = useCallback((message: string) => setDebugLogs((logs) => [`${new Date().toISOString()} ${message}`, ...logs].slice(0, 100)), []);
+  if (!mutationCoordinator.current) mutationCoordinator.current = createBoardMutationCoordinator({
+    save: saveBoard,
+    apply: (next) => setBoards((current) => current.some((board) => board.id === next.id) ? current.map((board) => board.id === next.id ? next : board) : [next, ...current]),
+    reportError: (reason) => { const message = formatDebugError(reason); setError(message); if (OBR.isAvailable) void OBR.notification.show(message, "ERROR"); },
+    reportDebug: logDebug,
+  });
 
   const refresh = useCallback(async () => {
     const role = OBR.isAvailable ? await OBR.player.getRole() : "GM" as const;
@@ -217,6 +218,7 @@ export default function App() {
       preferences: prefs,
       sceneKey: key,
     }).flatMap((row) => row.kind === "board" ? [row.board] : []);
+    ordered.forEach((board) => mutationCoordinator.current?.observe(board));
     setSceneKey(key); setPlayerId(id); setPreferences(prefs); setPlayerRole(role); setPreviewDismissed(!!prefs.previewDismissed); setBoards((current) => JSON.stringify(current) === JSON.stringify(ordered) ? current : ordered); setWindowSize(win); await resizeAction(win.width, win.height);
     setOpenBoardIds((ids) => ids.filter((id) => ordered.some((board) => board.id === id)));
     setActiveBoardId((current) => {
@@ -233,7 +235,7 @@ export default function App() {
     tabsInitialized.current = true;
   }, []);
   const refreshIfSafe = useCallback(() => {
-    if (!focusedItemId && !dragState && !resizeItemState && pendingCounterChanges.current === 0 && pendingBoardSaves.current === 0) void refresh();
+    if (!focusedItemId && !dragState && !resizeItemState && pendingCounterChanges.current === 0 && !mutationCoordinator.current?.pending()) void refresh();
   }, [dragState, focusedItemId, refresh, resizeItemState]);
 
   useEffect(() => {
@@ -379,21 +381,12 @@ export default function App() {
     }
   }
 
-  async function persistBoard(board: Board, pushHistory = true, reportSave = false, activate = true, onFailure?: (reason: unknown) => void) {
+  async function persistBoard(board: Board, pushHistory = true, reportSave = false, activate = true) {
     if (!canEditBoard(board, playerRole, playerId)) return false;
-    const previous = boardDraft.current?.id === board.id ? boardDraft.current : undefined;
-    const changedItemIds = previous ? [...new Set([...previous.items, ...board.items].filter((item) => JSON.stringify(previous.items.find((old) => old.id === item.id)) !== JSON.stringify(item)).map((item) => item.id))] : board.items.map((item) => item.id);
-    if (pushHistory && previous) setHistory((current) => ({ ...current, [board.id]: { undo: [previous, ...(current[board.id]?.undo ?? [])].slice(0, MAX_HISTORY), redo: [] } }));
-    const saved = await mutateBoard({
-      board,
-      save: (next) => saveBoard(next, changedItemIds),
-      apply: (next) => { boardDraft.current = next; setBoards((current) => current.some((candidate) => candidate.id === next.id) ? current.map((candidate) => candidate.id === next.id ? next : candidate) : [next, ...current]); },
-      rollback: () => { if (previous) { boardDraft.current = previous; setBoards((current) => current.map((candidate) => candidate.id === previous.id ? previous : candidate)); } else setBoards((current) => current.filter((candidate) => candidate.id !== board.id)); },
-      reportError: (reason) => { const message = formatDebugError(reason); setError(message); logDebug(`Save failed: ${message}`); onFailure?.(reason); },
-    });
+    const saved = await mutationCoordinator.current?.mutate(board, pushHistory);
     if (!saved) return false;
     if (activate) setActiveBoardId(saved.id);
-    setError(undefined); setSaveStatus(reportSave ? "Saved" : undefined); logDebug(`Saved board ${saved.id} at revision ${saved.revision}.`);
+    setError(undefined); setSaveStatus(reportSave ? "Saved" : undefined);
     return true;
   }
 
@@ -524,8 +517,8 @@ export default function App() {
   async function pickOwlbearImage() { if (!OBR.isAvailable) return; const images = await OBR.assets.downloadImages(false, undefined, "NOTE"); const image = images[0]?.image; if (image?.url) await addImage(image.url, { width: image.width, height: image.height }); }
 
   async function announceEditPresence(itemId: string) {
-    if (!OBR.isAvailable || !activeBoard) return;
-    await OBR.broadcast.sendMessage(EDIT_PRESENCE_CHANNEL, { playerId, playerName: await getPlayerName(), boardId: activeBoard.id, itemId, expiresAt: Date.now() + 6000, visibility: activeBoard.visibility, allowedUserIds: activeBoard.allowedUserIds }, { destination: "REMOTE" });
+    if (!OBR.isAvailable || !activeBoard || !shouldBroadcastEditPresence(activeBoard)) return;
+    await OBR.broadcast.sendMessage(EDIT_PRESENCE_CHANNEL, { playerId, playerName: await getPlayerName(), boardId: activeBoard.id, itemId, expiresAt: Date.now() + 6000 }, { destination: "REMOTE" });
   }
 
   function openItemEditor(item: BoardItem) {
@@ -567,7 +560,7 @@ export default function App() {
     const next = { ...activeBoard, items: activeBoard.items.map((item) => item.id === imageEdit.itemId ? { ...item, imageUrl: imageEdit.url.trim(), borderColor: imageEdit.borderColor, imageFit: imageEdit.imageFit, updatedAt: nowIso() } : item) };
     if (boardByteSize(next) > BOARD_DATA_LIMIT_BYTES) { reportImageFailure("Image link was not changed: Board data is limited to 1 MB."); return; }
     try { const url = new URL(imageEdit.url.trim()); if (!["http:", "https:"].includes(url.protocol)) throw new Error("Image link must use http or https."); } catch (reason) { reportImageFailure(reason); return; }
-    if (await persistBoard(next, true, false, true, reportImageFailure)) { setImageEdit(undefined); setFocusedItemId(undefined); }
+    if (await persistBoard(next)) { setImageEdit(undefined); setFocusedItemId(undefined); }
   }
 
   function cancelFocusedImage() { setImageEdit(undefined); setFocusedItemId(undefined); }
@@ -584,14 +577,14 @@ export default function App() {
   function cancelFocusedCounter() { setCounterEdit(undefined); setFocusedItemId(undefined); }
 
   function changeCounter(item: BoardItem, delta: number) {
-    const board = boardDraft.current; if (!board || !canEditBoard(board, playerRole, playerId)) return;
+    const board = mutationCoordinator.current?.current(activeBoard?.id ?? ""); if (!board || !canEditBoard(board, playerRole, playerId)) return;
     const current = board.items.find((candidate) => candidate.id === item.id); if (!current) return;
     const value = normalizeCounterValue((current.counterValue ?? 0) + delta, current.counterMax); if (value === current.counterValue) return;
     void persistBoard({ ...board, items: board.items.map((candidate) => candidate.id === item.id ? { ...candidate, counterValue: value, updatedAt: nowIso() } : candidate) });
   }
 
   function toggleTextTask(item: BoardItem, line: number) {
-    const board = boardDraft.current; if (!board || readOnly || item.type !== "text") return;
+    const board = mutationCoordinator.current?.current(activeBoard?.id ?? ""); if (!board || readOnly || item.type !== "text") return;
     const current = board.items.find((candidate) => candidate.id === item.id); if (!current) return;
     const text = toggleTaskMarkdown(current.text ?? "", line);
     if (text === current.text) return;
@@ -627,8 +620,8 @@ export default function App() {
     setPreferences(next); await savePreferences(next); restoreTextSelection(start, end);
   }
 
-  async function undo() { if (!activeBoard) return; const entry = history[activeBoard.id]; const previous = entry?.undo[0]; if (!previous) return; setHistory((current) => ({ ...current, [activeBoard.id]: { undo: entry.undo.slice(1), redo: [activeBoard, ...entry.redo].slice(0, MAX_HISTORY) } })); await persistBoard(previous, false); }
-  async function redo() { if (!activeBoard) return; const entry = history[activeBoard.id]; const next = entry?.redo[0]; if (!next) return; setHistory((current) => ({ ...current, [activeBoard.id]: { undo: [activeBoard, ...entry.undo].slice(0, MAX_HISTORY), redo: entry.redo.slice(1) } })); await persistBoard(next, false); }
+  async function undo() { if (!activeBoard) return; await mutationCoordinator.current?.undo(activeBoard.id); }
+  async function redo() { if (!activeBoard) return; await mutationCoordinator.current?.redo(activeBoard.id); }
 
   useEffect(() => { const handler = (event: KeyboardEvent) => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") { event.preventDefault(); void (event.shiftKey ? redo() : undo()); } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "y") { event.preventDefault(); void redo(); } else if (event.key === "Delete" && selectedItemId && !focusedItemId) { void deleteItem(selectedItemId); } }; window.addEventListener("keydown", handler); return () => window.removeEventListener("keydown", handler); });
 

@@ -1,6 +1,8 @@
 import type { Board } from "./types";
 
-export type EditPresence = { playerId: string; playerName: string; boardId: string; itemId: string; expiresAt: number; visibility?: "private" | "shared"; allowedUserIds?: string[] };
+export type EditPresence = { playerId: string; playerName: string; boardId: string; itemId: string; expiresAt: number };
+
+export function shouldBroadcastEditPresence(board: Board) { return board.visibility === "shared"; }
 
 export function visibleEditPresence(presence: EditPresence, board: Board | undefined, viewerRole: "GM" | "PLAYER", viewerId: string, now = Date.now()) {
   if (!board || presence.expiresAt <= now || presence.boardId !== board.id) return false;

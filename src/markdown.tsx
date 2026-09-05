@@ -39,8 +39,9 @@ function className(align?: string) {
 
 export function toggleTaskMarkdown(markdown: string, line: number) {
   const lines = markdown.split(/\r?\n/);
-  if (!lines[line]?.match(/^((?:\^[1-3]\s+)?\s*(?:[-*]|\d+\.)\s+)\[([ *xX])\]/)) return markdown;
-  lines[line] = lines[line].replace(/^((?:\^[1-3]\s+)?\s*(?:[-*]|\d+\.)\s+)\[([ *xX])\]/, (_match, prefix: string, state: string) => `${prefix}[${state === " " ? "*" : " "}]`);
+  const marker = /^((?:\^[1-3]\s+)?\s*(?:[-*]|\d+\.)\s+)\[([ x])\]/;
+  if (!lines[line]?.match(marker)) return markdown;
+  lines[line] = lines[line].replace(marker, (_match, prefix: string, state: string) => `${prefix}[${state === " " ? "x" : " "}]`);
   return lines.join("\n");
 }
 
@@ -72,7 +73,7 @@ export function renderMarkdown(markdown: string, taskInputsDisabled = false) {
         html.push(`<${nextListType}>`);
         listType = nextListType;
       }
-      const task = listItem[2].match(/^\[([ *xX])\]\s+(.+)/);
+      const task = listItem[2].match(/^\[([ x])\]\s+(.+)/);
       const complete = task?.[1] !== " ";
       const classes = task ? ` class="taskItem${complete ? " complete" : ""}${align ? ` align-${align}` : ""}"` : className(align);
       const content = task ? `<label class="taskToggle"><input type="checkbox" data-task-line="${lineIndex}" aria-label="Toggle task"${complete ? " checked" : ""}${taskInputsDisabled ? " disabled" : ""} /><span class="taskToggleVisual">${taskCheckIcon}</span></label><span class="taskText">${inlineMarkdown(task[2])}</span>` : inlineMarkdown(listItem[2]);

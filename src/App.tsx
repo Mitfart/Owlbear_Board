@@ -4,7 +4,7 @@ import type React from "react";
 import type { Theme } from "@owlbear-rodeo/sdk";
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BOARD_DATA_LIMIT_BYTES, DEFAULT_CELL_GAP, DEFAULT_CELL_SIZE, DEFAULT_COUNTER_MAX_COLOR, DEFAULT_COUNTER_ZERO_COLOR, DEFAULT_ITEM_BORDER_COLOR, DEFAULT_WINDOW, EXTENSION_ID, BOARD_EVENT_CHANNEL, MAX_CELL_GAP, MAX_CELL_SIZE, MIN_CELL_GAP, MIN_CELL_SIZE } from "./constants";
+import { BOARD_DATA_LIMIT_BYTES, DEFAULT_CELL_GAP, DEFAULT_CELL_SIZE, DEFAULT_COUNTER_MAX_COLOR, DEFAULT_COUNTER_ZERO_COLOR, DEFAULT_ITEM_BORDER_COLOR, DEFAULT_WINDOW, EXTENSION_ID, BOARD_EVENT_CHANNEL, EDIT_PRESENCE_CHANNEL, MAX_CELL_GAP, MAX_CELL_SIZE, MIN_CELL_GAP, MIN_CELL_SIZE } from "./constants";
 import { boardItemAt, collides, updateBoardItemPosition, updateBoardItemRect } from "./grid";
 import { createId, nowIso } from "./ids";
 import { MarkdownView, toggleTaskMarkdown } from "./markdown";
@@ -12,7 +12,9 @@ import { resizeAction } from "./owlbear";
 import { autoImageSize, autoTextSize, clampNumber, normalizeCounterValue, parseItemSize, textFillScale } from "./sizing";
 import { zoomPanToCursor } from "./viewport";
 import { toggleMarkdownStyle } from "./textFormatting";
+import { mutateBoard } from "./boardCoordinator";
 import { boardByteSize, carryRoomBoardsToCurrentScene, clearAllBoardData, deleteBoard, getPlayerId, getPlayerName, getSceneKey, loadAllVisibleBoards, loadPreferences, loadWindowPreferences, markPrivateBoardOpened, movePrivateRoomBoardToScene, saveBoard, savePreferences, saveViewport, saveWindowPreferences } from "./storage";
+import { activeEditPresence, visibleEditPresence, type EditPresence } from "./editingPresence";
 import { buildBoardPickerRows } from "./boardSession";
 import { canDeleteBoard, canEditBoard, canRenameBoard, type PlayerRole } from "./boardPermissions";
 import type { Board, BoardItem, BoardScope, BoardVisibility, PlayerPreferences } from "./types";
@@ -98,6 +100,7 @@ export default function App() {
   const [previewDismissed, setPreviewDismissed] = useState(false);
   const [error, setError] = useState<string>();
   const [warning, setWarning] = useState<string>();
+  const [editPresence, setEditPresence] = useState<EditPresence>();
   const [saveStatus, setSaveStatus] = useState<string>();
   const [debugOpen, setDebugOpen] = useState(false);
   const [manageBoardsOpen, setManageBoardsOpen] = useState(false);
@@ -146,7 +149,7 @@ export default function App() {
   const [resizeItemState, setResizeItemState] = useState<ResizeItemState>();
   const [panning, setPanning] = useState<{ x: number; y: number }>();
   const [history, setHistory] = useState<Record<string, History>>({});
-  const [, setTheme] = useState<Theme>(FALLBACK_THEME);
+  const [theme, setTheme] = useState<Theme>(FALLBACK_THEME);
   const gridRef = useRef<HTMLDivElement>(null);
   const focusTextarea = useRef<HTMLTextAreaElement>(null);
   const previewContent = useRef<HTMLDivElement>(null);
@@ -156,6 +159,7 @@ export default function App() {
   const textScrollSyncing = useRef(false);
   const tabDrag = useRef<{ x: number; scrollLeft: number; moved: boolean; pointerId: number } | undefined>(undefined);
   const counterChangeQueue = useRef(Promise.resolve());
+  const saveFocusedTextRef = useRef<() => Promise<boolean>>(async () => false);
   const pendingCounterChanges = useRef(0);
   const pendingBoardSaves = useRef(0);
   const boardDraft = useRef<Board | undefined>(undefined);
@@ -170,7 +174,7 @@ export default function App() {
   const canPickOwlbearImages = OBR.isAvailable && playerRole === "GM";
   const canDeleteActiveBoard = !!activeBoard && canDeleteBoard(activeBoard, playerRole, playerId);
   const boardAtLimit = !!activeBoard && boardByteSize(activeBoard) >= BOARD_DATA_LIMIT_BYTES;
-  const themeVars = useMemo(() => ({ "--bg": "#1e2231", "--surface": "#202435", "--panel": "#25293c", "--panel-soft": "#1c2030", "--panel-raised": "#2c3042", "--border": "rgba(187, 153, 255, 0.14)", "--border-strong": "rgba(187, 153, 255, 0.28)", "--text": "#ffffff", "--muted": "#ffffff", "--muted-2": "#ffffff", "--accent": "#bb99ff", "--accent-strong": "#d2bdff", "--accent-dark": "#826bb2", "--accent-soft": "rgba(187, 153, 255, 0.16)", "--danger": "#ff6b8a", "--shadow": "rgba(4, 6, 14, 0.42)" }) as CSSProperties, []);
+  const themeVars = useMemo(() => { const alpha = (color: string, opacity: number) => { const hex = color.replace("#", ""); if (!/^[0-9a-f]{6}$/i.test(hex)) return color; const rgb = [0, 2, 4].map((index) => Number.parseInt(hex.slice(index, index + 2), 16)); return `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${opacity})`; }; const primary = theme.primary; return { "--bg": theme.background.default, "--surface": theme.background.paper, "--panel": theme.background.paper, "--panel-soft": theme.background.default, "--panel-raised": theme.background.paper, "--border": alpha(primary.main, 0.2), "--border-strong": alpha(primary.main, 0.45), "--text": theme.text.primary, "--muted": theme.text.secondary, "--muted-2": theme.text.disabled, "--accent": primary.main, "--accent-strong": primary.light, "--accent-dark": primary.dark, "--accent-soft": alpha(primary.main, 0.16), "--danger": theme.secondary.main, "--shadow": alpha(theme.text.disabled, 0.35) } as CSSProperties; }, [theme]);
 
   const logDebug = useCallback((message: string) => setDebugLogs((logs) => [`${new Date().toISOString()} ${message}`, ...logs].slice(0, 100)), []);
 
@@ -229,7 +233,9 @@ export default function App() {
     return () => { cancelled = true; unsubscribe?.(); unsubscribeItems?.(); unsubscribeSceneMetadata?.(); unsubscribeRoomMetadata?.(); };
   }, [refreshIfSafe]);
   useEffect(() => { if (!OBR.isAvailable || !ready) return; return OBR.theme.onChange(setTheme); }, [ready]);
-  useEffect(() => { if (!OBR.isAvailable || !ready) return; return OBR.broadcast.onMessage(BOARD_EVENT_CHANNEL, refreshIfSafe); }, [ready, refreshIfSafe]);
+  useEffect(() => { if (!OBR.isAvailable || !ready) return OBR.broadcast.onMessage(BOARD_EVENT_CHANNEL, (message) => { if (focusedItemId) setWarning("This Board changed while you were editing; your draft is retained."); else refreshIfSafe(); }); }, [ready, refreshIfSafe, focusedItemId]);
+  useEffect(() => { if (!OBR.isAvailable || !ready) return; return OBR.broadcast.onMessage(EDIT_PRESENCE_CHANNEL, (message: unknown) => { const value = (message as { data?: unknown }).data ?? message; if (!value || typeof value !== "object") return; const next = value as EditPresence; if (next.playerId !== playerId) setEditPresence(next); }); }, [ready, playerId]);
+  useEffect(() => { if (!focusedItemId || !activeBoard) { setEditPresence((current) => current?.playerId === playerId ? undefined : current); return; } void announceEditPresence(focusedItemId); const timer = window.setInterval(() => void announceEditPresence(focusedItemId), 3000); return () => window.clearInterval(timer); }, [focusedItemId, activeBoard?.id, playerId]);
   useEffect(() => { if (!activeBoard || isPreview) return; const id = window.setTimeout(() => void saveViewport(activeBoard.id, { pan, zoom }), 250); return () => window.clearTimeout(id); }, [activeBoard, isPreview, pan, zoom]);
   useEffect(() => {
     if (focusedItemId) {
@@ -345,24 +351,20 @@ export default function App() {
   }
 
   async function persistBoard(board: Board, pushHistory = true, reportSave = false, activate = true) {
-    if (!canEditBoard(board, playerRole, playerId)) return;
-    pendingBoardSaves.current += 1;
-    try {
-      await counterChangeQueue.current;
-      if (pushHistory && activeBoard && activeBoard.id === board.id) setHistory((current) => ({ ...current, [board.id]: { undo: [activeBoard, ...(current[board.id]?.undo ?? [])].slice(0, MAX_HISTORY), redo: [] } }));
-      const saved = await saveBoard({ ...board, updatedAt: nowIso() });
-      setBoards((current) => current.some((candidate) => candidate.id === saved.id) ? current.map((candidate) => candidate.id === saved.id ? saved : candidate) : [saved, ...current]);
-      if (activate) setActiveBoardId(saved.id);
-      setError(undefined);
-      setSaveStatus(reportSave ? "Saved" : undefined);
-      logDebug(`Saved board ${saved.id} at revision ${saved.revision}.`);
-    } catch (reason) {
-      const message = formatDebugError(reason);
-      setError(message);
-      logDebug(`Save failed: ${message}`);
-    } finally {
-      pendingBoardSaves.current -= 1;
-    }
+    if (!canEditBoard(board, playerRole, playerId)) return false;
+    const previous = boardDraft.current?.id === board.id ? boardDraft.current : undefined;
+    if (pushHistory && previous) setHistory((current) => ({ ...current, [board.id]: { undo: [previous, ...(current[board.id]?.undo ?? [])].slice(0, MAX_HISTORY), redo: [] } }));
+    const saved = await mutateBoard({
+      board,
+      save: saveBoard,
+      apply: (next) => { boardDraft.current = next; setBoards((current) => current.some((candidate) => candidate.id === next.id) ? current.map((candidate) => candidate.id === next.id ? next : candidate) : [next, ...current]); },
+      rollback: () => { if (previous) { boardDraft.current = previous; setBoards((current) => current.map((candidate) => candidate.id === previous.id ? previous : candidate)); } else setBoards((current) => current.filter((candidate) => candidate.id !== board.id)); },
+      reportError: (reason) => { const message = formatDebugError(reason); setError(message); logDebug(`Save failed: ${message}`); },
+    });
+    if (!saved) return false;
+    if (activate) setActiveBoardId(saved.id);
+    setError(undefined); setSaveStatus(reportSave ? "Saved" : undefined); logDebug(`Saved board ${saved.id} at revision ${saved.revision}.`);
+    return true;
   }
 
   function clearBoardUi() {
@@ -491,8 +493,14 @@ export default function App() {
 
   async function pickOwlbearImage() { if (!OBR.isAvailable) return; const images = await OBR.assets.downloadImages(false, undefined, "NOTE"); const image = images[0]?.image; if (image?.url) await addImage(image.url, { width: image.width, height: image.height }); }
 
+  async function announceEditPresence(itemId: string) {
+    if (!OBR.isAvailable || !activeBoard) return;
+    await OBR.broadcast.sendMessage(EDIT_PRESENCE_CHANNEL, { playerId, playerName: await getPlayerName(), boardId: activeBoard.id, itemId, expiresAt: Date.now() + 6000 }, { destination: "REMOTE" });
+  }
+
   function openItemEditor(item: BoardItem) {
     if (!activeBoard || !canEditBoard(activeBoard, playerRole, playerId)) return;
+    void announceEditPresence(item.id);
     textEditorReturnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setFocusedItemId(item.id);
     if (item.type === "text") { setFocusDraft(item.text ?? ""); setTextFontSize(item.fontSize ?? 16); setTextColor(item.textColor ?? "#ffffff"); setTextFillBlock(item.fillBlock !== false); setTextVerticalAlignment(item.textVerticalAlignment ?? "top"); setHorizontalAlignmentOpen(false); setVerticalAlignmentOpen(false); setHasTextSelection(false); setImageEdit(undefined); setCounterEdit(undefined); }
@@ -511,22 +519,25 @@ export default function App() {
     await persistBoard({ ...activeBoard, items: activeBoard.items.map((item) => item.id === itemId ? updateBoardItemRect(item, gridX, gridY, gridWidth, gridHeight) : item) });
   }
 
-  async function deleteItem(itemId: string) { if (!activeBoard || readOnly) return; await persistBoard({ ...activeBoard, items: activeBoard.items.filter((item) => item.id !== itemId) }); setContextItem(undefined); setSelectedItemId(undefined); }
-  async function saveFocusedText() {
-    if (!activeBoard || !focusedItemId) return; const item = activeBoard.items.find((candidate) => candidate.id === focusedItemId); if (!item) return; const text = focusDraft.trim();
-    if (!text || /^\^[1-3]\s*$/.test(text)) { if (newFocusedItemId === focusedItemId) await deleteItem(focusedItemId); setFocusedItemId(undefined); setNewFocusedItemId(undefined); setHorizontalAlignmentOpen(false); setVerticalAlignmentOpen(false); return; }
+  async function deleteItem(itemId: string) { if (!activeBoard || readOnly) return false; const saved = await persistBoard({ ...activeBoard, items: activeBoard.items.filter((item) => item.id !== itemId) }); if (saved) { setContextItem(undefined); setSelectedItemId(undefined); } return !!saved; }
+  async function saveFocusedText(close = true) {
+    if (!activeBoard || !focusedItemId) return false; const item = activeBoard.items.find((candidate) => candidate.id === focusedItemId); if (!item) return false; const text = focusDraft.trim();
+    if (!text || /^\^[1-3]\s*$/.test(text)) { if (newFocusedItemId === focusedItemId) { const saved = await deleteItem(focusedItemId); if (saved === false) return false; } if (close) { setFocusedItemId(undefined); setNewFocusedItemId(undefined); setHorizontalAlignmentOpen(false); setVerticalAlignmentOpen(false); } return true; }
     const baseline = autoTextSize(text);
-    await persistBoard({ ...activeBoard, items: activeBoard.items.map((candidate) => candidate.id === focusedItemId ? { ...candidate, text, textBaselineWidth: baseline.width, fontSize: Math.max(1, textFontSize), textColor, fillBlock: textFillBlock, textVerticalAlignment, updatedAt: nowIso() } : candidate) }); setFocusedItemId(undefined); setNewFocusedItemId(undefined); setHasTextSelection(false); setHorizontalAlignmentOpen(false); setVerticalAlignmentOpen(false);
+    const saved = await persistBoard({ ...activeBoard, items: activeBoard.items.map((candidate) => candidate.id === focusedItemId ? { ...candidate, text, textBaselineWidth: baseline.width, fontSize: Math.max(1, textFontSize), textColor, fillBlock: textFillBlock, textVerticalAlignment, updatedAt: nowIso() } : candidate) });
+    if (saved && close) { setFocusedItemId(undefined); setNewFocusedItemId(undefined); setHasTextSelection(false); setHorizontalAlignmentOpen(false); setVerticalAlignmentOpen(false); }
+    return !!saved;
   }
   async function cancelFocusedText() { if (newFocusedItemId && activeBoard) await deleteItem(newFocusedItemId); setFocusedItemId(undefined); setNewFocusedItemId(undefined); setFocusDraft(""); setHasTextSelection(false); setVerticalAlignmentOpen(false); }
+
+  saveFocusedTextRef.current = () => saveFocusedText(false);
 
   async function saveFocusedImage() {
     if (!activeBoard || !imageEdit) return;
     const next = { ...activeBoard, items: activeBoard.items.map((item) => item.id === imageEdit.itemId ? { ...item, imageUrl: imageEdit.url.trim(), borderColor: imageEdit.borderColor, imageFit: imageEdit.imageFit, updatedAt: nowIso() } : item) };
     if (boardByteSize(next) > BOARD_DATA_LIMIT_BYTES) { setWarning("Image link was not changed: Board data is limited to 1 MB."); return; }
     try { const url = new URL(imageEdit.url.trim()); if (!["http:", "https:"].includes(url.protocol)) return; } catch { return; }
-    await persistBoard(next);
-    setImageEdit(undefined); setFocusedItemId(undefined);
+    if (await persistBoard(next)) { setImageEdit(undefined); setFocusedItemId(undefined); }
   }
 
   function cancelFocusedImage() { setImageEdit(undefined); setFocusedItemId(undefined); }
@@ -535,8 +546,7 @@ export default function App() {
     if (!activeBoard || !counterEdit) return;
     const max = counterEdit.max.trim() ? normalizeCounterValue(Number(counterEdit.max)) : undefined;
     const value = normalizeCounterValue(Number(counterEdit.value), max);
-    await persistBoard({ ...activeBoard, items: activeBoard.items.map((item) => item.id === counterEdit.itemId ? { ...item, counterLabel: counterEdit.label.trim().slice(0, 120), counterLabelPosition: counterEdit.labelPosition, counterValue: value, counterMax: max, borderColor: counterEdit.borderColor, counterZeroColorEnabled: counterEdit.zeroColorEnabled, counterZeroColor: counterEdit.zeroColor, counterMaxColorEnabled: counterEdit.maxColorEnabled, counterMaxColor: counterEdit.maxColor, counterDimAtZero: counterEdit.dimAtZero, updatedAt: nowIso() } : item) });
-    setCounterEdit(undefined); setFocusedItemId(undefined);
+    if (await persistBoard({ ...activeBoard, items: activeBoard.items.map((item) => counterEdit.itemId === item.id ? { ...item, counterLabel: counterEdit.label.trim().slice(0, 120), counterLabelPosition: counterEdit.labelPosition, counterValue: value, counterMax: max, borderColor: counterEdit.borderColor, counterZeroColorEnabled: counterEdit.zeroColorEnabled, counterZeroColor: counterEdit.zeroColor, counterMaxColorEnabled: counterEdit.maxColorEnabled, counterMaxColor: counterEdit.maxColor, counterDimAtZero: counterEdit.dimAtZero, updatedAt: nowIso() } : item) })) { setCounterEdit(undefined); setFocusedItemId(undefined); }
   }
 
   function cancelFocusedCounter() { setCounterEdit(undefined); setFocusedItemId(undefined); }
@@ -545,22 +555,7 @@ export default function App() {
     const board = boardDraft.current; if (!board || !canEditBoard(board, playerRole, playerId)) return;
     const current = board.items.find((candidate) => candidate.id === item.id); if (!current) return;
     const value = normalizeCounterValue((current.counterValue ?? 0) + delta, current.counterMax); if (value === current.counterValue) return;
-    const next = { ...board, items: board.items.map((candidate) => candidate.id === item.id ? { ...candidate, counterValue: value, updatedAt: nowIso() } : candidate) };
-    boardDraft.current = next; setBoards((boards) => boards.map((candidate) => candidate.id === next.id ? next : candidate));
-    setHistory((history) => ({ ...history, [board.id]: { undo: [board, ...(history[board.id]?.undo ?? [])].slice(0, MAX_HISTORY), redo: [] } }));
-    pendingCounterChanges.current += 1;
-    counterChangeQueue.current = counterChangeQueue.current.then(async () => {
-      try {
-        const draft = boardDraft.current; const saved = await saveBoard({ ...next, revision: draft?.revision ?? next.revision });
-        const current = boardDraft.current; if (current?.id === saved.id) {
-          const revised = { ...current, revision: saved.revision, updatedAt: saved.updatedAt }; boardDraft.current = revised;
-          setBoards((boards) => boards.map((candidate) => candidate.id === revised.id ? revised : candidate));
-        }
-        setError(undefined);
-      }
-      catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)); }
-      finally { pendingCounterChanges.current -= 1; }
-    });
+    void persistBoard({ ...board, items: board.items.map((candidate) => candidate.id === item.id ? { ...candidate, counterValue: value, updatedAt: nowIso() } : candidate) });
   }
 
   function toggleTextTask(item: BoardItem, line: number) {
@@ -626,6 +621,14 @@ export default function App() {
   async function resizeWindow(width: number, height: number) { const next = { width: Math.max(1, Math.round(width)), height: Math.max(1, Math.round(height)) }; setWindowSize(next); await saveWindowPreferences(next); await resizeAction(next.width, next.height); }
   function startResize(event: React.PointerEvent<HTMLElement>) { const target = event.currentTarget; const startX = event.clientX; const startY = event.clientY; const start = { ...windowSize }; target.setPointerCapture(event.pointerId); const move = (moveEvent: PointerEvent) => void resizeWindow(start.width + moveEvent.clientX - startX, start.height + moveEvent.clientY - startY); const up = () => { target.releasePointerCapture(event.pointerId); target.removeEventListener("pointermove", move); target.removeEventListener("pointerup", up); }; target.addEventListener("pointermove", move); target.addEventListener("pointerup", up); }
 
+  useEffect(() => {
+    const editing = activeBoard?.items.find((item) => item.id === focusedItemId);
+    if (!editing || editing.type !== "text") return;
+    const timer = window.setTimeout(() => { void saveFocusedText(false); }, 500);
+    return () => window.clearTimeout(timer);
+  }, [activeBoard, focusedItemId, focusDraft, textFontSize, textColor, textFillBlock, textVerticalAlignment]);
+  useEffect(() => () => { void saveFocusedTextRef.current(); }, []);
+
   const cellSize = (displayBoard?.cellSizePx ?? DEFAULT_CELL_SIZE) * zoom;
   const focusedItem = activeBoard?.items.find((item) => item.id === focusedItemId);
   const showBoardActions = !!activeBoard;
@@ -641,6 +644,7 @@ export default function App() {
     <div ref={gridRef} className={`gridSurface ${boardAtLimit ? "boardAtLimit" : ""}`} onDoubleClick={(event) => { if (!activeBoard || readOnly) return; const grid = pointerToGrid(event.clientX, event.clientY); if (!boardItemAt(activeBoard, grid.x, grid.y)) void createTextAt(grid); }} onPointerDown={handleGridPointerDown} onPointerMove={handleGridPointerMove} onPointerUp={(event) => void handleGridPointerUp(event)} onContextMenu={(event) => { event.preventDefault(); if (!activeBoard || readOnly) { if (!activeBoard) setCreateOpen(true); return; } const grid = pointerToGrid(event.clientX, event.clientY); const item = boardItemAt(activeBoard, grid.x, grid.y); if (item) setContextItem({ item, x: event.clientX, y: event.clientY }); else setEmptyContext({ gridX: grid.x, gridY: grid.y, x: event.clientX, y: event.clientY }); }} style={{ backgroundSize: `${cellSize}px ${cellSize}px`, backgroundPosition: `${pan.x}px ${pan.y}px` }}>
       <div key={displayBoard?.id ?? "empty"} className="gridPlane" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>{displayBoard?.items.map((item) => <BoardItemView key={item.id} item={resizeItemState?.itemId === item.id ? { ...item, gridWidth: resizeItemState.gridWidth, gridHeight: resizeItemState.gridHeight } : item} selected={selectedItemId === item.id} cellSize={displayBoard.cellSizePx} cellGap={displayBoard.cellGapPx} onResizePointerDown={startItemResize} onDoubleClick={openItemEditor} onCounterChange={changeCounter} onTaskToggle={toggleTextTask} readOnly={readOnly} />)}</div>
       {showPreview && <div className="emptyState" onPointerDown={(event) => event.stopPropagation()} onContextMenu={(event) => { event.preventDefault(); event.stopPropagation(); }}><strong>Preview Board</strong><button className="primaryAction" onClick={() => setCreateOpen(true)}><Plus size={16} /> Create Private Board</button><button onClick={async () => { const prefs = preferences ?? await loadPreferences(); await savePreferences({ ...prefs, previewDismissed: true }); setPreviewDismissed(true); }}>Dismiss</button></div>}
+      {activeEditPresence(editPresence) && visibleEditPresence(editPresence!, displayBoard, playerRole, playerId) && <div className="editPresenceBadge" role="status">{editPresence!.playerName} is editing this Board Item</div>}
       {warning && <div className="saveError saveWarning" role="status"><CircleAlert size={18} /><span>{warning}</span><button aria-label="Dismiss warning" onClick={() => setWarning(undefined)}><X size={16} /></button></div>}
        {error && <div className="saveError" role="alert"><CircleAlert size={18} /><span>{error}</span><button aria-label="Dismiss error" onClick={() => setError(undefined)}><X size={16} /></button></div>}
       <div className="surfaceHud"><span>{displayBoard?.items.length ?? 0} items</span><span>{Math.round(cellSize)} px cells</span></div>

@@ -11,6 +11,7 @@ export const SHARED_ROOM_STATE_KEY = `${EXTENSION_ID}/shared-room-state`;
 export const ROOM_OWNER_KEY = `${EXTENSION_ID}/room-owner`;
 export const SCENE_KEY_METADATA = `${EXTENSION_ID}/scene-key`;
 export const BOARD_EVENT_CHANNEL = `${EXTENSION_ID}/board-change`;
+export const EDIT_PRESENCE_CHANNEL = `${EXTENSION_ID}/edit-presence`;
 
 export const DEFAULT_CELL_SIZE = 72;
 export const MIN_CELL_SIZE = 32;

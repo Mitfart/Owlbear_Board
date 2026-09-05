@@ -25,12 +25,13 @@ describe("renderMarkdown", () => {
   });
 
   it("persists task marker changes in the Markdown source", () => {
-    expect(toggleTaskMarkdown("- [ ] Todo\n- [*] Done", 0)).toBe("- [*] Todo\n- [*] Done");
-    expect(toggleTaskMarkdown("- [*] Todo", 0)).toBe("- [ ] Todo");
+    expect(toggleTaskMarkdown("- [ ] Todo\n- [*] Done", 0)).toBe("- [x] Todo\n- [*] Done");
+    expect(toggleTaskMarkdown("- [x] Todo", 0)).toBe("- [ ] Todo");
+    expect(toggleTaskMarkdown("- [X] Todo", 0)).toBe("- [X] Todo");
   });
 
   it("renders scalable square task controls for unchecked and marked items", () => {
-    const html = renderMarkdown("- [ ] Todo\n- [*] Done");
+    const html = renderMarkdown("- [ ] Todo\n- [x] Done\n- [*] Legacy");
     expect([...html.matchAll(/<span class="taskToggleVisual"><svg class="taskToggleIcon"/g)]).toHaveLength(2);
     expect(html).toContain('<label class="taskToggle"><input type="checkbox" data-task-line="1" aria-label="Toggle task" checked /><span class="taskToggleVisual">');
     expect(html).toContain('<span class="taskText">Done</span>');

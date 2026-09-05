@@ -1357,6 +1357,21 @@ input[type="color"] { width: 34px; min-width: 34px; height: 32px; padding: 2px; 
   }
 }
 
+.editPresenceBadge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 12;
+  max-width: calc(100% - 24px);
+  padding: 8px 10px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--panel-raised);
+  color: var(--text);
+  box-shadow: 0 8px 20px var(--shadow);
+  font-size: 12px;
+}
+
 .saveError {
   position: fixed;
   z-index: 10;

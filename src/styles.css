@@ -536,15 +536,7 @@ input[type="radio"] {
   background: var(--accent-soft);
 }
 
-.fontSizeField {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.fontSizeField input { width: 58px; }
+.fontSizeField { width: 58px; }
 
 .boardGroupButton {
   justify-content: flex-start;
@@ -1138,7 +1130,7 @@ input[type="color"] {
   width: var(--task-toggle-size);
   height: var(--task-toggle-size);
   margin: 0 0.55em 0 0;
-  vertical-align: -0.14em;
+  vertical-align: 0.05em;
   cursor: pointer;
   user-select: none;
 }

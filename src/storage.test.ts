@@ -80,8 +80,8 @@ describe("board storage", () => {
   it("broadcasts creates and deletes so other Manage Boards views refresh immediately", async () => {
     const saved = await saveBoard(board());
     await deleteBoard(saved);
-    expect(obr.broadcast.sendMessage).toHaveBeenNthCalledWith(1, BOARD_EVENT_CHANNEL, { action: "save", boardId: "board" }, { destination: "REMOTE" });
-    expect(obr.broadcast.sendMessage).toHaveBeenNthCalledWith(2, BOARD_EVENT_CHANNEL, { action: "delete", boardId: "board" }, { destination: "REMOTE" });
+    expect(obr.broadcast.sendMessage).toHaveBeenNthCalledWith(1, BOARD_EVENT_CHANNEL, { action: "save", boardId: "board", itemIds: [] }, { destination: "REMOTE" });
+    expect(obr.broadcast.sendMessage).toHaveBeenNthCalledWith(2, BOARD_EVENT_CHANNEL, { action: "delete", boardId: "board", itemIds: undefined }, { destination: "REMOTE" });
   });
 
   it("rejects deletion by a non-owner player", async () => {

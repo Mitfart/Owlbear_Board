@@ -196,23 +196,23 @@ export type BoardSavingBehavior = { save(board: Board): Promise<Board>; delete(b
 export let boardSaving: BoardSavingBehavior = { save: saveBoardToMetadata, delete: deleteBoardFromMetadata, relocate: relocateBoardInMetadata };
 export function setBoardSavingBehavior(behavior: BoardSavingBehavior) { boardSaving = behavior; }
 
-async function broadcastBoardChange(action: "save" | "delete", boardId: string) {
-  if (OBR.isAvailable) await OBR.broadcast.sendMessage(BOARD_EVENT_CHANNEL, { action, boardId }, { destination: "REMOTE" });
+async function broadcastBoardChange(action: "save" | "delete", board: Board, itemIds?: string[]) {
+  if (OBR.isAvailable) await OBR.broadcast.sendMessage(BOARD_EVENT_CHANNEL, { action, boardId: board.id, itemIds: action === "save" ? itemIds ?? board.items.map((item) => item.id) : undefined }, { destination: "REMOTE" });
 }
-export async function saveBoard(board: Board) {
+export async function saveBoard(board: Board, changedItemIds?: string[]) {
   const saved = await boardSaving.save(board);
-  await broadcastBoardChange("save", saved.id);
+  await broadcastBoardChange("save", saved, changedItemIds);
   return saved;
 }
 export async function deleteBoard(board: Board) {
   const [role, playerId] = OBR.isAvailable ? await Promise.all([OBR.player.getRole(), OBR.player.getId()]) : ["GM" as const, "demo-player"];
   if (!canDeleteBoard(board, role, playerId)) throw new Error("Only the board creator or a GM can delete this board.");
   await boardSaving.delete(board);
-  await broadcastBoardChange("delete", board.id);
+  await broadcastBoardChange("delete", board);
 }
 export async function movePrivateRoomBoardToScene(board: Board) {
   const moved = await boardSaving.relocate(board);
-  await broadcastBoardChange("save", moved.id);
+  await broadcastBoardChange("save", moved);
   return moved;
 }
 

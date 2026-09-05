@@ -30,3 +30,6 @@ Thumbs.db
 
 # Pi agent files
 .pi/
+
+# Owlbear local data
+_OWLBEAR/

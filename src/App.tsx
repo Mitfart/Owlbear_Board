@@ -184,8 +184,8 @@ export default function App() {
       "--panel": theme.background.paper,
       "--panel-soft": theme.background.default,
       "--panel-raised": theme.background.paper,
-      "--border": alpha(primary.main, 0.2),
-      "--border-strong": alpha(primary.main, 0.45),
+      "--border": "rgba(187, 153, 255, 0.14)",
+      "--border-strong": "rgba(187, 153, 255, 0.28)",
       "--text": theme.text.primary,
       "--muted": theme.text.secondary,
       "--muted-2": theme.text.disabled,
@@ -194,7 +194,7 @@ export default function App() {
       "--accent-dark": primary.dark,
       "--accent-soft": alpha(primary.main, 0.16),
       "--danger": theme.secondary.main,
-      "--shadow": alpha(theme.text.disabled, 0.35),
+      "--shadow": "rgba(4, 6, 14, 0.42)",
     } as CSSProperties;
   }, [theme]);
 

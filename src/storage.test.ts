@@ -70,13 +70,6 @@ describe("board storage", () => {
   });
 
 
-  it("does not resurrect a deleted board from legacy scene metadata", async () => {
-    sceneMetadata[BOARD_STATE_KEY] = { version: 1, boards: [board()] };
-    const saved = (await loadAllVisibleBoards()).boards[0];
-    await deleteBoard(saved);
-    await expect(loadAllVisibleBoards()).resolves.toMatchObject({ boards: [] });
-  });
-
   it("broadcasts creates and deletes so other Manage Boards views refresh immediately", async () => {
     const saved = await saveBoard(board());
     await deleteBoard(saved);
@@ -90,8 +83,8 @@ describe("board storage", () => {
     await expect(deleteBoard(saved)).rejects.toThrow("Only the board creator or a GM");
   });
 
-  it("normalizes legacy occupancy and defaults", () => {
-    const legacy = board({ items: [{ id: "item", type: "text", gridX: Infinity, gridY: 3.5, gridWidth: Infinity, gridHeight: -1, occupiedCells: [{ x: 1, y: 1 }], updatedAt: "" }] }) as unknown as import("./types").Board;
-    expect(normalizeBoardState({ version: 1, boards: [legacy] }).boards[0].items[0]).toEqual(expect.objectContaining({ gridX: 0, gridY: 3, gridWidth: 1, gridHeight: 1, fontSize: 16, textColor: "#ffffff" }));
+  it("normalizes invalid grid values and applies current defaults", () => {
+    const current = board({ items: [{ id: "item", type: "text", gridX: Infinity, gridY: 3.5, gridWidth: Infinity, gridHeight: -1, updatedAt: "" }] }) as unknown as import("./types").Board;
+    expect(normalizeBoardState({ version: 1, boards: [current] }).boards[0].items[0]).toEqual(expect.objectContaining({ gridX: 0, gridY: 3, gridWidth: 1, gridHeight: 1, fontSize: 16, textColor: "#ffffff" }));
   });
 });

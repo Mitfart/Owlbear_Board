@@ -5,7 +5,7 @@ import type { Theme } from "@owlbear-rodeo/sdk";
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BOARD_DATA_LIMIT_BYTES, DEFAULT_CELL_GAP, DEFAULT_CELL_SIZE, DEFAULT_COUNTER_MAX_COLOR, DEFAULT_COUNTER_ZERO_COLOR, DEFAULT_ITEM_BORDER_COLOR, DEFAULT_WINDOW, EXTENSION_ID, BOARD_EVENT_CHANNEL, EDIT_PRESENCE_CHANNEL, MAX_CELL_GAP, MAX_CELL_SIZE, MIN_CELL_GAP, MIN_CELL_SIZE } from "./constants";
-import { boardItemAt, collides, updateBoardItemPosition, updateBoardItemRect } from "./grid";
+import { boardItemAt, collides, updateBoardItemRect } from "./grid";
 import { createId, nowIso } from "./ids";
 import { MarkdownView, toggleTaskMarkdown } from "./markdown";
 import { resizeAction } from "./owlbear";
@@ -19,7 +19,7 @@ import { buildBoardPickerRows } from "./boardSession";
 import { canDeleteBoard, canEditBoard, canRenameBoard, type PlayerRole } from "./boardPermissions";
 import type { Board, BoardItem, BoardScope, BoardVisibility, PlayerPreferences } from "./types";
 
-type DragState = { itemId: string; offsetX: number; offsetY: number; startX: number; startY: number; moved: boolean };
+type DragState = { itemId: string; offsetX: number; offsetY: number; startX: number; startY: number; gridX?: number; gridY?: number; moved: boolean };
 type ResizeItemState = { itemId: string; gridX: number; gridY: number; gridWidth: number; gridHeight: number };
 type AddTarget = { x: number; y: number } | undefined;
 type ImageEdit = { itemId: string; url: string; borderColor: string; imageFit: "cover" | "contain" };
@@ -157,7 +157,7 @@ export default function App() {
   const textScrollSyncing = useRef(false);
   const tabDrag = useRef<{ x: number; scrollLeft: number; moved: boolean; pointerId: number } | undefined>(undefined);
   const counterChangeQueue = useRef(Promise.resolve());
-  const saveFocusedTextRef = useRef<() => Promise<boolean>>(async () => false);
+  const saveFocusedEditorRef = useRef<() => Promise<boolean>>(async () => false);
   const pendingCounterChanges = useRef(0);
   const mutationCoordinator = useRef<BoardMutationCoordinator | undefined>(undefined);
   const activeBoard = useMemo(() => boards.find((board) => board.id === activeBoardId), [activeBoardId, boards]);
@@ -395,17 +395,19 @@ export default function App() {
   }
 
   async function chooseBoard(board: Board, openTab = true) {
+    if (board.id !== activeBoardId && !await saveFocusedEditorRef.current()) return;
     const viewport = preferences?.viewportByBoardId[board.id];
     clearBoardUi(); setActiveBoardId(board.id); setPan(viewport?.pan ?? DEFAULT_PAN); setZoom(viewport?.zoom ?? DEFAULT_ZOOM); setManageBoardsOpen(false); if (openTab) setOpenBoardIds((ids) => ids.includes(board.id) ? ids : [...ids, board.id]); await markPrivateBoardOpened(board);
   }
 
-  function closeBoardTab(boardId: string) {
+  async function closeBoardTab(boardId: string) {
     const index = openBoardIds.indexOf(boardId);
     const nextId = openBoardIds[index + 1] ?? openBoardIds[index - 1];
+    if (activeBoardId === boardId && !await saveFocusedEditorRef.current()) return;
     setOpenBoardIds((ids) => ids.filter((id) => id !== boardId));
     if (activeBoardId === boardId) {
       const next = boards.find((board) => board.id === nextId);
-      if (next) void chooseBoard(next);
+      if (next) await chooseBoard(next);
       else { clearBoardUi(); setActiveBoardId(undefined); setPan(DEFAULT_PAN); setZoom(DEFAULT_ZOOM); }
     }
   }
@@ -501,7 +503,9 @@ export default function App() {
     const gridWidth = clampNumber(size.width, 1, 24); const gridHeight = clampNumber(size.height, 1, 24);
     const position = firstFreeNear(activeBoard, target.x, target.y, gridWidth, gridHeight);
     const item: BoardItem = { ...createItemBase(position.x, position.y, gridWidth, gridHeight), type: "image", imageUrl: url, imageFit: "cover", borderColor: borderColorDraft };
-    await persistBoard({ ...activeBoard, items: [...activeBoard.items, item] }); setAddModalOpen(false); setImageDraft(""); setAddTarget(undefined);
+    const next = { ...activeBoard, items: [...activeBoard.items, item] };
+    if (boardByteSize(next) > BOARD_DATA_LIMIT_BYTES) { reportImageFailure("Image link was not added: Board data is limited to 1 MB."); return; }
+    if (await persistBoard(next)) { setAddModalOpen(false); setImageDraft(""); setAddTarget(undefined); }
   }
 
   async function addCounter() {
@@ -553,28 +557,32 @@ export default function App() {
   }
   async function cancelFocusedText() { if (newFocusedItemId && activeBoard) await deleteItem(newFocusedItemId); setFocusedItemId(undefined); setNewFocusedItemId(undefined); setFocusDraft(""); setHasTextSelection(false); setVerticalAlignmentOpen(false); }
 
-  saveFocusedTextRef.current = () => saveFocusedText(false);
-
-  async function saveFocusedImage() {
-    if (!activeBoard || !imageEdit) return;
+  async function saveFocusedImage(close = true) {
+    if (!activeBoard || !imageEdit) return false;
     const next = { ...activeBoard, items: activeBoard.items.map((item) => item.id === imageEdit.itemId ? { ...item, imageUrl: imageEdit.url.trim(), borderColor: imageEdit.borderColor, imageFit: imageEdit.imageFit, updatedAt: nowIso() } : item) };
-    if (boardByteSize(next) > BOARD_DATA_LIMIT_BYTES) { reportImageFailure("Image link was not changed: Board data is limited to 1 MB."); return; }
-    try { const url = new URL(imageEdit.url.trim()); if (!["http:", "https:"].includes(url.protocol)) throw new Error("Image link must use http or https."); } catch (reason) { reportImageFailure(reason); return; }
-    if (await persistBoard(next)) { setImageEdit(undefined); setFocusedItemId(undefined); }
+    if (boardByteSize(next) > BOARD_DATA_LIMIT_BYTES) { reportImageFailure("Image link was not changed: Board data is limited to 1 MB."); return false; }
+    try { const url = new URL(imageEdit.url.trim()); if (!["http:", "https:"].includes(url.protocol)) throw new Error("Image link must use http or https."); } catch (reason) { reportImageFailure(reason); return false; }
+    const saved = await persistBoard(next);
+    if (saved && close) { setImageEdit(undefined); setFocusedItemId(undefined); }
+    return saved;
   }
 
   function cancelFocusedImage() { setImageEdit(undefined); setFocusedItemId(undefined); }
 
   function reportImageFailure(reason: unknown) { const message = formatDebugError(reason); setError(message); logDebug(`Image link update failed: ${message}`); if (OBR.isAvailable) void OBR.notification.show(message, "ERROR"); }
 
-  async function saveFocusedCounter() {
-    if (!activeBoard || !counterEdit) return;
+  async function saveFocusedCounter(close = true) {
+    if (!activeBoard || !counterEdit) return false;
     const max = counterEdit.max.trim() ? normalizeCounterValue(Number(counterEdit.max)) : undefined;
     const value = normalizeCounterValue(Number(counterEdit.value), max);
-    if (await persistBoard({ ...activeBoard, items: activeBoard.items.map((item) => counterEdit.itemId === item.id ? { ...item, counterLabel: counterEdit.label.trim().slice(0, 120), counterLabelPosition: counterEdit.labelPosition, counterValue: value, counterMax: max, borderColor: counterEdit.borderColor, counterZeroColorEnabled: counterEdit.zeroColorEnabled, counterZeroColor: counterEdit.zeroColor, counterMaxColorEnabled: counterEdit.maxColorEnabled, counterMaxColor: counterEdit.maxColor, counterDimAtZero: counterEdit.dimAtZero, updatedAt: nowIso() } : item) })) { setCounterEdit(undefined); setFocusedItemId(undefined); }
+    const saved = await persistBoard({ ...activeBoard, items: activeBoard.items.map((item) => counterEdit.itemId === item.id ? { ...item, counterLabel: counterEdit.label.trim().slice(0, 120), counterLabelPosition: counterEdit.labelPosition, counterValue: value, counterMax: max, borderColor: counterEdit.borderColor, counterZeroColorEnabled: counterEdit.zeroColorEnabled, counterZeroColor: counterEdit.zeroColor, counterMaxColorEnabled: counterEdit.maxColorEnabled, counterMaxColor: counterEdit.maxColor, counterDimAtZero: counterEdit.dimAtZero, updatedAt: nowIso() } : item) });
+    if (saved && close) { setCounterEdit(undefined); setFocusedItemId(undefined); }
+    return saved;
   }
 
   function cancelFocusedCounter() { setCounterEdit(undefined); setFocusedItemId(undefined); }
+
+  saveFocusedEditorRef.current = () => imageEdit ? saveFocusedImage(false) : counterEdit ? saveFocusedCounter(false) : focusedItemId ? saveFocusedText(false) : Promise.resolve(true);
 
   function changeCounter(item: BoardItem, delta: number) {
     const board = mutationCoordinator.current?.current(activeBoard?.id ?? ""); if (!board || !canEditBoard(board, playerRole, playerId)) return;
@@ -636,21 +644,20 @@ export default function App() {
   function handleGridPointerMove(event: React.PointerEvent<HTMLDivElement>) {
     if (!activeBoard || readOnly) { if (panning) setPan({ x: event.clientX - panning.x, y: event.clientY - panning.y }); return; }
     if (resizeItemState) { const grid = pointerToGrid(event.clientX, event.clientY); const gridWidth = Math.max(1, grid.x - resizeItemState.gridX + 1); const gridHeight = Math.max(1, grid.y - resizeItemState.gridY + 1); if (!collides(activeBoard, resizeItemState.gridX, resizeItemState.gridY, gridWidth, gridHeight, resizeItemState.itemId)) setResizeItemState({ ...resizeItemState, gridWidth, gridHeight }); return; }
-    if (dragState) { if (!dragState.moved && Math.hypot(event.clientX - dragState.startX, event.clientY - dragState.startY) < 4) return; const moving = dragState.moved ? dragState : { ...dragState, moved: true }; if (!dragState.moved) setDragState(moving); const item = activeBoard.items.find((candidate) => candidate.id === moving.itemId); if (!item) return; const grid = pointerToGrid(event.clientX - moving.offsetX, event.clientY - moving.offsetY); if (!collides(activeBoard, grid.x, grid.y, item.gridWidth, item.gridHeight, item.id)) setBoards((current) => current.map((board) => board.id === activeBoard.id ? { ...board, items: board.items.map((candidate) => candidate.id === item.id ? updateBoardItemPosition(candidate, grid.x, grid.y) : candidate) } : board)); return; }
+    if (dragState) { if (!dragState.moved && Math.hypot(event.clientX - dragState.startX, event.clientY - dragState.startY) < 4) return; const moving = dragState.moved ? dragState : { ...dragState, moved: true }; const item = activeBoard.items.find((candidate) => candidate.id === moving.itemId); if (!item) return; const grid = pointerToGrid(event.clientX - moving.offsetX, event.clientY - moving.offsetY); if (!collides(activeBoard, grid.x, grid.y, item.gridWidth, item.gridHeight, item.id)) setDragState({ ...moving, gridX: grid.x, gridY: grid.y }); return; }
     if (panning) setPan({ x: event.clientX - panning.x, y: event.clientY - panning.y });
   }
-  async function handleGridPointerUp(event: React.PointerEvent<HTMLDivElement>) { if (resizeItemState) await updateItemRect(resizeItemState.itemId, resizeItemState.gridX, resizeItemState.gridY, resizeItemState.gridWidth, resizeItemState.gridHeight); if (dragState?.moved && activeBoard) { const item = activeBoard.items.find((candidate) => candidate.id === dragState.itemId); if (item) await updateItemRect(item.id, item.gridX, item.gridY, item.gridWidth, item.gridHeight); } setDragState(undefined); setResizeItemState(undefined); setPanning(undefined); }
+  async function handleGridPointerUp(event: React.PointerEvent<HTMLDivElement>) { if (resizeItemState) await updateItemRect(resizeItemState.itemId, resizeItemState.gridX, resizeItemState.gridY, resizeItemState.gridWidth, resizeItemState.gridHeight); if (dragState?.moved && activeBoard && dragState.gridX !== undefined && dragState.gridY !== undefined) { const item = activeBoard.items.find((candidate) => candidate.id === dragState.itemId); if (item) await updateItemRect(item.id, dragState.gridX, dragState.gridY, item.gridWidth, item.gridHeight); } setDragState(undefined); setResizeItemState(undefined); setPanning(undefined); }
   function startItemResize(event: React.PointerEvent<HTMLElement>, item: BoardItem) { if (readOnly) return; event.preventDefault(); event.stopPropagation(); setSelectedItemId(item.id); setResizeItemState({ itemId: item.id, gridX: item.gridX, gridY: item.gridY, gridWidth: item.gridWidth, gridHeight: item.gridHeight }); gridRef.current?.setPointerCapture(event.pointerId); }
   async function resizeWindow(width: number, height: number) { const next = { width: Math.max(1, Math.round(width)), height: Math.max(1, Math.round(height)) }; setWindowSize(next); await saveWindowPreferences(next); await resizeAction(next.width, next.height); }
   function startResize(event: React.PointerEvent<HTMLElement>) { const target = event.currentTarget; const startX = event.clientX; const startY = event.clientY; const start = { ...windowSize }; target.setPointerCapture(event.pointerId); const move = (moveEvent: PointerEvent) => void resizeWindow(start.width + moveEvent.clientX - startX, start.height + moveEvent.clientY - startY); const up = () => { target.releasePointerCapture(event.pointerId); target.removeEventListener("pointermove", move); target.removeEventListener("pointerup", up); }; target.addEventListener("pointermove", move); target.addEventListener("pointerup", up); }
 
   useEffect(() => {
-    const editing = activeBoard?.items.find((item) => item.id === focusedItemId);
-    if (!editing || editing.type !== "text") return;
-    const timer = window.setTimeout(() => { void saveFocusedText(false); }, 500);
+    if (!focusedItemId) return;
+    const timer = window.setTimeout(() => { void saveFocusedEditorRef.current(); }, 500);
     return () => window.clearTimeout(timer);
-  }, [activeBoard, focusedItemId, focusDraft, textFontSize, textColor, textFillBlock, textVerticalAlignment]);
-  useEffect(() => () => { void saveFocusedTextRef.current(); }, []);
+  }, [focusedItemId, focusDraft, textFontSize, textColor, textFillBlock, textVerticalAlignment, imageEdit, counterEdit]);
+  useEffect(() => () => { void saveFocusedEditorRef.current(); }, []);
 
   const cellSize = (displayBoard?.cellSizePx ?? DEFAULT_CELL_SIZE) * zoom;
   const focusedItem = activeBoard?.items.find((item) => item.id === focusedItemId);
@@ -665,7 +672,7 @@ export default function App() {
     {manageBoardsOpen && <ManageBoards boards={boards} activeBoardId={activeBoardId} onCreate={() => setCreateOpen(true)} onCreateShared={(scope) => void createShared(scope)} onOpen={(board) => void chooseBoard(board)} onSettings={(board, event) => { event.stopPropagation(); setBoardPanelBoard(board); const rect = event.currentTarget.getBoundingClientRect(); const x = rect.right + 8 + 360 <= window.innerWidth ? rect.right + 8 : Math.max(8, rect.left - 368); setBoardPanelPosition({ x, y: rect.top }); setBoardPanelOpen(true); }} />}
     {debugOpen && <DebugPanel snapshot={debugSnapshot} logs={debugLogs} onRefresh={() => void openDebugTab()} onClear={() => void clearDebugData()} />}
     <div ref={gridRef} className={`gridSurface ${boardAtLimit ? "boardAtLimit" : ""}`} onDoubleClick={(event) => { if (!activeBoard || readOnly) return; const grid = pointerToGrid(event.clientX, event.clientY); if (!boardItemAt(activeBoard, grid.x, grid.y)) void createTextAt(grid); }} onPointerDown={handleGridPointerDown} onPointerMove={handleGridPointerMove} onPointerUp={(event) => void handleGridPointerUp(event)} onContextMenu={(event) => { event.preventDefault(); if (!activeBoard || readOnly) { if (!activeBoard) setCreateOpen(true); return; } const grid = pointerToGrid(event.clientX, event.clientY); const item = boardItemAt(activeBoard, grid.x, grid.y); if (item) setContextItem({ item, x: event.clientX, y: event.clientY }); else setEmptyContext({ gridX: grid.x, gridY: grid.y, x: event.clientX, y: event.clientY }); }} style={{ backgroundSize: `${cellSize}px ${cellSize}px`, backgroundPosition: `${pan.x}px ${pan.y}px` }}>
-      <div key={displayBoard?.id ?? "empty"} className="gridPlane" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>{displayBoard?.items.map((item) => <BoardItemView key={item.id} item={resizeItemState?.itemId === item.id ? { ...item, gridWidth: resizeItemState.gridWidth, gridHeight: resizeItemState.gridHeight } : item} selected={selectedItemId === item.id} cellSize={displayBoard.cellSizePx} cellGap={displayBoard.cellGapPx} onResizePointerDown={startItemResize} onDoubleClick={openItemEditor} onCounterChange={changeCounter} onTaskToggle={toggleTextTask} readOnly={readOnly} />)}</div>
+      <div key={displayBoard?.id ?? "empty"} className="gridPlane" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>{displayBoard?.items.map((item) => <BoardItemView key={item.id} item={resizeItemState?.itemId === item.id ? { ...item, gridWidth: resizeItemState.gridWidth, gridHeight: resizeItemState.gridHeight } : dragState?.itemId === item.id && dragState.gridX !== undefined && dragState.gridY !== undefined ? { ...item, gridX: dragState.gridX, gridY: dragState.gridY } : item} selected={selectedItemId === item.id} cellSize={displayBoard.cellSizePx} cellGap={displayBoard.cellGapPx} onResizePointerDown={startItemResize} onDoubleClick={openItemEditor} onCounterChange={changeCounter} onTaskToggle={toggleTextTask} readOnly={readOnly} />)}</div>
       {showPreview && <div className="emptyState" onPointerDown={(event) => event.stopPropagation()} onContextMenu={(event) => { event.preventDefault(); event.stopPropagation(); }}><strong>Preview Board</strong><button className="primaryAction" onClick={() => setCreateOpen(true)}><Plus size={16} /> Create Private Board</button><button onClick={async () => { const prefs = preferences ?? await loadPreferences(); await savePreferences({ ...prefs, previewDismissed: true }); setPreviewDismissed(true); }}>Dismiss</button></div>}
       {activeEditPresence(editPresence, presenceNow) && visibleEditPresence(editPresence!, displayBoard, playerRole, playerId, presenceNow) && <div className="editPresenceBadge" role="status">{editPresence!.playerName} is editing this Board Item</div>}
       {warning && <div className="saveError saveWarning" role="status"><CircleAlert size={18} /><span>{warning}</span><button aria-label="Dismiss warning" onClick={() => setWarning(undefined)}><X size={16} /></button></div>}

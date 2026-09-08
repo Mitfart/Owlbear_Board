@@ -55,7 +55,7 @@ The extension is loaded from its `manifest.json`, the standard Owlbear Rodeo ext
 
 Use Owl-Boards as a compact **Kanban board**, a reusable **character sheet**, a GM reference panel, a party resource tracker, or a visual session dashboard. Board items are independent of Owlbear scene objects, so the board stays focused on the information your group needs.
 
-Board data is stored in Owlbear metadata: Scene Boards, including private boards, are stored in scene metadata. Room Boards use room metadata as their authoritative registry and are carried into ready scenes. Player metadata retains only the current player’s active Room Board IDs. Local storage provides a fallback outside Owlbear Rodeo. Shared edits use the latest saved version, so coordinate with your table when editing the same item at once.
+Each Scene Board is stored as an extension-owned hidden Scene Data Item. Room Board state follows the room between ready scenes, while player metadata retains only user preferences and open-board order. The extension has no browser-local persistence fallback. Shared edits are last-write-wins, so coordinate with your table when editing the same item at once.
 
 ## Screenshots
 

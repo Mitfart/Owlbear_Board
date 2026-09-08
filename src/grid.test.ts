@@ -50,13 +50,11 @@ describe("grid occupancy", () => {
   it("derives occupancy from bounds after moving an item", () => {
     const moved = updateBoardItemPosition(item({}), 5, 6);
     expect(boardItemCells(moved)).toEqual(makeRectCells(5, 6, 2, 2));
-    expect("occupiedCells" in moved).toBe(false);
   });
 
   it("derives occupancy from bounds after resizing an item", () => {
     const resized = updateBoardItemRect(item({}), 1, 1, 4, 3);
     expect(boardItemCells(resized)).toEqual(makeRectCells(1, 1, 4, 3));
-    expect("occupiedCells" in resized).toBe(false);
   });
 
   it("uses bounds for selection", () => {

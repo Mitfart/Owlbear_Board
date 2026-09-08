@@ -4,6 +4,7 @@ import type React from "react";
 import type { Theme } from "@owlbear-rodeo/sdk";
 import type { CSSProperties } from "react";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { BOARD_DATA_LIMIT_BYTES, DEFAULT_CELL_GAP, DEFAULT_CELL_SIZE, DEFAULT_COUNTER_MAX_COLOR, DEFAULT_COUNTER_ZERO_COLOR, DEFAULT_ITEM_BORDER_COLOR, DEFAULT_WINDOW, EXTENSION_ID, BOARD_EVENT_CHANNEL, EDIT_PRESENCE_CHANNEL, MAX_CELL_GAP, MAX_CELL_SIZE, MIN_CELL_GAP, MIN_CELL_SIZE } from "./constants";
 import { boardItemAt, collides, updateBoardItemRect } from "./grid";
 import { createId, nowIso } from "./ids";
@@ -32,16 +33,26 @@ function ColorPicker({ value, defaultColor = DEFAULT_ITEM_BORDER_COLOR, onChange
   const [open, setOpen] = useState(false);
   const { customColors, onCustomColor } = useContext(ColorPickerPreferences);
   const pickerRef = useRef<HTMLSpanElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number }>();
   const colors = [...OWLBEAR_COLORS, ...customColors.filter((color) => !OWLBEAR_COLORS.some((paletteColor) => paletteColor.toLowerCase() === color.toLowerCase()))];
   useEffect(() => {
     if (!open) return;
-    const closeOnOutsidePointer = (event: PointerEvent) => { if (event.target instanceof Node && !pickerRef.current?.contains(event.target)) setOpen(false); };
+    const updatePosition = () => {
+      const rect = pickerRef.current?.getBoundingClientRect();
+      if (rect) setMenuPosition({ top: rect.bottom + 6, left: rect.left });
+    };
+    const closeOnOutsidePointer = (event: PointerEvent) => { if (event.target instanceof Node && !pickerRef.current?.contains(event.target) && !menuRef.current?.contains(event.target)) setOpen(false); };
     const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") setOpen(false); };
+    updatePosition();
     document.addEventListener("pointerdown", closeOnOutsidePointer, true);
     document.addEventListener("keydown", closeOnEscape);
-    return () => { document.removeEventListener("pointerdown", closeOnOutsidePointer, true); document.removeEventListener("keydown", closeOnEscape); };
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => { document.removeEventListener("pointerdown", closeOnOutsidePointer, true); document.removeEventListener("keydown", closeOnEscape); window.removeEventListener("resize", updatePosition); window.removeEventListener("scroll", updatePosition, true); };
   }, [open]);
-  return <span ref={pickerRef} className="owlbearColorPicker"><button type="button" aria-label={`Color ${value}`} aria-expanded={open} disabled={disabled} onClick={() => setOpen((current) => !current)}><span style={{ backgroundColor: value }} /></button>{open && <div className="owlbearColorMenu" role="menu">{colors.map((color) => { const selected = color.toLowerCase() === value.toLowerCase(); return <button key={color} type="button" role="menuitemradio" aria-label={color} aria-checked={selected} onClick={() => { onChange(selected ? defaultColor : color); setOpen(false); }}><span style={{ backgroundColor: color }} /></button>; })}<label title="Choose custom color" aria-label="Custom color"><Plus size={18} /><input type="color" value={value} onChange={(event) => { onChange(event.target.value); onCustomColor(event.target.value); setOpen(false); }} /></label></div>}</span>;
+  const menu = open && menuPosition && createPortal(<div ref={menuRef} className="owlbearColorMenu" role="menu" style={menuPosition}>{colors.map((color) => { const selected = color.toLowerCase() === value.toLowerCase(); return <button key={color} type="button" role="menuitemradio" aria-label={color} aria-checked={selected} onClick={() => { onChange(selected ? defaultColor : color); setOpen(false); }}><span style={{ backgroundColor: color }} /></button>; })}<label title="Choose custom color" aria-label="Custom color"><Plus size={18} /><input type="color" value={value} onChange={(event) => { onChange(event.target.value); onCustomColor(event.target.value); setOpen(false); }} /></label></div>, document.body);
+  return <span ref={pickerRef} className="owlbearColorPicker"><button type="button" aria-label={`Color ${value}`} aria-expanded={open} disabled={disabled} onClick={() => setOpen((current) => !current)}><span style={{ backgroundColor: value }} /></button>{menu}</span>;
 }
 
 const DEFAULT_ZOOM = 0.6;

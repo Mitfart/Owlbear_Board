@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BOARD_EVENT_CHANNEL, BOARD_STATE_KEY, ROOM_BOARD_STATE_KEY } from "./constants";
-import { carryRoomBoardsToCurrentScene, clearAllBoardData, deleteBoard, loadAllVisibleBoards, normalizeBoardState, saveBoard } from "./storage";
+import { carryRoomBoardsToCurrentScene, clearAllBoardData, deleteBoard, loadAllVisibleBoards, loadPreferences, normalizeBoardState, saveBoard, savePreferences } from "./storage";
 
 let playerMetadata: Record<string, unknown>;
 let roomMetadata: Record<string, unknown>;
@@ -86,5 +86,13 @@ describe("board storage", () => {
   it("normalizes invalid grid values and applies current defaults", () => {
     const current = board({ items: [{ id: "item", type: "text", gridX: Infinity, gridY: 3.5, gridWidth: Infinity, gridHeight: -1, updatedAt: "" }] }) as unknown as import("./types").Board;
     expect(normalizeBoardState({ version: 1, boards: [current] }).boards[0].items[0]).toEqual(expect.objectContaining({ gridX: 0, gridY: 3, gridWidth: 1, gridHeight: 1, fontSize: 16, textColor: "#ffffff" }));
+  });
+
+  it("retains an editable color palette when a stale preference save follows it", async () => {
+    const preferences = await loadPreferences();
+    await savePreferences({ ...preferences, colorPalette: ["#123456"] });
+    await savePreferences({ ...preferences, textAlignment: 2 });
+
+    await expect(loadPreferences()).resolves.toEqual(expect.objectContaining({ colorPalette: ["#123456"], textAlignment: 2 }));
   });
 });

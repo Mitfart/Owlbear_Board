@@ -12,6 +12,7 @@ export { orderPrivateBoards } from "./boardSession";
 
 const emptyState = (): PersistedBoardState => ({ version: 1, boards: [] });
 const emptyPreferences = (): PlayerPreferences => ({ version: 1, privateSceneOpenOrder: {}, privateRoomOpenOrder: {}, viewportByBoardId: {} });
+let preferencesSaveQueue = Promise.resolve();
 
 function normalizedGridValue(value: unknown, fallback: number, minimum?: number) {
   const number = Number(value);
@@ -200,7 +201,16 @@ export async function clearAllBoardData() {
 }
 
 export async function loadPreferences() { return playerMetadata<PlayerPreferences>(PLAYER_PREFERENCES_KEY, emptyPreferences()); }
-export async function savePreferences(preferences: PlayerPreferences) { await setPlayerMetadata(PLAYER_PREFERENCES_KEY, preferences); }
+export async function savePreferences(preferences: PlayerPreferences) {
+  const save = preferencesSaveQueue.then(async () => {
+    const current = await loadPreferences();
+    const next = { ...current, ...preferences };
+    if (preferences.colorPalette === undefined && current.colorPalette !== undefined) next.colorPalette = current.colorPalette;
+    await setPlayerMetadata(PLAYER_PREFERENCES_KEY, next);
+  });
+  preferencesSaveQueue = save.catch(() => undefined);
+  await save;
+}
 export async function saveViewport(boardId: string, viewport: ViewportPreference) {
   const preferences = await loadPreferences();
   await savePreferences({ ...preferences, viewportByBoardId: { ...preferences.viewportByBoardId, [boardId]: viewport } });

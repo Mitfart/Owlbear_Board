@@ -1038,14 +1038,15 @@ input[type="radio"] {
 .owlbearColorPicker > button:hover,
 .owlbearColorMenu > label:hover { background: rgba(255, 255, 255, 0.08); }
 .owlbearColorPicker > button > span,
-.owlbearColorMenu > button > span {
+.colorPalette > button > span {
   width: 20px;
   height: 20px;
   border: 0;
   border-radius: 50%;
 }
 
-.owlbearColorMenu > button {
+.owlbearColorMenu > button,
+.colorPalette > button {
   display: grid;
   place-items: center;
   width: 32px;
@@ -1057,25 +1058,124 @@ input[type="radio"] {
   cursor: pointer;
 }
 
-.owlbearColorMenu > button > span { transition: transform 150ms ease; }
-.owlbearColorMenu > button:hover > span { transform: scale(1.2); outline: 2px solid rgba(255, 255, 255, 0.7); outline-offset: 2px; }
+.colorPalette > button > span { transition: transform 150ms ease; }
+.colorPalette > button:hover > span { transform: scale(1.2); outline: 2px solid rgba(255, 255, 255, 0.7); outline-offset: 2px; }
 
 .owlbearColorMenu {
   position: fixed;
   z-index: 40;
-  display: grid;
-  grid-template-columns: repeat(4, 32px);
-  gap: 2px;
+  min-width: 152px;
   padding: 12px;
   border-radius: 16px;
-  background-color: rgba(30, 34, 49, 0.75);
+  background-color: rgba(30, 34, 49, 0.92);
   background-image: linear-gradient(rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.08));
   box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.2), 0 4px 5px rgba(0, 0, 0, 0.14), 0 1px 10px rgba(0, 0, 0, 0.12);
   backdrop-filter: blur(30px);
 }
 
-.owlbearColorMenu label { position: relative; }
-.owlbearColorMenu label input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.colorPalette {
+  display: grid;
+  grid-template-columns: repeat(4, 32px);
+  gap: 2px;
+}
+
+.customColorButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 8px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.customColorEditor {
+  display: flex;
+  flex-direction: column;
+  width: 232px;
+  gap: 12px;
+}
+
+.colorSaturation {
+  position: relative;
+  height: 150px;
+  overflow: hidden;
+  border-radius: 8px;
+  background-image: linear-gradient(to right, #fff, transparent), linear-gradient(to top, #000, transparent);
+}
+
+.colorInteractive {
+  position: absolute;
+  inset: 0;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.colorPointer {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  transform: translate(-50%, -50%);
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+}
+
+.colorPointer > span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.colorHue {
+  width: 100%;
+  height: 12px;
+  margin: 0;
+  appearance: none;
+  border-radius: 999px;
+  background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
+  cursor: pointer;
+}
+
+.colorHue::-webkit-slider-thumb {
+  width: 16px;
+  height: 16px;
+  appearance: none;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+.colorHexInput {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--panel-soft);
+  color: var(--text);
+  font: inherit;
+  text-transform: uppercase;
+}
+
+.customColorActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.customColorActions button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 50%;
+}
 
 .owlbearFontSizePicker {
   display: flex;

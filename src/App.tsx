@@ -1,5 +1,5 @@
 import OBR from "@owlbear-rodeo/sdk";
-import { AlignCenter, AlignJustify, AlignLeft, AlignRight, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalJustifyStart, Bold, ChevronDown, CircleAlert, Grip, ImagePlus, Italic, Maximize2, Minus, PanelsTopLeft, Pencil, Plus, Save, Settings, Trash2, Type, X } from "lucide-react";
+import { AlignCenter, AlignJustify, AlignLeft, AlignRight, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalJustifyStart, Bold, Check, ChevronDown, CircleAlert, Grip, ImagePlus, Italic, Maximize2, Minus, PanelsTopLeft, Pencil, Plus, Save, Settings, Trash2, Type, X } from "lucide-react";
 import type React from "react";
 import type { Theme } from "@owlbear-rodeo/sdk";
 import type { CSSProperties } from "react";
@@ -7,6 +7,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { createPortal } from "react-dom";
 import { BOARD_DATA_LIMIT_BYTES, DEFAULT_CELL_GAP, DEFAULT_CELL_SIZE, DEFAULT_COUNTER_MAX_COLOR, DEFAULT_COUNTER_ZERO_COLOR, DEFAULT_ITEM_BORDER_COLOR, DEFAULT_WINDOW, EXTENSION_ID, BOARD_EVENT_CHANNEL, EDIT_PRESENCE_CHANNEL, MAX_CELL_GAP, MAX_CELL_SIZE, MIN_CELL_GAP, MIN_CELL_SIZE } from "./constants";
 import { boardItemAt, collides, updateBoardItemRect } from "./grid";
+import { clampColorValue, hexToHsv, hsvToHex, type HsvColor } from "./color";
 import { createId, nowIso } from "./ids";
 import { MarkdownView, toggleTaskMarkdown } from "./markdown";
 import { resizeAction } from "./owlbear";
@@ -31,11 +32,22 @@ const ColorPickerPreferences = createContext({ customColors: [] as string[], onC
 
 function ColorPicker({ value, defaultColor = DEFAULT_ITEM_BORDER_COLOR, onChange, disabled = false }: { value: string; defaultColor?: string; onChange: (value: string) => void; disabled?: boolean }) {
   const [open, setOpen] = useState(false);
+  const [customEditorOpen, setCustomEditorOpen] = useState(false);
+  const [customHsv, setCustomHsv] = useState<HsvColor>(() => hexToHsv(value) ?? { hue: 0, saturation: 0, value: 100 });
+  const [customHex, setCustomHex] = useState(value);
   const { customColors, onCustomColor } = useContext(ColorPickerPreferences);
   const pickerRef = useRef<HTMLSpanElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const [menuPosition, setMenuPosition] = useState<{ top: number; left: number }>();
   const colors = [...OWLBEAR_COLORS, ...customColors.filter((color) => !OWLBEAR_COLORS.some((paletteColor) => paletteColor.toLowerCase() === color.toLowerCase()))];
+  const previewColor = hsvToHex(customHsv);
+  const beginCustomColor = () => {
+    const hsv = hexToHsv(value) ?? { hue: 0, saturation: 0, value: 100 };
+    setCustomHsv(hsv);
+    setCustomHex(hsvToHex(hsv));
+    setCustomEditorOpen(true);
+  };
+  const updateCustomHsv = (next: HsvColor) => { setCustomHsv(next); setCustomHex(hsvToHex(next)); };
   useEffect(() => {
     if (!open) return;
     const updatePosition = () => {
@@ -51,8 +63,8 @@ function ColorPicker({ value, defaultColor = DEFAULT_ITEM_BORDER_COLOR, onChange
     window.addEventListener("scroll", updatePosition, true);
     return () => { document.removeEventListener("pointerdown", closeOnOutsidePointer, true); document.removeEventListener("keydown", closeOnEscape); window.removeEventListener("resize", updatePosition); window.removeEventListener("scroll", updatePosition, true); };
   }, [open]);
-  const menu = open && menuPosition && createPortal(<div ref={menuRef} className="owlbearColorMenu" role="menu" style={menuPosition}>{colors.map((color) => { const selected = color.toLowerCase() === value.toLowerCase(); return <button key={color} type="button" role="menuitemradio" aria-label={color} aria-checked={selected} onClick={() => { onChange(selected ? defaultColor : color); setOpen(false); }}><span style={{ backgroundColor: color }} /></button>; })}<label title="Choose custom color" aria-label="Custom color"><Plus size={18} /><input type="color" value={value} onChange={(event) => { onChange(event.target.value); onCustomColor(event.target.value); setOpen(false); }} /></label></div>, document.body);
-  return <span ref={pickerRef} className="owlbearColorPicker"><button type="button" aria-label={`Color ${value}`} aria-expanded={open} disabled={disabled} onClick={() => setOpen((current) => !current)}><span style={{ backgroundColor: value }} /></button>{menu}</span>;
+  const menu = open && menuPosition && createPortal(<div ref={menuRef} className="owlbearColorMenu" role="menu" style={menuPosition}>{customEditorOpen ? <div className="customColorEditor"><div className="colorSaturation" style={{ backgroundColor: `hsl(${customHsv.hue} 100% 50%)` }}><div aria-label="Color" aria-valuetext={`Saturation ${Math.round(customHsv.saturation)}%, Brightness ${Math.round(customHsv.value)}%`} className="colorInteractive" role="slider" tabIndex={0} onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); const rect = event.currentTarget.getBoundingClientRect(); updateCustomHsv({ ...customHsv, saturation: clampColorValue((event.clientX - rect.left) / rect.width * 100, 0, 100), value: clampColorValue((rect.bottom - event.clientY) / rect.height * 100, 0, 100) }); }} onPointerMove={(event) => { if (!event.currentTarget.hasPointerCapture(event.pointerId)) return; const rect = event.currentTarget.getBoundingClientRect(); updateCustomHsv({ ...customHsv, saturation: clampColorValue((event.clientX - rect.left) / rect.width * 100, 0, 100), value: clampColorValue((rect.bottom - event.clientY) / rect.height * 100, 0, 100) }); }}><span className="colorPointer colorSaturationPointer" style={{ top: `${100 - customHsv.value}%`, left: `${customHsv.saturation}%` }}><span style={{ backgroundColor: previewColor }} /></span></div></div><input aria-label="Hue" className="colorHue" type="range" min="0" max="360" value={customHsv.hue} onChange={(event) => updateCustomHsv({ ...customHsv, hue: Number(event.target.value) })} /><input aria-label="Hex value" className="colorHexInput" spellCheck={false} value={customHex} onChange={(event) => { const next = event.target.value; setCustomHex(next); const hsv = hexToHsv(next); if (hsv) setCustomHsv(hsv); }} /><div className="customColorActions"><button type="button" aria-label="Cancel custom color" title="Cancel" onClick={() => setCustomEditorOpen(false)}><X size={18} /></button><button type="button" aria-label="Save custom color" title="Save" disabled={!hexToHsv(customHex)} onClick={() => { onChange(previewColor); onCustomColor(previewColor); setOpen(false); setCustomEditorOpen(false); }}><Check size={18} /></button></div></div> : <><div className="colorPalette">{colors.map((color) => { const selected = color.toLowerCase() === value.toLowerCase(); return <button key={color} type="button" role="menuitemradio" aria-label={color} aria-checked={selected} onClick={() => { onChange(selected ? defaultColor : color); setOpen(false); }}><span style={{ backgroundColor: color }} /></button>; })}</div><button type="button" className="customColorButton" onClick={beginCustomColor}><Plus size={16} /> Custom color</button></>}</div>, document.body);
+  return <span ref={pickerRef} className="owlbearColorPicker"><button type="button" aria-label={`Color ${value}`} aria-expanded={open} disabled={disabled} onClick={() => { if (!open) setCustomEditorOpen(false); setOpen((current) => !current); }}><span style={{ backgroundColor: value }} /></button>{menu}</span>;
 }
 
 const DEFAULT_ZOOM = 0.6;

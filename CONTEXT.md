@@ -32,6 +32,10 @@ _Avoid_: Token counter, tracker
 The non-negative whole number displayed by a Counter Board Item.
 _Avoid_: Count, actual number
 
+**Counter Minimum**:
+The optional lower bound on a Counter Value.
+_Avoid_: Min value, floor
+
 **Counter Maximum**:
 The optional upper bound on a Counter Value.
 _Avoid_: Max value, limit

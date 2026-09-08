@@ -1077,17 +1077,17 @@ input[type="radio"] {
   display: grid;
   grid-template-columns: repeat(4, 32px);
   gap: 2px;
+  max-height: 168px;
+  overflow-y: auto;
 }
 
 .customColorButton {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  width: 100%;
+  width: 32px;
+  margin-inline: auto;
   margin-top: 8px;
-  border-radius: 8px;
-  font-size: 12px;
 }
 
 .customColorEditor {

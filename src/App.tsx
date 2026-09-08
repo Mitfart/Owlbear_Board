@@ -28,26 +28,46 @@ type ImageEdit = { itemId: string; url: string; borderColor: string; imageFit: "
 type CounterEdit = { itemId: string; label: string; labelPosition: NonNullable<BoardItem["counterLabelPosition"]>; value: string; max: string; borderColor: string; zeroColorEnabled: boolean; zeroColor: string; maxColorEnabled: boolean; maxColor: string; dimAtZero: boolean };
 
 const OWLBEAR_COLORS = ["#1a6aff", "#ff7433", "#ff4d4d", "#ffd433", "#B07126", "#884dff", "#85ff66", "#519E00", "#eb8aff", "#44e0f1", "#0e0f16", "#222222", "#5a5a5a", "#b3b3b3", "#ffffff"];
-const ColorPickerPreferences = createContext({ customColors: [] as string[], onCustomColor: (_color: string) => {} });
+const ColorPickerPreferences = createContext({ paletteColors: [] as string[], onAddColor: (_color: string) => {}, onUpdateColor: (_previous: string, _next: string) => {}, onDeleteColor: (_color: string) => {} });
+
+function paletteForPreferences(preferences?: PlayerPreferences) {
+  if (preferences?.colorPalette) return preferences.colorPalette;
+  return [...new Map([...OWLBEAR_COLORS, ...(preferences?.customColors ?? [])].map((color) => [color.toLowerCase(), color] as const)).values()];
+}
 
 function ColorPicker({ value, defaultColor = DEFAULT_ITEM_BORDER_COLOR, onChange, disabled = false }: { value: string; defaultColor?: string; onChange: (value: string) => void; disabled?: boolean }) {
   const [open, setOpen] = useState(false);
   const [customEditorOpen, setCustomEditorOpen] = useState(false);
   const [customHsv, setCustomHsv] = useState<HsvColor>(() => hexToHsv(value) ?? { hue: 0, saturation: 0, value: 100 });
   const [customHex, setCustomHex] = useState(value);
-  const { customColors, onCustomColor } = useContext(ColorPickerPreferences);
+  const [editingPaletteColor, setEditingPaletteColor] = useState<string>();
+  const { paletteColors, onAddColor, onUpdateColor, onDeleteColor } = useContext(ColorPickerPreferences);
   const pickerRef = useRef<HTMLSpanElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const paletteClickTimer = useRef<number | undefined>(undefined);
   const [menuPosition, setMenuPosition] = useState<{ top: number; left: number }>();
-  const colors = [...OWLBEAR_COLORS, ...customColors.filter((color) => !OWLBEAR_COLORS.some((paletteColor) => paletteColor.toLowerCase() === color.toLowerCase()))];
   const previewColor = hsvToHex(customHsv);
-  const beginCustomColor = () => {
-    const hsv = hexToHsv(value) ?? { hue: 0, saturation: 0, value: 100 };
+  const beginCustomColor = (color = value, paletteColor?: string) => {
+    const hsv = hexToHsv(color) ?? { hue: 0, saturation: 0, value: 100 };
     setCustomHsv(hsv);
     setCustomHex(hsvToHex(hsv));
+    setEditingPaletteColor(paletteColor);
     setCustomEditorOpen(true);
   };
   const updateCustomHsv = (next: HsvColor) => { setCustomHsv(next); setCustomHex(hsvToHex(next)); };
+  const choosePaletteColor = (color: string) => {
+    if (paletteClickTimer.current !== undefined) return;
+    paletteClickTimer.current = window.setTimeout(() => {
+      const selected = color.toLowerCase() === value.toLowerCase();
+      onChange(selected ? defaultColor : color);
+      setOpen(false);
+      paletteClickTimer.current = undefined;
+    }, 250);
+  };
+  const editPaletteColor = (color: string) => {
+    if (paletteClickTimer.current !== undefined) { window.clearTimeout(paletteClickTimer.current); paletteClickTimer.current = undefined; }
+    beginCustomColor(color, color);
+  };
   useEffect(() => {
     if (!open) return;
     const updatePosition = () => {
@@ -61,9 +81,9 @@ function ColorPicker({ value, defaultColor = DEFAULT_ITEM_BORDER_COLOR, onChange
     document.addEventListener("keydown", closeOnEscape);
     window.addEventListener("resize", updatePosition);
     window.addEventListener("scroll", updatePosition, true);
-    return () => { document.removeEventListener("pointerdown", closeOnOutsidePointer, true); document.removeEventListener("keydown", closeOnEscape); window.removeEventListener("resize", updatePosition); window.removeEventListener("scroll", updatePosition, true); };
+    return () => { if (paletteClickTimer.current !== undefined) window.clearTimeout(paletteClickTimer.current); document.removeEventListener("pointerdown", closeOnOutsidePointer, true); document.removeEventListener("keydown", closeOnEscape); window.removeEventListener("resize", updatePosition); window.removeEventListener("scroll", updatePosition, true); };
   }, [open]);
-  const menu = open && menuPosition && createPortal(<div ref={menuRef} className="owlbearColorMenu" role="menu" style={menuPosition}>{customEditorOpen ? <div className="customColorEditor"><div className="colorSaturation" style={{ backgroundColor: `hsl(${customHsv.hue} 100% 50%)` }}><div aria-label="Color" aria-valuetext={`Saturation ${Math.round(customHsv.saturation)}%, Brightness ${Math.round(customHsv.value)}%`} className="colorInteractive" role="slider" tabIndex={0} onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); const rect = event.currentTarget.getBoundingClientRect(); updateCustomHsv({ ...customHsv, saturation: clampColorValue((event.clientX - rect.left) / rect.width * 100, 0, 100), value: clampColorValue((rect.bottom - event.clientY) / rect.height * 100, 0, 100) }); }} onPointerMove={(event) => { if (!event.currentTarget.hasPointerCapture(event.pointerId)) return; const rect = event.currentTarget.getBoundingClientRect(); updateCustomHsv({ ...customHsv, saturation: clampColorValue((event.clientX - rect.left) / rect.width * 100, 0, 100), value: clampColorValue((rect.bottom - event.clientY) / rect.height * 100, 0, 100) }); }}><span className="colorPointer colorSaturationPointer" style={{ top: `${100 - customHsv.value}%`, left: `${customHsv.saturation}%` }}><span style={{ backgroundColor: previewColor }} /></span></div></div><input aria-label="Hue" className="colorHue" type="range" min="0" max="360" value={customHsv.hue} onChange={(event) => updateCustomHsv({ ...customHsv, hue: Number(event.target.value) })} /><input aria-label="Hex value" className="colorHexInput" spellCheck={false} value={customHex} onChange={(event) => { const next = event.target.value; setCustomHex(next); const hsv = hexToHsv(next); if (hsv) setCustomHsv(hsv); }} /><div className="customColorActions"><button type="button" aria-label="Cancel custom color" title="Cancel" onClick={() => setCustomEditorOpen(false)}><X size={18} /></button><button type="button" aria-label="Save custom color" title="Save" disabled={!hexToHsv(customHex)} onClick={() => { onChange(previewColor); onCustomColor(previewColor); setOpen(false); setCustomEditorOpen(false); }}><Check size={18} /></button></div></div> : <><div className="colorPalette">{colors.map((color) => { const selected = color.toLowerCase() === value.toLowerCase(); return <button key={color} type="button" role="menuitemradio" aria-label={color} aria-checked={selected} onClick={() => { onChange(selected ? defaultColor : color); setOpen(false); }}><span style={{ backgroundColor: color }} /></button>; })}</div><button type="button" className="customColorButton" onClick={beginCustomColor}><Plus size={16} /> Custom color</button></>}</div>, document.body);
+  const menu = open && menuPosition && createPortal(<div ref={menuRef} className="owlbearColorMenu" role="menu" style={menuPosition}>{customEditorOpen ? <div className="customColorEditor"><div className="colorSaturation" style={{ backgroundColor: `hsl(${customHsv.hue} 100% 50%)` }}><div aria-label="Color" aria-valuetext={`Saturation ${Math.round(customHsv.saturation)}%, Brightness ${Math.round(customHsv.value)}%`} className="colorInteractive" role="slider" tabIndex={0} onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); const rect = event.currentTarget.getBoundingClientRect(); updateCustomHsv({ ...customHsv, saturation: clampColorValue((event.clientX - rect.left) / rect.width * 100, 0, 100), value: clampColorValue((rect.bottom - event.clientY) / rect.height * 100, 0, 100) }); }} onPointerMove={(event) => { if (!event.currentTarget.hasPointerCapture(event.pointerId)) return; const rect = event.currentTarget.getBoundingClientRect(); updateCustomHsv({ ...customHsv, saturation: clampColorValue((event.clientX - rect.left) / rect.width * 100, 0, 100), value: clampColorValue((rect.bottom - event.clientY) / rect.height * 100, 0, 100) }); }}><span className="colorPointer colorSaturationPointer" style={{ top: `${100 - customHsv.value}%`, left: `${customHsv.saturation}%` }}><span style={{ backgroundColor: previewColor }} /></span></div></div><input aria-label="Hue" className="colorHue" type="range" min="0" max="360" value={customHsv.hue} onChange={(event) => updateCustomHsv({ ...customHsv, hue: Number(event.target.value) })} /><input aria-label="Hex value" className="colorHexInput" spellCheck={false} value={customHex} onChange={(event) => { const next = event.target.value; setCustomHex(next); const hsv = hexToHsv(next); if (hsv) setCustomHsv(hsv); }} /><div className="customColorActions"><button type="button" aria-label="Cancel custom color" title="Cancel" onClick={() => setCustomEditorOpen(false)}><X size={18} /></button>{editingPaletteColor && <button type="button" aria-label="Delete color" title="Delete" onClick={() => { onDeleteColor(editingPaletteColor); setCustomEditorOpen(false); }}><Trash2 size={18} /></button>}<button type="button" aria-label="Save custom color" title="Save" disabled={!hexToHsv(customHex)} onClick={() => { onChange(previewColor); if (editingPaletteColor) onUpdateColor(editingPaletteColor, previewColor); else onAddColor(previewColor); setOpen(false); setCustomEditorOpen(false); }}><Check size={18} /></button></div></div> : <><div className="colorPalette">{paletteColors.map((color) => <button key={color} type="button" role="menuitemradio" aria-label={color} aria-checked={color.toLowerCase() === value.toLowerCase()} onClick={() => choosePaletteColor(color)} onDoubleClick={() => editPaletteColor(color)}><span style={{ backgroundColor: color }} /></button>)}</div><button type="button" className="customColorButton" aria-label="Add custom color" title="Add custom color" onClick={() => beginCustomColor()}><Plus size={16} /></button></>}</div>, document.body);
   return <span ref={pickerRef} className="owlbearColorPicker"><button type="button" aria-label={`Color ${value}`} aria-expanded={open} disabled={disabled} onClick={() => { if (!open) setCustomEditorOpen(false); setOpen((current) => !current); }}><span style={{ backgroundColor: value }} /></button>{menu}</span>;
 }
 
@@ -184,15 +204,16 @@ export default function App() {
   const [panning, setPanning] = useState<{ x: number; y: number }>();
   const [theme, setTheme] = useState<Theme>(FALLBACK_THEME);
 
-  const rememberCustomColor = useCallback(async (color: string) => {
-    const normalized = color.toLowerCase();
-    if (OWLBEAR_COLORS.some((paletteColor) => paletteColor.toLowerCase() === normalized)) return;
+  const updateColorPalette = useCallback(async (update: (palette: string[]) => string[]) => {
     const current = preferences ?? await loadPreferences();
-    const customColors = [...new Set([...(current.customColors ?? []).map((entry) => entry.toLowerCase()), normalized])].slice(-12);
-    const next = { ...current, customColors };
+    const palette = update(paletteForPreferences(current));
+    const next = { ...current, colorPalette: palette };
     setPreferences(next);
     await savePreferences(next);
   }, [preferences]);
+  const addPaletteColor = useCallback((color: string) => void updateColorPalette((palette) => palette.some((entry) => entry.toLowerCase() === color.toLowerCase()) ? palette : [...palette, color.toLowerCase()]), [updateColorPalette]);
+  const updatePaletteColor = useCallback((previous: string, next: string) => void updateColorPalette((palette) => palette.map((entry) => entry.toLowerCase() === previous.toLowerCase() ? next.toLowerCase() : entry).filter((entry, index, values) => values.findIndex((candidate) => candidate.toLowerCase() === entry.toLowerCase()) === index)), [updateColorPalette]);
+  const deletePaletteColor = useCallback((color: string) => void updateColorPalette((palette) => palette.filter((entry) => entry.toLowerCase() !== color.toLowerCase())), [updateColorPalette]);
   const gridRef = useRef<HTMLDivElement>(null);
   const focusTextarea = useRef<HTMLTextAreaElement>(null);
   const previewContent = useRef<HTMLDivElement>(null);
@@ -709,7 +730,7 @@ export default function App() {
   const showBoardActions = !!activeBoard;
   if (!ready) return <div className="loading">Loading Board...</div>;
 
-  return <ColorPickerPreferences.Provider value={{ customColors: preferences?.customColors ?? [], onCustomColor: rememberCustomColor }}><main className="app" style={{ width: windowSize.width, height: windowSize.height, ...themeVars }}>
+  return <ColorPickerPreferences.Provider value={{ paletteColors: paletteForPreferences(preferences), onAddColor: addPaletteColor, onUpdateColor: updatePaletteColor, onDeleteColor: deletePaletteColor }}><main className="app" style={{ width: windowSize.width, height: windowSize.height, ...themeVars }}>
     <header className="toolbar"><div className="boardTitle">{activeBoard && <button className="boardToggle" title="Board settings" onClick={() => { setBoardPanelBoard(undefined); setBoardPanelPosition(undefined); setBoardPanelOpen((value) => !value); }}><Settings size={16} /></button>}<button className={`boardToggle ${manageBoardsOpen ? "active" : ""}`} title="Manage Boards" aria-label="Manage Boards" onClick={() => { setManageBoardsOpen(true); setBoardPanelOpen(false); }}><PanelsTopLeft size={16} /></button><div className="boardTabs" onPointerDown={startTabDrag} onPointerMove={moveTabDrag} onPointerUp={endTabDrag} onPointerCancel={endTabDrag}>{openBoardIds.flatMap((id) => boards.filter((board) => board.id === id)).map((board) => <button key={board.id} className={`boardTab ${board.id === activeBoardId ? "active" : ""}`} onClick={() => void chooseBoard(board)} onContextMenu={(event) => { event.preventDefault(); void chooseBoard(board); setBoardPanelOpen(true); }}>{board.name}<X size={13} onClick={(event) => { event.stopPropagation(); closeBoardTab(board.id); }} /></button>)}</div>{boardPanelOpen && <section className="boardPanel" style={boardPanelPosition ? { left: boardPanelPosition.x, top: boardPanelPosition.y } : undefined}>
       {boardSettings ? <>{!boardSettingsReadOnly && canRenameBoard(boardSettings, playerRole) && <label>Name<input value={boardSettings.name} onChange={(event) => void updateBoardSettings({ name: event.target.value.slice(0, 60) })} /></label>}<div className="boardInlineFields"><label><span>Grid size</span><input disabled={boardSettingsReadOnly} type="number" min={MIN_CELL_SIZE} max={MAX_CELL_SIZE} value={boardSettings.cellSizePx} onChange={(event) => void updateBoardSettings({ cellSizePx: clampNumber(Number(event.target.value), MIN_CELL_SIZE, MAX_CELL_SIZE) })} /></label><label><span>Grid cell gap</span><input disabled={boardSettingsReadOnly} type="number" min={MIN_CELL_GAP} max={MAX_CELL_GAP} value={boardSettings.cellGapPx} onChange={(event) => void updateBoardSettings({ cellGapPx: clampNumber(Number(event.target.value), MIN_CELL_GAP, MAX_CELL_GAP) })} /></label></div>{!boardSettingsReadOnly && boardSettings.visibility === "private" && boardSettings.scope === "room" && <button onClick={() => void movePrivateRoomBoardToScene(boardSettings).then(refresh)}>Move to Scene</button>}{canDeleteBoard(boardSettings, playerRole, playerId) && <button title="Delete board" onClick={() => { if (confirm(`Delete ${boardSettings.name}? This cannot be undone.`)) void deleteBoard(boardSettings).then(async () => { setBoardPanelOpen(false); setBoardPanelBoard(undefined); await refresh(); }); }}><Trash2 size={16} /> Delete Board</button>}</> : <span className="emptyBoardGroup">Open a board or create one from the Boards menu.</span>}
     </section>}{false && boardPickerOpen && <section className="boardPanel boardPicker"><button className="primaryAction" onClick={() => { setCreateOpen(true); setBoardPickerOpen(false); }}><Plus size={16} /> Create Private Board</button><div className="boardGroups"><strong>Shared Boards</strong>{boards.filter((board) => board.visibility === "shared").map((board) => <button key={board.id} onClick={() => void chooseBoard(board)}>{board.name}</button>)}{!boards.some((board) => board.visibility === "shared" && board.scope === "scene") && <button onClick={() => void createShared("scene")}>Shared Scene Board</button>}{!boards.some((board) => board.visibility === "shared" && board.scope === "room") && <button onClick={() => void createShared("room")}>Shared Room Board</button>}<strong>Private Scene Boards</strong>{boards.filter((board) => board.visibility === "private" && board.scope === "scene").map((board) => <button key={board.id} onClick={() => void chooseBoard(board)}>{board.name}</button>)}{!boards.some((board) => board.visibility === "private" && board.scope === "scene") && <span className="emptyBoardGroup">Empty</span>}<strong>Private Room Boards</strong>{boards.filter((board) => board.visibility === "private" && board.scope === "room").map((board) => <button key={board.id} onClick={() => void chooseBoard(board)}>{board.name}</button>)}{!boards.some((board) => board.visibility === "private" && board.scope === "room") && <span className="emptyBoardGroup">Empty</span>}{playerRole === "GM" && <button className="boardGroupButton" onClick={() => { setManageBoardsOpen(true); setBoardPickerOpen(false); }}>Manage Boards</button>}</div></section>}</div><div className="tools">{showBoardActions && <><button disabled={readOnly} title="Save board" onClick={() => void persistBoard(activeBoard!, false, true)}><Save size={16} /> {saveStatus ?? "Save"}</button>{!readOnly && <button title="Add item" onClick={() => { setAddTarget(viewportCenterGrid()); setAddModalOpen(true); }}><Plus size={16} /> Add</button>}</>}<button title="Zoom out" onClick={() => setZoom((value) => clampNumber(value - 0.1, MIN_ZOOM, MAX_ZOOM))}><Minus size={16} /></button><button className="zoom" title="Reset scale" onClick={() => setZoom(DEFAULT_ZOOM)}>{Math.round(zoom * 100)}%</button><button title="Zoom in" onClick={() => setZoom((value) => clampNumber(value + 0.1, MIN_ZOOM, MAX_ZOOM))}><Plus size={16} /></button><button className={debugOpen ? "active" : undefined} title="Open save/load diagnostics" onClick={() => { if (debugOpen) setDebugOpen(false); else void openDebugTab(); }}>Debug</button></div></header>

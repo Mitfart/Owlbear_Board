@@ -65,6 +65,8 @@ export type PlayerPreferences = {
   textAlignment?: 0 | 1 | 2 | 3;
   /** Recently chosen non-palette colors, shared by every Color Picker. */
   customColors?: string[];
+  /** Editable palette shown by every Color Picker. */
+  colorPalette?: string[];
 };
 
 export type WindowPreferences = {

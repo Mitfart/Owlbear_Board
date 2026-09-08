@@ -63,6 +63,8 @@ export type PlayerPreferences = {
   viewportByBoardId: Record<string, ViewportPreference>;
   previewDismissed?: boolean;
   textAlignment?: 0 | 1 | 2 | 3;
+  /** Recently chosen non-palette colors, shared by every Color Picker. */
+  customColors?: string[];
 };
 
 export type WindowPreferences = {

@@ -1022,7 +1022,6 @@ input[type="radio"] {
 }
 
 .owlbearColorPicker > button,
-.owlbearColorMenu > button,
 .owlbearColorMenu > label {
   display: grid;
   place-items: center;
@@ -1037,19 +1036,33 @@ input[type="radio"] {
 }
 
 .owlbearColorPicker > button:hover,
-.owlbearColorMenu > button:hover,
 .owlbearColorMenu > label:hover { background: rgba(255, 255, 255, 0.08); }
 .owlbearColorPicker > button > span,
 .owlbearColorMenu > button > span {
   width: 20px;
   height: 20px;
-  border: 2px solid rgba(255, 255, 255, 0.7);
+  border: 0;
   border-radius: 50%;
 }
 
+.owlbearColorMenu > button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 4px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+}
+
+.owlbearColorMenu > button > span { transition: transform 150ms ease; }
+.owlbearColorMenu > button:hover > span { transform: scale(1.2); }
+
 .owlbearColorMenu {
   position: absolute;
-  z-index: 20;
+  z-index: 30;
   top: calc(100% + 6px);
   left: 0;
   display: grid;
@@ -1063,7 +1076,6 @@ input[type="radio"] {
   backdrop-filter: blur(30px);
 }
 
-.owlbearColorMenu button[aria-checked="true"] > span { outline: 2px solid white; outline-offset: 2px; }
 .owlbearColorMenu label { position: relative; }
 .owlbearColorMenu label input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 

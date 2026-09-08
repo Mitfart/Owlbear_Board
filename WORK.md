@@ -10,3 +10,11 @@
 - [x] [Persist Shared Scene Boards in scene data items](https://github.com/Mitfart/Owlbear_Board/issues/10)
 - [x] [Carry Shared Room Boards across scene transitions](https://github.com/Mitfart/Owlbear_Board/issues/11)
 - [x] [Make Board presentation and editing state reliable](https://github.com/Mitfart/Owlbear_Board/issues/12)
+
+- [ ] [Wayfinder: Board Item editing and presentation reliability](https://github.com/Mitfart/Owlbear_Board/issues/13)
+  - [x] [Implement shared non-modal Color Picker behavior](https://github.com/Mitfart/Owlbear_Board/issues/14)
+    - Implemented shared custom-color preferences, non-modal overlay dismissal, default-color restoration, borderless swatches, and hover scaling. Validation: `npm test` (45 passing) and `npx tsc --noEmit`.
+  - [ ] [Add Counter Minimum bounds and clear border terminology](https://github.com/Mitfart/Owlbear_Board/issues/15)
+  - [ ] [Make Board Item editor changes autosave reliably](https://github.com/Mitfart/Owlbear_Board/issues/16)
+  - [ ] [Repair Text Board Item typography and task list rendering](https://github.com/Mitfart/Owlbear_Board/issues/17)
+  - [ ] [Fix Font Size Picker and suppress redundant board refreshes](https://github.com/Mitfart/Owlbear_Board/issues/18)

@@ -65,7 +65,7 @@ export type PlayerPreferences = {
   textAlignment?: 0 | 1 | 2 | 3;
   /** Recently chosen non-palette colors, shared by every Color Picker. */
   customColors?: string[];
-  /** Editable palette shown by every Color Picker. */
+  /** Editable palette slots: "-" uses the Owlbear default at that index; hex values are custom colors. */
   colorPalette?: string[];
 };
 

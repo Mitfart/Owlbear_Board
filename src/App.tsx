@@ -31,8 +31,16 @@ const OWLBEAR_COLORS = ["#1a6aff", "#ff7433", "#ff4d4d", "#ffd433", "#B07126", "
 const ColorPickerPreferences = createContext({ paletteColors: [] as string[], onAddColor: (_color: string) => {}, onUpdateColor: (_previous: string, _next: string) => {}, onDeleteColor: (_color: string) => {} });
 
 function paletteForPreferences(preferences?: PlayerPreferences) {
-  if (Array.isArray(preferences?.colorPalette)) return preferences.colorPalette.slice(0, 20);
+  if (Array.isArray(preferences?.colorPalette)) {
+    const slots = preferences.colorPalette.slice(0, 20);
+    if (slots.includes("-")) return slots.flatMap((slot, index) => slot === "-" ? OWLBEAR_COLORS[index] ? [OWLBEAR_COLORS[index]] : [] : hexToHsv(slot) ? [slot] : []);
+    return slots;
+  }
   return [...new Map([...OWLBEAR_COLORS, ...(preferences?.customColors ?? [])].map((color) => [color.toLowerCase(), color] as const)).values()].slice(0, 20);
+}
+
+function paletteSlots(colors: string[]) {
+  return colors.slice(0, 20).map((color, index) => OWLBEAR_COLORS[index]?.toLowerCase() === color.toLowerCase() ? "-" : color.toLowerCase());
 }
 
 function ColorPicker({ value, defaultColor = DEFAULT_ITEM_BORDER_COLOR, onChange, disabled = false }: { value: string; defaultColor?: string; onChange: (value: string) => void; disabled?: boolean }) {
@@ -207,7 +215,7 @@ export default function App() {
   const updateColorPalette = useCallback(async (update: (palette: string[]) => string[]) => {
     const current = preferences ?? await loadPreferences();
     const palette = update(paletteForPreferences(current)).slice(0, 20);
-    const next = { ...current, colorPalette: palette };
+    const next = { ...current, colorPalette: paletteSlots(palette) };
     setPreferences(next);
     await savePreferences(next);
   }, [preferences]);

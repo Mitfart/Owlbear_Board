@@ -1035,7 +1035,6 @@ input[type="radio"] {
   cursor: pointer;
 }
 
-.owlbearColorPicker > button:hover,
 .owlbearColorMenu > label:hover { background: rgba(255, 255, 255, 0.08); }
 .owlbearColorPicker > button > span,
 .colorPalette > button > span {
@@ -1058,7 +1057,9 @@ input[type="radio"] {
   cursor: pointer;
 }
 
+.owlbearColorPicker > button > span,
 .colorPalette > button > span { transition: transform 150ms ease; }
+.owlbearColorPicker > button:hover > span,
 .colorPalette > button:hover > span { transform: scale(1.2); outline: 2px solid rgba(255, 255, 255, 0.7); outline-offset: 2px; }
 
 .owlbearColorMenu {

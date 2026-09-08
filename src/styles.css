@@ -1082,12 +1082,7 @@ input[type="radio"] {
 }
 
 .customColorButton {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  margin-inline: auto;
-  margin-top: 8px;
+  margin: 0;
 }
 
 .customColorEditor {

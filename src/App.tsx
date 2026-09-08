@@ -30,9 +30,11 @@ type CounterEdit = { itemId: string; label: string; labelPosition: NonNullable<B
 const OWLBEAR_COLORS = ["#1a6aff", "#ff7433", "#ff4d4d", "#ffd433", "#B07126", "#884dff", "#85ff66", "#519E00", "#eb8aff", "#44e0f1", "#0e0f16", "#222222", "#5a5a5a", "#b3b3b3", "#ffffff"];
 const ColorPickerPreferences = createContext({ paletteColors: [] as string[], onAddColor: (_color: string) => {}, onUpdateColor: (_previous: string, _next: string) => {}, onDeleteColor: (_color: string) => {} });
 
-function paletteForPreferences(preferences?: PlayerPreferences) {
-  if (preferences?.colorPaletteFormat === 2 && Array.isArray(preferences.colorPalette)) {
-    const slots = preferences.colorPalette.slice(0, 20);
+export function paletteForPreferences(preferences?: PlayerPreferences) {
+  const savedPalette = preferences?.colorPalette;
+  const isCurrentPalette = preferences?.colorPaletteFormat === 2 || (preferences?.colorPaletteFormat === undefined && savedPalette?.includes("-"));
+  if (isCurrentPalette && Array.isArray(savedPalette)) {
+    const slots = savedPalette.slice(0, 20);
     return slots.flatMap((slot, index) => slot === "-" ? OWLBEAR_COLORS[index] ? [OWLBEAR_COLORS[index]] : [] : hexToHsv(slot) ? [slot] : []);
   }
   return OWLBEAR_COLORS;

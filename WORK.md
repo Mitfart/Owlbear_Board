@@ -13,7 +13,7 @@
 
 - [ ] [Wayfinder: Board Item editing and presentation reliability](https://github.com/Mitfart/Owlbear_Board/issues/13)
   - [x] [Implement shared non-modal Color Picker behavior](https://github.com/Mitfart/Owlbear_Board/issues/14)
-    - Implemented shared custom-color preferences, non-modal overlay dismissal, default-color restoration, borderless swatches, and hover scaling. Palettes now persist only in the versioned slot format (`"-"` for defaults), while legacy palette formats are ignored; clearing all data removes them. Validation: `npm test` (49 passing) and `npx tsc --noEmit`.
+    - Implemented shared custom-color preferences, non-modal overlay dismissal, default-color restoration, borderless swatches, and hover scaling. Slot palettes with `"-"` defaults load from existing saves; raw legacy palettes are ignored, while newly saved palettes are versioned. Clearing all data removes every palette field. Validation: `npm test` (50 passing) and `npx tsc --noEmit`.
   - [ ] [Add Counter Minimum bounds and clear border terminology](https://github.com/Mitfart/Owlbear_Board/issues/15)
   - [ ] [Make Board Item editor changes autosave reliably](https://github.com/Mitfart/Owlbear_Board/issues/16)
   - [ ] [Repair Text Board Item typography and task list rendering](https://github.com/Mitfart/Owlbear_Board/issues/17)

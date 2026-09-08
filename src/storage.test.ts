@@ -95,4 +95,15 @@ describe("board storage", () => {
 
     await expect(loadPreferences()).resolves.toEqual(expect.objectContaining({ colorPalette: ["#123456"], textAlignment: 2 }));
   });
+
+  it("removes current and legacy palette data when clearing all data", async () => {
+    const preferences = await loadPreferences();
+    await savePreferences({ ...preferences, colorPalette: ["-", "#123456"], colorPaletteFormat: 2, customColors: ["#abcdef"] });
+
+    await clearAllBoardData();
+
+    await expect(loadPreferences()).resolves.not.toHaveProperty("colorPalette");
+    await expect(loadPreferences()).resolves.not.toHaveProperty("colorPaletteFormat");
+    await expect(loadPreferences()).resolves.not.toHaveProperty("customColors");
+  });
 });

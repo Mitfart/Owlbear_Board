@@ -196,16 +196,16 @@ export async function clearAllBoardData() {
   if (!OBR.isAvailable) return;
   await Promise.all([saveSceneBoardState(emptyState()), saveRoomBoardState(emptyState())]);
   await setPlayerMetadata(ROOM_BOARD_IDS_KEY, []);
-  await savePreferences(emptyPreferences());
+  await savePreferences(emptyPreferences(), { replace: true });
   await saveWindowPreferences(DEFAULT_WINDOW);
 }
 
 export async function loadPreferences() { return playerMetadata<PlayerPreferences>(PLAYER_PREFERENCES_KEY, emptyPreferences()); }
-export async function savePreferences(preferences: PlayerPreferences) {
+export async function savePreferences(preferences: PlayerPreferences, options?: { replace?: boolean }) {
   const save = preferencesSaveQueue.then(async () => {
     const current = await loadPreferences();
-    const next = { ...current, ...preferences };
-    if (preferences.colorPalette === undefined && current.colorPalette !== undefined) next.colorPalette = current.colorPalette;
+    const next = options?.replace ? preferences : { ...current, ...preferences };
+    if (!options?.replace && preferences.colorPalette === undefined && current.colorPalette !== undefined) next.colorPalette = current.colorPalette;
     await setPlayerMetadata(PLAYER_PREFERENCES_KEY, next);
   });
   preferencesSaveQueue = save.catch(() => undefined);

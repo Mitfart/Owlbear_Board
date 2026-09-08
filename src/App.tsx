@@ -31,12 +31,11 @@ const OWLBEAR_COLORS = ["#1a6aff", "#ff7433", "#ff4d4d", "#ffd433", "#B07126", "
 const ColorPickerPreferences = createContext({ paletteColors: [] as string[], onAddColor: (_color: string) => {}, onUpdateColor: (_previous: string, _next: string) => {}, onDeleteColor: (_color: string) => {} });
 
 function paletteForPreferences(preferences?: PlayerPreferences) {
-  if (Array.isArray(preferences?.colorPalette)) {
+  if (preferences?.colorPaletteFormat === 2 && Array.isArray(preferences.colorPalette)) {
     const slots = preferences.colorPalette.slice(0, 20);
-    if (slots.includes("-")) return slots.flatMap((slot, index) => slot === "-" ? OWLBEAR_COLORS[index] ? [OWLBEAR_COLORS[index]] : [] : hexToHsv(slot) ? [slot] : []);
-    return slots;
+    return slots.flatMap((slot, index) => slot === "-" ? OWLBEAR_COLORS[index] ? [OWLBEAR_COLORS[index]] : [] : hexToHsv(slot) ? [slot] : []);
   }
-  return [...new Map([...OWLBEAR_COLORS, ...(preferences?.customColors ?? [])].map((color) => [color.toLowerCase(), color] as const)).values()].slice(0, 20);
+  return OWLBEAR_COLORS;
 }
 
 function paletteSlots(colors: string[]) {
@@ -215,7 +214,7 @@ export default function App() {
   const updateColorPalette = useCallback(async (update: (palette: string[]) => string[]) => {
     const current = preferences ?? await loadPreferences();
     const palette = update(paletteForPreferences(current)).slice(0, 20);
-    const next = { ...current, colorPalette: paletteSlots(palette) };
+    const next = { ...current, colorPaletteFormat: 2 as const, colorPalette: paletteSlots(palette) };
     setPreferences(next);
     await savePreferences(next);
   }, [preferences]);

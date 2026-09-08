@@ -63,10 +63,12 @@ export type PlayerPreferences = {
   viewportByBoardId: Record<string, ViewportPreference>;
   previewDismissed?: boolean;
   textAlignment?: 0 | 1 | 2 | 3;
-  /** Recently chosen non-palette colors, shared by every Color Picker. */
+  /** Legacy palette data. It is ignored when loading preferences. */
   customColors?: string[];
   /** Editable palette slots: "-" uses the Owlbear default at that index; hex values are custom colors. */
   colorPalette?: string[];
+  /** Identifies the slot-based color palette format. Unmarked palettes are treated as legacy data. */
+  colorPaletteFormat?: 2;
 };
 
 export type WindowPreferences = {

@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { BOARD_EVENT_CHANNEL, BOARD_STATE_KEY, ROOM_BOARD_STATE_KEY } from "./constants";
+import { BOARD_EVENT_CHANNEL, BOARD_STATE_KEY, PALETTE_TOOL_ID, ROOM_BOARD_STATE_KEY } from "./constants";
 import { carryRoomBoardsToCurrentScene, clearAllBoardData, deleteBoard, loadAllVisibleBoards, loadColorPalette, loadPreferences, normalizeBoardState, saveBoard, saveColorPalette, savePreferences } from "./storage";
 
 let playerMetadata: Record<string, unknown>;
 let toolMetadata: Record<string, unknown>;
+let paletteTool: { id: string; icons: unknown[] } | undefined;
 let roomMetadata: Record<string, unknown>;
 let sceneMetadata: Record<string, unknown>;
 let sceneItems: Array<{ id: string; metadata: Record<string, unknown> }>;
@@ -27,12 +28,12 @@ const board = (overrides: Record<string, unknown> = {}) => ({
 describe("board storage", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
-    playerMetadata = {}; toolMetadata = {}; roomMetadata = {}; sceneMetadata = { "com.owlbear-board.grid/scene-key": "scene" }; sceneItems = [];
+    playerMetadata = {}; toolMetadata = {}; paletteTool = undefined; roomMetadata = {}; sceneMetadata = { "com.owlbear-board.grid/scene-key": "scene" }; sceneItems = [];
     obr.player.getMetadata.mockImplementation(async () => playerMetadata);
     obr.player.setMetadata.mockImplementation(async (update) => { playerMetadata = { ...playerMetadata, ...update }; });
-    obr.tool.create.mockResolvedValue(undefined);
+    obr.tool.create.mockImplementation(async (tool) => { paletteTool = tool; });
     obr.tool.getMetadata.mockImplementation(async () => toolMetadata);
-    obr.tool.setMetadata.mockImplementation(async (_id, update) => { toolMetadata = { ...toolMetadata, ...update }; });
+    obr.tool.setMetadata.mockImplementation(async (_id, update) => { if (paletteTool?.icons.length) toolMetadata = { ...toolMetadata, ...update }; });
     obr.tool.remove.mockImplementation(async () => { toolMetadata = {}; });
     localStorage.clear();
     obr.player.getId.mockResolvedValue("owner"); obr.player.getRole.mockResolvedValue("GM");
@@ -108,7 +109,8 @@ describe("board storage", () => {
     playerMetadata = {};
     localStorage.clear();
 
-    expect(obr.tool.setMetadata).toHaveBeenCalledWith("com.owlbear-board.grid/palette-storage", { palette: { format: 3, slots: ["-", "#123456"] } });
+    expect(obr.tool.create).toHaveBeenCalledWith({ id: PALETTE_TOOL_ID, icons: [{ icon: "icon.svg", label: "Owlbear Board palette storage", filter: { activeTools: [PALETTE_TOOL_ID] } }] });
+    expect(obr.tool.setMetadata).toHaveBeenCalledWith(PALETTE_TOOL_ID, { palette: { format: 3, slots: ["-", "#123456"] } });
     await expect(loadColorPalette()).resolves.toEqual(["-", "#123456"]);
     expect(obr.player.setMetadata).not.toHaveBeenCalled();
   });

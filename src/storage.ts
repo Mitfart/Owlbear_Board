@@ -82,7 +82,7 @@ async function setPlayerMetadata(key: string, value: unknown) {
 async function ensurePaletteTool() {
   if (!OBR.isAvailable) return;
   if (!paletteToolReady) {
-    paletteToolReady = OBR.tool.create({ id: PALETTE_TOOL_ID, icons: [] }).catch((reason) => {
+    paletteToolReady = OBR.tool.create({ id: PALETTE_TOOL_ID, icons: [{ icon: "icon.svg", label: "Owlbear Board palette storage", filter: { activeTools: [PALETTE_TOOL_ID] } }] }).catch((reason) => {
       paletteToolReady = undefined;
       throw reason;
     });

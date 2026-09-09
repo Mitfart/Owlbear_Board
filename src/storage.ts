@@ -2,7 +2,7 @@ import OBR, { buildShape } from "@owlbear-rodeo/sdk";
 import {
   BOARD_DATA_LIMIT_BYTES, BOARD_EVENT_CHANNEL, BOARD_STATE_KEY, DEFAULT_CELL_GAP, DEFAULT_CELL_SIZE,
   DEFAULT_COUNTER_MAX_COLOR, DEFAULT_COUNTER_ZERO_COLOR, DEFAULT_ITEM_BORDER_COLOR,
-  DEFAULT_WINDOW, PALETTE_STORAGE_KEY, PLAYER_PREFERENCES_KEY, ROOM_BOARD_IDS_KEY, ROOM_BOARD_STATE_KEY,
+  DEFAULT_WINDOW, PALETTE_FORMAT, PALETTE_METADATA_KEY, PALETTE_TOOL_ID, PLAYER_PREFERENCES_KEY, ROOM_BOARD_IDS_KEY, ROOM_BOARD_STATE_KEY,
   SCENE_KEY_METADATA,
 } from "./constants";
 import { canDeleteBoard, canViewBoard, type PlayerRole } from "./boardPermissions";
@@ -13,6 +13,7 @@ export { orderPrivateBoards } from "./boardSession";
 const emptyState = (): PersistedBoardState => ({ version: 1, boards: [] });
 const emptyPreferences = (): PlayerPreferences => ({ version: 1, privateSceneOpenOrder: {}, privateRoomOpenOrder: {}, viewportByBoardId: {} });
 let preferencesSaveQueue = Promise.resolve();
+let paletteToolReady: Promise<void> | undefined;
 
 function normalizedGridValue(value: unknown, fallback: number, minimum?: number) {
   const number = Number(value);
@@ -78,19 +79,45 @@ async function setPlayerMetadata(key: string, value: unknown) {
   if (OBR.isAvailable) await OBR.player.setMetadata({ [key]: value });
 }
 
+async function ensurePaletteTool() {
+  if (!OBR.isAvailable) return;
+  if (!paletteToolReady) {
+    paletteToolReady = OBR.tool.create({ id: PALETTE_TOOL_ID, icons: [] }).catch((reason) => {
+      paletteToolReady = undefined;
+      throw reason;
+    });
+  }
+  await paletteToolReady;
+}
+
+function paletteSlots(value: unknown): string[] | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const record = value as { format?: unknown; slots?: unknown };
+  return record.format === PALETTE_FORMAT && Array.isArray(record.slots) && record.slots.every((color) => typeof color === "string") ? record.slots : undefined;
+}
+
 export async function loadColorPalette(): Promise<string[] | undefined> {
-  const stored = localStorage.getItem(PALETTE_STORAGE_KEY);
-  if (!stored) return undefined;
-  const palette: unknown = JSON.parse(stored);
-  return Array.isArray(palette) && palette.every((color) => typeof color === "string") ? palette : undefined;
+  if (!OBR.isAvailable) return undefined;
+  await ensurePaletteTool();
+  return paletteSlots((await OBR.tool.getMetadata(PALETTE_TOOL_ID))?.[PALETTE_METADATA_KEY]);
+}
+
+export async function loadColorPaletteToolMetadata(): Promise<unknown> {
+  if (!OBR.isAvailable) return undefined;
+  await ensurePaletteTool();
+  return OBR.tool.getMetadata(PALETTE_TOOL_ID);
 }
 
 export async function saveColorPalette(palette: string[]) {
-  localStorage.setItem(PALETTE_STORAGE_KEY, JSON.stringify(palette));
+  if (!OBR.isAvailable) return;
+  await ensurePaletteTool();
+  await OBR.tool.setMetadata(PALETTE_TOOL_ID, { [PALETTE_METADATA_KEY]: { format: PALETTE_FORMAT, slots: palette } });
 }
 
 async function clearColorPalette() {
-  localStorage.removeItem(PALETTE_STORAGE_KEY);
+  if (!OBR.isAvailable) return;
+  await OBR.tool.remove(PALETTE_TOOL_ID);
+  paletteToolReady = undefined;
 }
 
 export async function getSceneKey() {

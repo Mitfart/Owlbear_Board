@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { BOARD_EVENT_CHANNEL, BOARD_STATE_KEY, PALETTE_STORAGE_KEY, ROOM_BOARD_STATE_KEY } from "./constants";
+import { BOARD_EVENT_CHANNEL, BOARD_STATE_KEY, ROOM_BOARD_STATE_KEY } from "./constants";
 import { carryRoomBoardsToCurrentScene, clearAllBoardData, deleteBoard, loadAllVisibleBoards, loadColorPalette, loadPreferences, normalizeBoardState, saveBoard, saveColorPalette, savePreferences } from "./storage";
 
 let playerMetadata: Record<string, unknown>;
+let toolMetadata: Record<string, unknown>;
 let roomMetadata: Record<string, unknown>;
 let sceneMetadata: Record<string, unknown>;
 let sceneItems: Array<{ id: string; metadata: Record<string, unknown> }>;
@@ -12,6 +13,7 @@ const obr = vi.hoisted(() => ({
   scene: { getMetadata: vi.fn(), setMetadata: vi.fn(), isReady: vi.fn(), items: { getItems: vi.fn(), addItems: vi.fn(), updateItems: vi.fn(), deleteItems: vi.fn() } },
   room: { getMetadata: vi.fn(), setMetadata: vi.fn() },
   player: { getMetadata: vi.fn(), setMetadata: vi.fn(), getId: vi.fn(), getRole: vi.fn() },
+  tool: { create: vi.fn(), getMetadata: vi.fn(), setMetadata: vi.fn(), remove: vi.fn() },
   broadcast: { sendMessage: vi.fn() },
 }));
 vi.mock("@owlbear-rodeo/sdk", () => ({ default: obr, buildShape }));
@@ -25,9 +27,13 @@ const board = (overrides: Record<string, unknown> = {}) => ({
 describe("board storage", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
-    playerMetadata = {}; roomMetadata = {}; sceneMetadata = { "com.owlbear-board.grid/scene-key": "scene" }; sceneItems = [];
+    playerMetadata = {}; toolMetadata = {}; roomMetadata = {}; sceneMetadata = { "com.owlbear-board.grid/scene-key": "scene" }; sceneItems = [];
     obr.player.getMetadata.mockImplementation(async () => playerMetadata);
     obr.player.setMetadata.mockImplementation(async (update) => { playerMetadata = { ...playerMetadata, ...update }; });
+    obr.tool.create.mockResolvedValue(undefined);
+    obr.tool.getMetadata.mockImplementation(async () => toolMetadata);
+    obr.tool.setMetadata.mockImplementation(async (_id, update) => { toolMetadata = { ...toolMetadata, ...update }; });
+    obr.tool.remove.mockImplementation(async () => { toolMetadata = {}; });
     localStorage.clear();
     obr.player.getId.mockResolvedValue("owner"); obr.player.getRole.mockResolvedValue("GM");
     obr.room.getMetadata.mockImplementation(async () => roomMetadata);
@@ -100,10 +106,17 @@ describe("board storage", () => {
   it("keeps the personal palette after Owlbear rebuilds player metadata", async () => {
     await saveColorPalette(["-", "#123456"]);
     playerMetadata = {};
+    localStorage.clear();
 
-    expect(localStorage.getItem(PALETTE_STORAGE_KEY)).toBe('["-","#123456"]');
+    expect(obr.tool.setMetadata).toHaveBeenCalledWith("com.owlbear-board.grid/palette-storage", { palette: { format: 3, slots: ["-", "#123456"] } });
     await expect(loadColorPalette()).resolves.toEqual(["-", "#123456"]);
     expect(obr.player.setMetadata).not.toHaveBeenCalled();
+  });
+
+  it("ignores a palette from an unsupported storage format", async () => {
+    toolMetadata = { palette: { format: 2, slots: ["#123456"] } };
+
+    await expect(loadColorPalette()).resolves.toBeUndefined();
   });
 
   it("removes current and legacy palette data when clearing all data", async () => {
@@ -114,6 +127,7 @@ describe("board storage", () => {
     await clearAllBoardData();
 
     await expect(loadColorPalette()).resolves.toBeUndefined();
+    expect(obr.tool.remove).toHaveBeenCalledWith("com.owlbear-board.grid/palette-storage");
     await expect(loadPreferences()).resolves.not.toHaveProperty("colorPalette");
     await expect(loadPreferences()).resolves.not.toHaveProperty("colorPaletteFormat");
     await expect(loadPreferences()).resolves.not.toHaveProperty("customColors");

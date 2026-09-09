@@ -15,7 +15,7 @@ import { autoImageSize, autoTextSize, clampNumber, normalizeCounterValue, parseI
 import { zoomPanToCursor } from "./viewport";
 import { toggleMarkdownStyle } from "./textFormatting";
 import { createBoardMutationCoordinator, type BoardMutationCoordinator } from "./boardCoordinator";
-import { boardByteSize, carryRoomBoardsToCurrentScene, clearAllBoardData, deleteBoard, getPlayerId, getPlayerName, getSceneKey, loadAllVisibleBoards, loadColorPalette, loadPreferences, loadWindowPreferences, markPrivateBoardOpened, movePrivateRoomBoardToScene, saveBoard, saveColorPalette, savePreferences, saveViewport, saveWindowPreferences } from "./storage";
+import { boardByteSize, carryRoomBoardsToCurrentScene, clearAllBoardData, deleteBoard, getPlayerId, getPlayerName, getSceneKey, loadAllVisibleBoards, loadColorPalette, loadColorPaletteToolMetadata, loadPreferences, loadWindowPreferences, markPrivateBoardOpened, movePrivateRoomBoardToScene, saveBoard, saveColorPalette, savePreferences, saveViewport, saveWindowPreferences } from "./storage";
 import { activeEditPresence, shouldBroadcastEditPresence, visibleEditPresence, type EditPresence } from "./editingPresence";
 import { buildBoardPickerRows } from "./boardSession";
 import { canDeleteBoard, canEditBoard, canRenameBoard, type PlayerRole } from "./boardPermissions";
@@ -427,11 +427,17 @@ export default function App() {
     const capture = async <T,>(action: () => Promise<T>) => {
       try { return await action(); } catch (reason) { return { error: formatDebugError(reason) }; }
     };
+    const capturePaletteToolMetadata = async () => {
+      try { return await loadColorPaletteToolMetadata(); } catch (reason) {
+        reportPaletteFailure("load", reason);
+        return { error: formatDebugError(reason) };
+      }
+    };
     const sceneReady = OBR.isAvailable ? await capture(() => OBR.scene.isReady()) : false;
     const readyScene = sceneReady === true;
-    const [playerMetadata, paletteStorage, roomMetadata, sceneMetadata, sceneItems, visibleBoards] = OBR.isAvailable
+    const [playerMetadata, paletteToolMetadata, roomMetadata, sceneMetadata, sceneItems, visibleBoards] = OBR.isAvailable
       ? await Promise.all([
-        capture(() => OBR.player.getMetadata()), capture(() => loadColorPalette()), capture(() => OBR.room.getMetadata()),
+        capture(() => OBR.player.getMetadata()), capturePaletteToolMetadata(), capture(() => OBR.room.getMetadata()),
         readyScene ? capture(() => OBR.scene.getMetadata()) : undefined,
         readyScene ? capture(() => (OBR.scene as unknown as { items: { getItems(): Promise<unknown[]> } }).items.getItems()) : [],
         capture(() => loadAllVisibleBoards(playerRole, playerId)),
@@ -441,7 +447,7 @@ export default function App() {
       capturedAt: new Date().toISOString(),
       diagnostics: { available: OBR.isAvailable, sceneReady, ready, playerRole, playerId, sceneKey, activeBoardId, saveStatus, error },
       uiBoards: boards,
-      playerMetadata: boardMetadata(playerMetadata), paletteStorage, roomMetadata: boardMetadata(roomMetadata), sceneMetadata: boardMetadata(sceneMetadata), sceneItems: boardSceneItems(sceneItems), visibleBoards,
+      playerMetadata: boardMetadata(playerMetadata), paletteToolMetadata, roomMetadata: boardMetadata(roomMetadata), sceneMetadata: boardMetadata(sceneMetadata), sceneItems: boardSceneItems(sceneItems), visibleBoards,
     };
     setDebugSnapshot(snapshot);
     logDebug("Save/load diagnostics collected.");
@@ -458,6 +464,7 @@ export default function App() {
     } catch (reason) {
       const message = formatDebugError(reason);
       setError(message); logDebug(`Could not clear Board data: ${message}`);
+      if (OBR.isAvailable) void OBR.notification.show("Could not clear Board data.", "ERROR");
     }
   }
 

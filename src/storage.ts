@@ -7,6 +7,7 @@ import {
 } from "./constants";
 import { canDeleteBoard, canViewBoard, type PlayerRole } from "./boardPermissions";
 import { createId } from "./ids";
+import { normalizeCounterValue } from "./sizing";
 import type { Board, BoardItem, BoardScope, PersistedBoardState, PlayerPreferences, ViewportPreference, WindowPreferences } from "./types";
 export { orderPrivateBoards } from "./boardSession";
 
@@ -32,7 +33,13 @@ export function normalizeBoardState(state: PersistedBoardState): PersistedBoardS
           const grid = { ...item, gridX: normalizedGridValue(item.gridX, 0), gridY: normalizedGridValue(item.gridY, 0), gridWidth: normalizedGridValue(item.gridWidth, 1, 1), gridHeight: normalizedGridValue(item.gridHeight, 1, 1) };
           if (grid.type === "text") return { ...grid, text: grid.text ?? "", fontSize: typeof grid.fontSize === "number" && Number.isFinite(grid.fontSize) ? Math.max(1, grid.fontSize) : 16, textColor: typeof grid.textColor === "string" ? grid.textColor : "#ffffff", fillBlock: grid.fillBlock !== false, textVerticalAlignment: grid.textVerticalAlignment ?? "top", borderColor: grid.borderColor ?? DEFAULT_ITEM_BORDER_COLOR };
           if (grid.type === "image") return { ...grid, imageFit: grid.imageFit ?? "cover", borderColor: grid.borderColor ?? DEFAULT_ITEM_BORDER_COLOR };
-          if (grid.type === "counter") return { ...grid, counterValue: grid.counterValue ?? 0, counterLabel: grid.counterLabel ?? "", counterLabelPosition: grid.counterLabelPosition ?? "top-center", counterDimAtZero: grid.counterDimAtZero !== false, counterZeroColor: grid.counterZeroColor ?? DEFAULT_COUNTER_ZERO_COLOR, counterMaxColor: grid.counterMaxColor ?? DEFAULT_COUNTER_MAX_COLOR, borderColor: grid.borderColor ?? DEFAULT_ITEM_BORDER_COLOR };
+          if (grid.type === "counter") {
+            const legacy = grid as BoardItem & { counterZeroColorEnabled?: boolean; counterZeroColor?: string };
+            const counterMin = typeof grid.counterMin === "number" && Number.isFinite(grid.counterMin) ? normalizeCounterValue(grid.counterMin) : undefined;
+            const counterMax = typeof grid.counterMax === "number" && Number.isFinite(grid.counterMax) ? normalizeCounterValue(grid.counterMax, counterMin) : undefined;
+            const { counterZeroColorEnabled: _legacyMinColorEnabled, counterZeroColor: _legacyMinColor, ...current } = legacy;
+            return { ...current, counterValue: normalizeCounterValue(grid.counterValue ?? 0, counterMin, counterMax), counterMin, counterMax, counterLabel: grid.counterLabel ?? "", counterLabelPosition: grid.counterLabelPosition ?? "top-center", counterDimAtZero: grid.counterDimAtZero !== false, counterMinColorEnabled: grid.counterMinColorEnabled ?? legacy.counterZeroColorEnabled ?? false, counterMinColor: grid.counterMinColor ?? legacy.counterZeroColor ?? DEFAULT_COUNTER_ZERO_COLOR, counterMaxColor: grid.counterMaxColor ?? DEFAULT_COUNTER_MAX_COLOR, borderColor: grid.borderColor ?? DEFAULT_ITEM_BORDER_COLOR };
+          }
           return grid;
         }),
       };

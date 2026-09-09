@@ -17,9 +17,10 @@ export type BoardItem = {
   counterLabel?: string;
   counterLabelPosition?: "top-left" | "top-center" | "top-right" | "bottom-left" | "bottom-center" | "bottom-right";
   counterValue?: number;
+  counterMin?: number;
   counterMax?: number;
-  counterZeroColorEnabled?: boolean;
-  counterZeroColor?: string;
+  counterMinColorEnabled?: boolean;
+  counterMinColor?: string;
   counterMaxColorEnabled?: boolean;
   counterMaxColor?: string;
   counterDimAtZero?: boolean;

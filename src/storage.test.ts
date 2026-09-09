@@ -89,6 +89,12 @@ describe("board storage", () => {
     expect(normalizeBoardState({ version: 1, boards: [current] }).boards[0].items[0]).toEqual(expect.objectContaining({ gridX: 0, gridY: 3, gridWidth: 1, gridHeight: 1, fontSize: 16, textColor: "#ffffff" }));
   });
 
+  it("migrates legacy zero-border settings to the Counter Minimum", () => {
+    const current = board({ items: [{ id: "item", type: "counter", counterValue: 0, counterZeroColorEnabled: true, counterZeroColor: "#123456", gridX: 0, gridY: 0, gridWidth: 1, gridHeight: 1, updatedAt: "" }] }) as unknown as import("./types").Board;
+
+    expect(normalizeBoardState({ version: 1, boards: [current] }).boards[0].items[0]).toEqual(expect.objectContaining({ counterMinColorEnabled: true, counterMinColor: "#123456" }));
+  });
+
   it("retains an editable color palette when a stale preference save follows it", async () => {
     const preferences = await loadPreferences();
     await savePreferences({ ...preferences, colorPalette: ["#123456"] });

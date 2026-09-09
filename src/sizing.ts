@@ -6,8 +6,10 @@ export function clampNumber(value: number, min: number, max: number) {
   return Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : min;
 }
 
-export function normalizeCounterValue(value: number, max?: number) {
-  return Math.min(max ?? Infinity, Math.max(0, Number.isFinite(value) ? Math.floor(value) : 0));
+export function normalizeCounterValue(value: number, minimum?: number, maximum?: number) {
+  const floor = Math.max(0, typeof minimum === "number" && Number.isFinite(minimum) ? Math.floor(minimum) : 0);
+  const ceiling = typeof maximum === "number" && Number.isFinite(maximum) ? Math.max(floor, Math.floor(maximum)) : Infinity;
+  return Math.min(ceiling, Math.max(floor, Number.isFinite(value) ? Math.floor(value) : floor));
 }
 
 export function parseItemSize(value: string): ItemSizeDraft {

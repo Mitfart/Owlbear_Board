@@ -997,7 +997,10 @@ input[type="radio"] {
 .modalGrid .counterAddField input { width: 100%; }
 
 .modalGrid .compactField { flex: 0 0 auto; }
-.modalGrid .primaryAction { margin-left: auto; }
+.modalGrid .primaryAction { order: 4; margin-left: auto; }
+.modalGrid > .counterAddField:nth-child(4) { order: 2; }
+.modalGrid > .counterAddField:nth-child(5) { order: 1; }
+.modalGrid > .counterAddField:nth-child(6) { order: 3; }
 
 .imageAddRow {
   display: flex;

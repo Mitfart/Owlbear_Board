@@ -7,9 +7,9 @@ export function clampNumber(value: number, min: number, max: number) {
 }
 
 export function normalizeCounterValue(value: number, minimum?: number, maximum?: number) {
-  const floor = Math.max(0, typeof minimum === "number" && Number.isFinite(minimum) ? Math.floor(minimum) : 0);
+  const floor = typeof minimum === "number" && Number.isFinite(minimum) ? Math.floor(minimum) : -Infinity;
   const ceiling = typeof maximum === "number" && Number.isFinite(maximum) ? Math.max(floor, Math.floor(maximum)) : Infinity;
-  return Math.min(ceiling, Math.max(floor, Number.isFinite(value) ? Math.floor(value) : floor));
+  return Math.min(ceiling, Math.max(floor, Number.isFinite(value) ? Math.floor(value) : 0));
 }
 
 export function counterMinimumReached(value: number, minimum?: number) {

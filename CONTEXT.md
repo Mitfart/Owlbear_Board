@@ -29,7 +29,7 @@ A Board Item that displays and changes a numeric value.
 _Avoid_: Token counter, tracker
 
 **Counter Value**:
-The non-negative whole number displayed by a Counter Board Item.
+The whole number displayed by a Counter Board Item. It may be negative when no Counter Minimum prevents it.
 _Avoid_: Count, actual number
 
 **Counter Minimum**:

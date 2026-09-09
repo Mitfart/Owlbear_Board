@@ -3,14 +3,14 @@ import { autoImageSize, autoTextSize, clampNumber, counterMinimumReached, normal
 
 describe("counter values", () => {
   it("normalizes invalid, fractional, and capped values", () => {
-    expect(normalizeCounterValue(-1)).toBe(0);
+    expect(normalizeCounterValue(-1)).toBe(-1);
     expect(clampNumber(NaN, 1, 10)).toBe(1);
     expect(normalizeCounterValue(2.8)).toBe(2);
     expect(normalizeCounterValue(9, 0, 4)).toBe(4);
   });
 
   it("keeps values within optional Counter Minimum and Counter Maximum bounds", () => {
-    expect(normalizeCounterValue(1, 3)).toBe(3);
+    expect(normalizeCounterValue(-4, -3)).toBe(-3);
     expect(normalizeCounterValue(9, 3, 7)).toBe(7);
   });
 

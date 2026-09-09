@@ -35,4 +35,19 @@ describe("board mutation coordinator", () => {
     await coordinator.mutate({ ...board("existing"), name: "changed" });
     await expect(coordinator.undo("existing")).resolves.toBeUndefined();
   });
+
+  it("retains undo and redo history when restoring them fails", async () => {
+    let fail = false;
+    const coordinator = createBoardMutationCoordinator({ save: vi.fn(async (value: Board) => { if (fail) throw new Error("nope"); return { ...value, revision: value.revision + 1 }; }), apply: vi.fn(), discard: vi.fn(), reportError: vi.fn(), reportDebug: vi.fn() });
+    coordinator.observe(board("existing"));
+    await coordinator.mutate({ ...board("existing"), name: "changed" });
+    fail = true;
+    await expect(coordinator.undo("existing")).resolves.toBeUndefined();
+    fail = false;
+    await expect(coordinator.undo("existing")).resolves.toMatchObject({ name: "existing" });
+    fail = true;
+    await expect(coordinator.redo("existing")).resolves.toBeUndefined();
+    fail = false;
+    await expect(coordinator.redo("existing")).resolves.toMatchObject({ name: "changed" });
+  });
 });

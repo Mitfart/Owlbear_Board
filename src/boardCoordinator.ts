@@ -59,8 +59,10 @@ export function createBoardMutationCoordinator(options: BoardMutationCoordinator
     const history = histories.get(id); const target = history?.[direction][0]; const current = boards.get(id);
     if (!target || !current) return Promise.resolve(undefined);
     const opposite = direction === "undo" ? "redo" : "undo";
-    histories.set(id, { ...history, [direction]: history[direction].slice(1), [opposite]: [current, ...history[opposite]].slice(0, maxHistory) });
-    return mutate(target, false);
+    return mutate(target, false).then((saved) => {
+      if (saved) histories.set(id, { ...history, [direction]: history[direction].slice(1), [opposite]: [current, ...history[opposite]].slice(0, maxHistory) });
+      return saved;
+    });
   };
   return {
     observe(board) { const current = boards.get(board.id); if (!current || board.revision >= current.revision) boards.set(board.id, board); },

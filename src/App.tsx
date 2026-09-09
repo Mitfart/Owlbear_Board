@@ -549,7 +549,8 @@ export default function App() {
     const existing = boards.find((b) => b.visibility === "shared" && b.scope === scope);
     if (existing) return chooseBoard(existing);
     const board = makeBoard(scope, "shared", undefined, playerId);
-    await persistBoard(board, false); await refresh(); await chooseBoard(board);
+    if (!await persistBoard(board, false)) return;
+    await refresh(); await chooseBoard(board);
   }
 
   async function createPrivateBoard() {
@@ -558,7 +559,8 @@ export default function App() {
     const duplicate = boards.some((b) => b.visibility === "private" && b.scope === createScope && b.name.trim().toLowerCase() === name.toLowerCase());
     if (duplicate) return;
     const board = { ...makeBoard(createScope, "private", name, playerId), ownerName: await getPlayerName() };
-    await persistBoard(board, false); await markPrivateBoardOpened(board); setCreateOpen(false); await refresh(); await chooseBoard(board);
+    if (!await persistBoard(board, false)) return;
+    await markPrivateBoardOpened(board); setCreateOpen(false); await refresh(); await chooseBoard(board);
   }
 
   function pointerToGrid(clientX: number, clientY: number) {

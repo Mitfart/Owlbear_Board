@@ -34,13 +34,14 @@ export function createBoardMutationCoordinator(options: BoardMutationCoordinator
     pending += 1;
     const run = queue.then(async () => {
       const previous = boards.get(board.id);
-      if (pushHistory && previous && JSON.stringify(previous) !== JSON.stringify(board)) {
-        const history = histories.get(board.id) ?? { undo: [], redo: [] };
-        histories.set(board.id, { undo: [previous, ...history.undo].slice(0, maxHistory), redo: [] });
-      }
+      const changed = !!previous && JSON.stringify(previous) !== JSON.stringify(board);
       boards.set(board.id, board); options.apply(board);
       try {
         const saved = await options.save({ ...board, updatedAt: new Date().toISOString() }, changedBoardItemIds(previous, board));
+        if (pushHistory && previous && changed) {
+          const history = histories.get(board.id) ?? { undo: [], redo: [] };
+          histories.set(board.id, { undo: [previous, ...history.undo].slice(0, maxHistory), redo: [] });
+        }
         boards.set(saved.id, saved); options.apply(saved); options.reportDebug(`Saved board ${saved.id} at revision ${saved.revision}.`);
         return saved;
       } catch (error) {

@@ -1,5 +1,7 @@
-import { describe, expect, it } from "vitest";
-import { renderMarkdown, toggleTaskMarkdown } from "./markdown";
+import { fireEvent, render } from "@testing-library/react";
+import React from "react";
+import { describe, expect, it, vi } from "vitest";
+import { MarkdownView, renderMarkdown, toggleTaskMarkdown } from "./markdown";
 
 describe("renderMarkdown", () => {
   it("renders alignment markers and escaped Markdown punctuation", () => {
@@ -32,6 +34,15 @@ describe("renderMarkdown", () => {
     expect(toggleTaskMarkdown("- [ ] Todo\n- [*] Done", 0)).toBe("- [x] Todo\n- [*] Done");
     expect(toggleTaskMarkdown("- [x] Todo", 0)).toBe("- [ ] Todo");
     expect(toggleTaskMarkdown("- [X] Todo", 0)).toBe("- [X] Todo");
+  });
+
+  it("sends a clicked task line to the Markdown text updater", () => {
+    const onTaskToggle = vi.fn();
+    const { getByLabelText } = render(React.createElement(MarkdownView, { value: "- [ ] Todo", onTaskToggle }));
+
+    fireEvent.click(getByLabelText("Toggle task"));
+
+    expect(onTaskToggle).toHaveBeenCalledWith(0);
   });
 
   it("renders scalable square task controls for unchecked and marked items", () => {

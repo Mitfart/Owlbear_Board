@@ -110,9 +110,10 @@ export function renderMarkdown(markdown: string, taskInputsDisabled = false) {
 }
 
 export const MarkdownView = React.memo(function MarkdownView({ value, onTaskToggle }: { value: string; onTaskToggle?: (line: number) => void }) {
-  const taskToggle = (target: EventTarget | null) => target instanceof Element ? target.closest(".taskToggle") : null;
-  return <div className="markdown" onPointerDown={(event) => { if (taskToggle(event.target)) event.stopPropagation(); }} onDoubleClick={(event) => { if (taskToggle(event.target)) event.stopPropagation(); }} onChange={(event) => {
-    const target = event.target;
-    if (onTaskToggle && target instanceof HTMLInputElement && target.dataset.taskLine) onTaskToggle(Number(target.dataset.taskLine));
+  const taskInput = (target: EventTarget | null) => target instanceof Element ? target.closest(".taskToggle")?.querySelector<HTMLInputElement>("input[data-task-line]") : null;
+  return <div className="markdown" onPointerDown={(event) => { if (taskInput(event.target)) event.stopPropagation(); }} onDoubleClick={(event) => { if (taskInput(event.target)) event.stopPropagation(); }} onClick={(event) => {
+    const input = taskInput(event.target);
+    if (!onTaskToggle || !input || input.disabled || input.dataset.taskLine === undefined) return;
+    event.preventDefault(); event.stopPropagation(); onTaskToggle(Number(input.dataset.taskLine));
   }} dangerouslySetInnerHTML={{ __html: renderMarkdown(value, !onTaskToggle) }} />;
 });

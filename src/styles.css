@@ -1465,34 +1465,34 @@ input[type="color"] { width: 34px; min-width: 34px; height: 32px; padding: 2px; 
 
 .boardItem.editingPresence {
   overflow: visible;
-  outline: 2px solid #4fc3f7;
+  outline: 2px solid rgba(187, 196, 205, 0.58);
   outline-offset: 3px;
-  box-shadow: 0 0 0 5px rgba(79, 195, 247, 0.24), 0 10px 22px var(--shadow);
+  box-shadow: 0 0 0 5px rgba(187, 196, 205, 0.12), 0 10px 22px var(--shadow);
 }
 
 .editPresenceLabel {
   position: absolute;
   z-index: 2;
-  top: -3px;
-  left: -2px;
+  top: 2px;
+  left: 3px;
   display: block;
-  max-width: calc(100% + 4px);
+  max-width: calc(100% - 6px);
   box-sizing: border-box;
-  padding: 1px 3px;
+  padding: 1px 3px 2px;
   overflow: hidden;
-  border: 1px solid #4fc3f7;
-  border-radius: 4px 4px 2px 2px;
-  background: #163447;
-  color: #d9f3ff;
+  border-radius: 3px;
+  background: rgba(43, 51, 59, 0.76);
+  color: rgba(239, 243, 247, 0.9);
   font-size: var(--edit-presence-font-size, 8px);
-  font-weight: 700;
   line-height: 1.15;
   letter-spacing: 0.01em;
   text-overflow: ellipsis;
   white-space: nowrap;
-  transform: translateY(-100%);
   pointer-events: none;
 }
+
+.editPresencePrefix { font-size: 0.72em; font-weight: 500; }
+.editPresencePlayer { font-size: 1.15em; font-weight: 800; }
 
 .saveError {
   position: fixed;

@@ -15,7 +15,7 @@ import { autoImageSize, autoTextSize, clampNumber, normalizeCounterValue, parseI
 import { zoomPanToCursor } from "./viewport";
 import { toggleMarkdownStyle } from "./textFormatting";
 import { createBoardMutationCoordinator, type BoardMutationCoordinator } from "./boardCoordinator";
-import { boardByteSize, carryRoomBoardsToCurrentScene, clearAllBoardData, deleteBoard, getPlayerId, getPlayerName, getSceneKey, loadAllVisibleBoards, loadColorPalette, loadColorPaletteToolMetadata, loadPreferences, loadWindowPreferences, markPrivateBoardOpened, movePrivateRoomBoardToScene, saveBoard, saveColorPalette, savePreferences, saveViewport, saveWindowPreferences } from "./storage";
+import { boardByteSize, carryRoomBoardsToCurrentScene, clearAllBoardData, clearColorPaletteData, deleteBoard, getColorPaletteSceneData, getPlayerId, getPlayerName, getSceneKey, loadAllVisibleBoards, loadColorPalette, loadPreferences, loadWindowPreferences, markPrivateBoardOpened, movePrivateRoomBoardToScene, saveBoard, saveColorPalette, savePreferences, saveViewport, saveWindowPreferences } from "./storage";
 import { activeEditPresence, shouldBroadcastEditPresence, visibleEditPresence, type EditPresence } from "./editingPresence";
 import { buildBoardPickerRows } from "./boardSession";
 import { canDeleteBoard, canEditBoard, canRenameBoard, type PlayerRole } from "./boardPermissions";
@@ -427,17 +427,17 @@ export default function App() {
     const capture = async <T,>(action: () => Promise<T>) => {
       try { return await action(); } catch (reason) { return { error: formatDebugError(reason) }; }
     };
-    const capturePaletteToolMetadata = async () => {
-      try { return await loadColorPaletteToolMetadata(); } catch (reason) {
+    const capturePaletteSceneData = async () => {
+      try { return await getColorPaletteSceneData(); } catch (reason) {
         reportPaletteFailure("load", reason);
         return { error: formatDebugError(reason) };
       }
     };
     const sceneReady = OBR.isAvailable ? await capture(() => OBR.scene.isReady()) : false;
     const readyScene = sceneReady === true;
-    const [playerMetadata, paletteToolMetadata, roomMetadata, sceneMetadata, sceneItems, visibleBoards] = OBR.isAvailable
+    const [playerMetadata, paletteSceneData, roomMetadata, sceneMetadata, sceneItems, visibleBoards] = OBR.isAvailable
       ? await Promise.all([
-        capture(() => OBR.player.getMetadata()), capturePaletteToolMetadata(), capture(() => OBR.room.getMetadata()),
+        capture(() => OBR.player.getMetadata()), capturePaletteSceneData(), capture(() => OBR.room.getMetadata()),
         readyScene ? capture(() => OBR.scene.getMetadata()) : undefined,
         readyScene ? capture(() => (OBR.scene as unknown as { items: { getItems(): Promise<unknown[]> } }).items.getItems()) : [],
         capture(() => loadAllVisibleBoards(playerRole, playerId)),
@@ -447,7 +447,7 @@ export default function App() {
       capturedAt: new Date().toISOString(),
       diagnostics: { available: OBR.isAvailable, sceneReady, ready, playerRole, playerId, sceneKey, activeBoardId, saveStatus, error },
       uiBoards: boards,
-      playerMetadata: boardMetadata(playerMetadata), paletteToolMetadata, roomMetadata: boardMetadata(roomMetadata), sceneMetadata: boardMetadata(sceneMetadata), sceneItems: boardSceneItems(sceneItems), visibleBoards,
+      playerMetadata: boardMetadata(playerMetadata), paletteSceneData, roomMetadata: boardMetadata(roomMetadata), sceneMetadata: boardMetadata(sceneMetadata), sceneItems: boardSceneItems(sceneItems), visibleBoards,
     };
     setDebugSnapshot(snapshot);
     logDebug("Save/load diagnostics collected.");
@@ -465,6 +465,20 @@ export default function App() {
       const message = formatDebugError(reason);
       setError(message); logDebug(`Could not clear Board data: ${message}`);
       if (OBR.isAvailable) void OBR.notification.show("Could not clear Board data.", "ERROR");
+    }
+  }
+
+  async function clearPaletteSceneData() {
+    if (!confirm("Clear the shared color palette for this scene? Board data will be kept.")) return;
+    try {
+      await clearColorPaletteData();
+      setColorPalette(undefined); setDebugSnapshot(undefined);
+      logDebug("Cleared color palette Scene Data Item.");
+      await refresh(); await openDebugTab();
+    } catch (reason) {
+      const message = formatDebugError(reason);
+      setError(message); logDebug(`Could not clear color palette data: ${message}`);
+      if (OBR.isAvailable) void OBR.notification.show("Could not clear color palette data.", "ERROR");
     }
   }
 
@@ -757,7 +771,7 @@ export default function App() {
     </section>}{false && boardPickerOpen && <section className="boardPanel boardPicker"><button className="primaryAction" onClick={() => { setCreateOpen(true); setBoardPickerOpen(false); }}><Plus size={16} /> Create Private Board</button><div className="boardGroups"><strong>Shared Boards</strong>{boards.filter((board) => board.visibility === "shared").map((board) => <button key={board.id} onClick={() => void chooseBoard(board)}>{board.name}</button>)}{!boards.some((board) => board.visibility === "shared" && board.scope === "scene") && <button onClick={() => void createShared("scene")}>Shared Scene Board</button>}{!boards.some((board) => board.visibility === "shared" && board.scope === "room") && <button onClick={() => void createShared("room")}>Shared Room Board</button>}<strong>Private Scene Boards</strong>{boards.filter((board) => board.visibility === "private" && board.scope === "scene").map((board) => <button key={board.id} onClick={() => void chooseBoard(board)}>{board.name}</button>)}{!boards.some((board) => board.visibility === "private" && board.scope === "scene") && <span className="emptyBoardGroup">Empty</span>}<strong>Private Room Boards</strong>{boards.filter((board) => board.visibility === "private" && board.scope === "room").map((board) => <button key={board.id} onClick={() => void chooseBoard(board)}>{board.name}</button>)}{!boards.some((board) => board.visibility === "private" && board.scope === "room") && <span className="emptyBoardGroup">Empty</span>}{playerRole === "GM" && <button className="boardGroupButton" onClick={() => { setManageBoardsOpen(true); setBoardPickerOpen(false); }}>Manage Boards</button>}</div></section>}</div><div className="tools">{showBoardActions && <><button disabled={readOnly} title="Save board" onClick={() => void persistBoard(activeBoard!, false, true)}><Save size={16} /> {saveStatus ?? "Save"}</button>{!readOnly && <button title="Add item" onClick={() => { setAddTarget(viewportCenterGrid()); setAddModalOpen(true); }}><Plus size={16} /> Add</button>}</>}<button title="Zoom out" onClick={() => setZoom((value) => clampNumber(value - 0.1, MIN_ZOOM, MAX_ZOOM))}><Minus size={16} /></button><button className="zoom" title="Reset scale" onClick={() => setZoom(DEFAULT_ZOOM)}>{Math.round(zoom * 100)}%</button><button title="Zoom in" onClick={() => setZoom((value) => clampNumber(value + 0.1, MIN_ZOOM, MAX_ZOOM))}><Plus size={16} /></button><button className={debugOpen ? "active" : undefined} title="Open save/load diagnostics" onClick={() => { if (debugOpen) setDebugOpen(false); else void openDebugTab(); }}>Debug</button></div></header>
 
     {manageBoardsOpen && <ManageBoards boards={boards} activeBoardId={activeBoardId} onCreate={() => setCreateOpen(true)} onCreateShared={(scope) => void createShared(scope)} onOpen={(board) => void chooseBoard(board)} onSettings={(board, event) => { event.stopPropagation(); setBoardPanelBoard(board); const rect = event.currentTarget.getBoundingClientRect(); const x = rect.right + 8 + 360 <= window.innerWidth ? rect.right + 8 : Math.max(8, rect.left - 368); setBoardPanelPosition({ x, y: rect.top }); setBoardPanelOpen(true); }} />}
-    {debugOpen && <DebugPanel snapshot={debugSnapshot} logs={debugLogs} onRefresh={() => void openDebugTab()} onClear={() => void clearDebugData()} />}
+    {debugOpen && <DebugPanel snapshot={debugSnapshot} logs={debugLogs} onRefresh={() => void openDebugTab()} onClear={() => void clearDebugData()} onClearPalette={playerRole === "GM" ? () => void clearPaletteSceneData() : undefined} />}
     <div ref={gridRef} className={`gridSurface ${boardAtLimit ? "boardAtLimit" : ""}`} onDoubleClick={(event) => { if (!activeBoard || readOnly) return; const grid = pointerToGrid(event.clientX, event.clientY); if (!boardItemAt(activeBoard, grid.x, grid.y)) void createTextAt(grid); }} onPointerDown={handleGridPointerDown} onPointerMove={handleGridPointerMove} onPointerUp={(event) => void handleGridPointerUp(event)} onContextMenu={(event) => { event.preventDefault(); if (!activeBoard || readOnly) { if (!activeBoard) setCreateOpen(true); return; } const grid = pointerToGrid(event.clientX, event.clientY); const item = boardItemAt(activeBoard, grid.x, grid.y); if (item) setContextItem({ item, x: event.clientX, y: event.clientY }); else setEmptyContext({ gridX: grid.x, gridY: grid.y, x: event.clientX, y: event.clientY }); }} style={{ backgroundSize: `${cellSize}px ${cellSize}px`, backgroundPosition: `${pan.x}px ${pan.y}px` }}>
       <div key={displayBoard?.id ?? "empty"} className="gridPlane" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>{displayBoard?.items.map((item) => <BoardItemView key={item.id} item={resizeItemState?.itemId === item.id ? { ...item, gridWidth: resizeItemState.gridWidth, gridHeight: resizeItemState.gridHeight } : dragState?.itemId === item.id && dragState.gridX !== undefined && dragState.gridY !== undefined ? { ...item, gridX: dragState.gridX, gridY: dragState.gridY } : item} selected={selectedItemId === item.id} cellSize={displayBoard.cellSizePx} cellGap={displayBoard.cellGapPx} onResizePointerDown={startItemResize} onDoubleClick={openItemEditor} onCounterChange={changeCounter} onTaskToggle={toggleTextTask} readOnly={readOnly} />)}</div>
       {showPreview && <div className="emptyState" onPointerDown={(event) => event.stopPropagation()} onContextMenu={(event) => { event.preventDefault(); event.stopPropagation(); }}><strong>Preview Board</strong><button className="primaryAction" onClick={() => setCreateOpen(true)}><Plus size={16} /> Create Private Board</button><button onClick={async () => { const prefs = preferences ?? await loadPreferences(); await savePreferences({ ...prefs, previewDismissed: true }); setPreviewDismissed(true); }}>Dismiss</button></div>}
@@ -787,8 +801,8 @@ function ManageBoards({ boards, activeBoardId, onCreate, onCreateShared, onOpen,
   return <section className="manageBoards"><div className="manageBoardActions"><button className="primaryAction" onClick={onCreate}><Plus size={16} /> Create Private Board</button>{!boards.some((board) => board.visibility === "shared" && board.scope === "scene") && <button onClick={() => onCreateShared("scene")}>Shared Scene Board</button>}{!boards.some((board) => board.visibility === "shared" && board.scope === "room") && <button onClick={() => onCreateShared("room")}>Shared Room Board</button>}</div>{ordered.map(([owner, owned]) => <section key={owner}><h3>{owner}</h3><div className="manageBoardGrid">{owned.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).map((board) => <div key={board.id} className="manageBoardCard"><button className="manageBoard" onClick={() => onOpen(board)}><span className="manageBoardDate">{date(board.updatedAt)}</span><strong>{board.name}</strong></button><button className="manageBoardSettings" title={`Board settings for ${board.name}`} aria-label={`Board settings for ${board.name}`} onPointerDown={(event) => event.stopPropagation()} onClick={(event) => onSettings(board, event)}><Settings size={15} /></button></div>)}</div></section>)}</section>;
 }
 
-function DebugPanel({ snapshot, logs, onRefresh, onClear }: { snapshot: unknown; logs: string[]; onRefresh(): void; onClear(): void }) {
-  return <section className="debugPanel"><div className="debugHeader"><strong>Save / Load Debug</strong><span><button onClick={onRefresh}>Refresh</button><button onClick={onClear}>Clear All Board Data</button></span></div><h3>Logs</h3><pre>{logs.join("\n") || "No application events recorded."}</pre><h3>Snapshot</h3><pre>{snapshot ? JSON.stringify(snapshot, null, 2) : "Collecting diagnostics..."}</pre></section>;
+function DebugPanel({ snapshot, logs, onRefresh, onClear, onClearPalette }: { snapshot: unknown; logs: string[]; onRefresh(): void; onClear(): void; onClearPalette?: () => void }) {
+  return <section className="debugPanel"><div className="debugHeader"><strong>Save / Load Debug</strong><span><button onClick={onRefresh}>Refresh</button>{onClearPalette && <button onClick={onClearPalette}>Clear Palette Data</button>}<button onClick={onClear}>Clear All Board Data</button></span></div><h3>Logs</h3><pre>{logs.join("\n") || "No application events recorded."}</pre><h3>Snapshot</h3><pre>{snapshot ? JSON.stringify(snapshot, null, 2) : "Collecting diagnostics..."}</pre></section>;
 }
 
 function MarkdownHelp({ open, panelRef }: { open: boolean; panelRef: React.RefObject<HTMLDivElement | null> }) {

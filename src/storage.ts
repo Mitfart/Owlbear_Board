@@ -2,7 +2,7 @@ import OBR, { buildShape } from "@owlbear-rodeo/sdk";
 import {
   BOARD_DATA_LIMIT_BYTES, BOARD_EVENT_CHANNEL, BOARD_STATE_KEY, DEFAULT_CELL_GAP, DEFAULT_CELL_SIZE,
   DEFAULT_COUNTER_MAX_COLOR, DEFAULT_COUNTER_ZERO_COLOR, DEFAULT_ITEM_BORDER_COLOR,
-  DEFAULT_WINDOW, PALETTE_FORMAT, PALETTE_METADATA_KEY, PALETTE_TOOL_ID, PLAYER_PREFERENCES_KEY, ROOM_BOARD_IDS_KEY, ROOM_BOARD_STATE_KEY,
+  DEFAULT_WINDOW, PALETTE_FORMAT, PALETTE_STATE_KEY, PLAYER_PREFERENCES_KEY, ROOM_BOARD_IDS_KEY, ROOM_BOARD_STATE_KEY,
   SCENE_KEY_METADATA,
 } from "./constants";
 import { canDeleteBoard, canViewBoard, type PlayerRole } from "./boardPermissions";
@@ -13,7 +13,6 @@ export { orderPrivateBoards } from "./boardSession";
 const emptyState = (): PersistedBoardState => ({ version: 1, boards: [] });
 const emptyPreferences = (): PlayerPreferences => ({ version: 1, privateSceneOpenOrder: {}, privateRoomOpenOrder: {}, viewportByBoardId: {} });
 let preferencesSaveQueue = Promise.resolve();
-let paletteToolReady: Promise<void> | undefined;
 
 function normalizedGridValue(value: unknown, fallback: number, minimum?: number) {
   const number = Number(value);
@@ -79,45 +78,44 @@ async function setPlayerMetadata(key: string, value: unknown) {
   if (OBR.isAvailable) await OBR.player.setMetadata({ [key]: value });
 }
 
-async function ensurePaletteTool() {
-  if (!OBR.isAvailable) return;
-  if (!paletteToolReady) {
-    paletteToolReady = OBR.tool.create({ id: PALETTE_TOOL_ID, icons: [{ icon: "icon.svg", label: "Owlbear Board palette storage", filter: { activeTools: [PALETTE_TOOL_ID] } }] }).catch((reason) => {
-      paletteToolReady = undefined;
-      throw reason;
-    });
-  }
-  await paletteToolReady;
-}
-
 function paletteSlots(value: unknown): string[] | undefined {
   if (!value || typeof value !== "object") return undefined;
   const record = value as { format?: unknown; slots?: unknown };
   return record.format === PALETTE_FORMAT && Array.isArray(record.slots) && record.slots.every((color) => typeof color === "string") ? record.slots : undefined;
 }
 
-export async function loadColorPalette(): Promise<string[] | undefined> {
-  if (!OBR.isAvailable) return undefined;
-  await ensurePaletteTool();
-  return paletteSlots((await OBR.tool.getMetadata(PALETTE_TOOL_ID))?.[PALETTE_METADATA_KEY]);
+async function paletteSceneDataItem() {
+  if (!OBR.isAvailable || !await OBR.scene.isReady()) return undefined;
+  return (await OBR.scene.items.getItems()).find((item) => Object.hasOwn(item.metadata, PALETTE_STATE_KEY));
 }
 
-export async function loadColorPaletteToolMetadata(): Promise<unknown> {
-  if (!OBR.isAvailable) return undefined;
-  await ensurePaletteTool();
-  return OBR.tool.getMetadata(PALETTE_TOOL_ID);
+function paletteSceneDataSize(palette: { format: number; slots: string[] }) {
+  return new TextEncoder().encode(JSON.stringify({ [PALETTE_STATE_KEY]: palette })).byteLength;
+}
+
+export async function loadColorPalette(): Promise<string[] | undefined> {
+  const item = await paletteSceneDataItem();
+  return paletteSlots(item?.metadata[PALETTE_STATE_KEY]);
+}
+
+export async function getColorPaletteSceneData() {
+  const item = await paletteSceneDataItem();
+  const palette = paletteSlots(item?.metadata[PALETTE_STATE_KEY]);
+  return { scope: "scene-data-item", itemId: item?.id, palette, bytes: palette ? paletteSceneDataSize({ format: PALETTE_FORMAT, slots: palette }) : 0, limitBytes: BOARD_DATA_LIMIT_BYTES };
 }
 
 export async function saveColorPalette(palette: string[]) {
-  if (!OBR.isAvailable) return;
-  await ensurePaletteTool();
-  await OBR.tool.setMetadata(PALETTE_TOOL_ID, { [PALETTE_METADATA_KEY]: { format: PALETTE_FORMAT, slots: palette } });
+  if (!OBR.isAvailable || !await OBR.scene.isReady()) throw new Error("A ready scene is required to save the color palette.");
+  const state = { format: PALETTE_FORMAT, slots: palette };
+  if (paletteSceneDataSize(state) > BOARD_DATA_LIMIT_BYTES) throw new Error("Color palette data exceeds the 1 MB Scene Data Item limit.");
+  const item = await paletteSceneDataItem();
+  if (item) await OBR.scene.items.updateItems([item.id], (items) => { items[0].metadata[PALETTE_STATE_KEY] = state; });
+  else await OBR.scene.items.addItems([buildShape().name("Owl-Boards palette data").metadata({ [PALETTE_STATE_KEY]: state }).locked(true).visible(false).disableHit(true).layer("CONTROL").width(1).height(1).shapeType("RECTANGLE").build()]);
 }
 
-async function clearColorPalette() {
-  if (!OBR.isAvailable) return;
-  await OBR.tool.remove(PALETTE_TOOL_ID);
-  paletteToolReady = undefined;
+export async function clearColorPaletteData() {
+  const item = await paletteSceneDataItem();
+  if (item) await OBR.scene.items.deleteItems([item.id]);
 }
 
 export async function getSceneKey() {
@@ -235,7 +233,7 @@ export async function movePrivateRoomBoardToScene(board: Board) {
 }
 
 export async function clearAllBoardData() {
-  await clearColorPalette();
+  await clearColorPaletteData();
   if (!OBR.isAvailable) return;
   await Promise.all([saveSceneBoardState(emptyState()), saveRoomBoardState(emptyState())]);
   await setPlayerMetadata(ROOM_BOARD_IDS_KEY, []);

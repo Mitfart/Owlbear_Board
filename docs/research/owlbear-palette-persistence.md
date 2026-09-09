@@ -33,15 +33,16 @@ current code, but the storage scope does not survive the reload.
   room-shared extension storage, limited to 16 KB, so it is likewise unsuitable
   for a personal palette.
 
-## Code finding and conclusion
+## Initial code finding
 
-The current implementation in `src/storage.ts` stores preferences through
+The initial implementation stored preferences through
 `OBR.player.setMetadata({ "com.owlbear-board.grid/preferences": value })`.
-It does not use `OBR.tool` at all.  This matches the diagnostic result: the
-palette is saved in a current-player record, which disappears on reload.
+That matches the diagnostic result: the palette was saved in a current-player
+record, which disappeared on reload.
 
-The failure is a storage-scope bug, not palette slot decoding or button
-rendering.  Palette preferences must use explicitly persistent browser-local
-storage. A tool-metadata approach would require registering a visible custom
-tool first, so the implementation uses the browser's local storage directly.
-The clear-data operation remains responsible for removing the saved palette.
+## Current decision
+
+The palette is stored in a dedicated hidden Scene Data Item, rather than player
+or tool metadata. It survives reloads but is shared within, and scoped to, the
+active scene. The Debug view reports its byte usage against the 1 MB Scene Data
+Item limit; a GM can clear this palette data without clearing Board records.

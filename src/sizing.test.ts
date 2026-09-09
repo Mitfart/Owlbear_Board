@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { autoImageSize, autoTextSize, clampNumber, normalizeCounterValue, parseItemSize, textFillScale } from "./sizing";
+import { autoImageSize, autoTextSize, clampNumber, counterMinimumReached, normalizeCounterValue, parseItemSize, textFillScale } from "./sizing";
 
 describe("counter values", () => {
   it("normalizes invalid, fractional, and capped values", () => {
@@ -12,6 +12,11 @@ describe("counter values", () => {
   it("keeps values within optional Counter Minimum and Counter Maximum bounds", () => {
     expect(normalizeCounterValue(1, 3)).toBe(3);
     expect(normalizeCounterValue(9, 3, 7)).toBe(7);
+  });
+
+  it("only treats an explicitly configured Counter Minimum as a control limit", () => {
+    expect(counterMinimumReached(0)).toBe(false);
+    expect(counterMinimumReached(3, 3)).toBe(true);
   });
 });
 

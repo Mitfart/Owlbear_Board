@@ -266,7 +266,7 @@ input[type="radio"] {
 }
 
 .boardPanel input[type="number"],
-.modalGrid > label:not(.wideField) input {
+.modalGrid > .compactField input {
   width: 62px;
 }
 
@@ -416,7 +416,8 @@ input[type="radio"] {
 }
 
 .counterEditLayout {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: 14px;
   padding: 14px;
   overflow-y: auto;
@@ -443,9 +444,23 @@ input[type="radio"] {
 }
 
 .counterEditNumbers {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: flex;
   gap: 10px;
+}
+
+.counterEditTopRow {
+  display: flex;
+  gap: 10px;
+}
+
+.counterEditTopRow label,
+.counterEditNumbers label {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.counterAppearanceSection {
+  margin-top: auto;
 }
 
 
@@ -944,8 +959,8 @@ input[type="radio"] {
 }
 
 .modalGrid {
-  display: grid;
-  grid-template-columns: auto auto auto minmax(0, 1fr) minmax(0, 1fr) auto;
+  display: flex;
+  flex-wrap: nowrap;
   gap: 8px;
   align-items: end;
   padding: 10px;
@@ -972,17 +987,17 @@ input[type="radio"] {
   resize: vertical;
 }
 
-.modalGrid .wideField {
-  grid-column: span 1;
-  min-width: 220px;
+.modalGrid .wideField,
+.modalGrid .counterAddField {
+  flex: 1 1 0;
+  min-width: 0;
 }
 
-.modalGrid > .counterAddField input { width: 100%; }
+.modalGrid .wideField input,
+.modalGrid .counterAddField input { width: 100%; }
 
-.imageAddRow,
-.imagePreviewPanel {
-  grid-column: 1 / -1;
-}
+.modalGrid .compactField { flex: 0 0 auto; }
+.modalGrid .primaryAction { margin-left: auto; }
 
 .imageAddRow {
   display: flex;
@@ -994,6 +1009,7 @@ input[type="radio"] {
 
 .imagePreviewPanel {
   display: grid;
+  margin: 0 10px 10px;
   min-height: 160px;
   max-height: 260px;
   place-items: center;
@@ -1443,10 +1459,6 @@ input[type="color"] { width: 34px; min-width: 34px; height: 32px; padding: 2px; 
 
   .tools {
     margin-left: auto;
-  }
-
-  .counterEditLayout {
-    grid-template-columns: 1fr;
   }
 
 }

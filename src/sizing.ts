@@ -12,6 +12,10 @@ export function normalizeCounterValue(value: number, minimum?: number, maximum?:
   return Math.min(ceiling, Math.max(floor, Number.isFinite(value) ? Math.floor(value) : floor));
 }
 
+export function counterMinimumReached(value: number, minimum?: number) {
+  return typeof minimum === "number" && Number.isFinite(minimum) && value <= minimum;
+}
+
 export function parseItemSize(value: string): ItemSizeDraft {
   const trimmed = value.trim().toLowerCase();
   if (!trimmed || trimmed === AUTO_SIZE) return AUTO_SIZE;

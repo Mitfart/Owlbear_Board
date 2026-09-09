@@ -2,7 +2,7 @@ import OBR, { buildShape } from "@owlbear-rodeo/sdk";
 import {
   BOARD_DATA_LIMIT_BYTES, BOARD_EVENT_CHANNEL, BOARD_STATE_KEY, DEFAULT_CELL_GAP, DEFAULT_CELL_SIZE,
   DEFAULT_COUNTER_MAX_COLOR, DEFAULT_COUNTER_ZERO_COLOR, DEFAULT_ITEM_BORDER_COLOR,
-  DEFAULT_WINDOW, PLAYER_PREFERENCES_KEY, ROOM_BOARD_IDS_KEY, ROOM_BOARD_STATE_KEY,
+  DEFAULT_WINDOW, PALETTE_STORAGE_KEY, PLAYER_PREFERENCES_KEY, ROOM_BOARD_IDS_KEY, ROOM_BOARD_STATE_KEY,
   SCENE_KEY_METADATA,
 } from "./constants";
 import { canDeleteBoard, canViewBoard, type PlayerRole } from "./boardPermissions";
@@ -76,6 +76,21 @@ async function playerMetadata<T>(key: string, fallback: T): Promise<T> {
 }
 async function setPlayerMetadata(key: string, value: unknown) {
   if (OBR.isAvailable) await OBR.player.setMetadata({ [key]: value });
+}
+
+export async function loadColorPalette(): Promise<string[] | undefined> {
+  const stored = localStorage.getItem(PALETTE_STORAGE_KEY);
+  if (!stored) return undefined;
+  const palette: unknown = JSON.parse(stored);
+  return Array.isArray(palette) && palette.every((color) => typeof color === "string") ? palette : undefined;
+}
+
+export async function saveColorPalette(palette: string[]) {
+  localStorage.setItem(PALETTE_STORAGE_KEY, JSON.stringify(palette));
+}
+
+async function clearColorPalette() {
+  localStorage.removeItem(PALETTE_STORAGE_KEY);
 }
 
 export async function getSceneKey() {
@@ -193,6 +208,7 @@ export async function movePrivateRoomBoardToScene(board: Board) {
 }
 
 export async function clearAllBoardData() {
+  await clearColorPalette();
   if (!OBR.isAvailable) return;
   await Promise.all([saveSceneBoardState(emptyState()), saveRoomBoardState(emptyState())]);
   await setPlayerMetadata(ROOM_BOARD_IDS_KEY, []);

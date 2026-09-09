@@ -41,7 +41,7 @@ It does not use `OBR.tool` at all.  This matches the diagnostic result: the
 palette is saved in a current-player record, which disappears on reload.
 
 The failure is a storage-scope bug, not palette slot decoding or button
-rendering.  Palette preferences should use a dedicated extension tool's
-metadata—the SDK's documented browser-local persistent store—or another
-explicitly persistent browser-local store.  Any replacement must keep the
-existing clear-data operation responsible for removing the saved palette.
+rendering.  Palette preferences must use explicitly persistent browser-local
+storage. A tool-metadata approach would require registering a visible custom
+tool first, so the implementation uses the browser's local storage directly.
+The clear-data operation remains responsible for removing the saved palette.

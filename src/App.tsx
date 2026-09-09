@@ -15,7 +15,7 @@ import { autoImageSize, autoTextSize, clampNumber, normalizeCounterValue, parseI
 import { zoomPanToCursor } from "./viewport";
 import { toggleMarkdownStyle } from "./textFormatting";
 import { createBoardMutationCoordinator, type BoardMutationCoordinator } from "./boardCoordinator";
-import { boardByteSize, carryRoomBoardsToCurrentScene, clearAllBoardData, deleteBoard, getPlayerId, getPlayerName, getSceneKey, loadAllVisibleBoards, loadPreferences, loadWindowPreferences, markPrivateBoardOpened, movePrivateRoomBoardToScene, saveBoard, savePreferences, saveViewport, saveWindowPreferences } from "./storage";
+import { boardByteSize, carryRoomBoardsToCurrentScene, clearAllBoardData, deleteBoard, getPlayerId, getPlayerName, getSceneKey, loadAllVisibleBoards, loadColorPalette, loadPreferences, loadWindowPreferences, markPrivateBoardOpened, movePrivateRoomBoardToScene, saveBoard, saveColorPalette, savePreferences, saveViewport, saveWindowPreferences } from "./storage";
 import { activeEditPresence, shouldBroadcastEditPresence, visibleEditPresence, type EditPresence } from "./editingPresence";
 import { buildBoardPickerRows } from "./boardSession";
 import { canDeleteBoard, canEditBoard, canRenameBoard, type PlayerRole } from "./boardPermissions";
@@ -30,17 +30,15 @@ type CounterEdit = { itemId: string; label: string; labelPosition: NonNullable<B
 const OWLBEAR_COLORS = ["#1a6aff", "#ff7433", "#ff4d4d", "#ffd433", "#B07126", "#884dff", "#85ff66", "#519E00", "#eb8aff", "#44e0f1", "#0e0f16", "#222222", "#5a5a5a", "#b3b3b3", "#ffffff"];
 const ColorPickerPreferences = createContext({ paletteColors: [] as string[], onAddColor: (_color: string) => {}, onUpdateColor: (_previous: string, _next: string) => {}, onDeleteColor: (_color: string) => {} });
 
-export function paletteForPreferences(preferences?: PlayerPreferences) {
-  const savedPalette = preferences?.colorPalette;
-  const isCurrentPalette = preferences?.colorPaletteFormat === 2 || (preferences?.colorPaletteFormat === undefined && savedPalette?.includes("-"));
-  if (isCurrentPalette && Array.isArray(savedPalette)) {
+export function paletteForSlots(savedPalette?: string[]) {
+  if (Array.isArray(savedPalette)) {
     const slots = savedPalette.slice(0, 20);
     return slots.flatMap((slot, index) => slot === "-" ? OWLBEAR_COLORS[index] ? [OWLBEAR_COLORS[index]] : [] : hexToHsv(slot) ? [slot] : []);
   }
   return OWLBEAR_COLORS;
 }
 
-function paletteSlots(colors: string[]) {
+function toPaletteSlots(colors: string[]) {
   return colors.slice(0, 20).map((color, index) => OWLBEAR_COLORS[index]?.toLowerCase() === color.toLowerCase() ? "-" : color.toLowerCase());
 }
 
@@ -212,14 +210,20 @@ export default function App() {
   const [resizeItemState, setResizeItemState] = useState<ResizeItemState>();
   const [panning, setPanning] = useState<{ x: number; y: number }>();
   const [theme, setTheme] = useState<Theme>(FALLBACK_THEME);
+  const [colorPalette, setColorPalette] = useState<string[]>();
+  const logDebug = useCallback((message: string) => setDebugLogs((logs) => [`${new Date().toISOString()} ${message}`, ...logs].slice(0, 100)), []);
+  const reportPaletteFailure = useCallback((operation: "load" | "save", reason: unknown) => {
+    const message = formatDebugError(reason);
+    setError(`Could not ${operation} color palette: ${message}`);
+    logDebug(`Could not ${operation} color palette: ${message}`);
+    if (OBR.isAvailable) void OBR.notification.show(`Could not ${operation} color palette.`, "ERROR");
+  }, [logDebug]);
 
   const updateColorPalette = useCallback(async (update: (palette: string[]) => string[]) => {
-    const current = preferences ?? await loadPreferences();
-    const palette = update(paletteForPreferences(current)).slice(0, 20);
-    const next = { ...current, colorPaletteFormat: 2 as const, colorPalette: paletteSlots(palette) };
-    setPreferences(next);
-    await savePreferences(next);
-  }, [preferences]);
+    const next = toPaletteSlots(update(paletteForSlots(colorPalette)).slice(0, 20));
+    setColorPalette(next);
+    try { await saveColorPalette(next); } catch (reason) { setColorPalette(colorPalette); reportPaletteFailure("save", reason); }
+  }, [colorPalette, reportPaletteFailure]);
   const addPaletteColor = useCallback((color: string) => void updateColorPalette((palette) => palette.length >= 20 || palette.some((entry) => entry.toLowerCase() === color.toLowerCase()) ? palette : [...palette, color.toLowerCase()]), [updateColorPalette]);
   const updatePaletteColor = useCallback((previous: string, next: string) => void updateColorPalette((palette) => palette.map((entry) => entry.toLowerCase() === previous.toLowerCase() ? next.toLowerCase() : entry).filter((entry, index, values) => values.findIndex((candidate) => candidate.toLowerCase() === entry.toLowerCase()) === index)), [updateColorPalette]);
   const deletePaletteColor = useCallback((color: string) => void updateColorPalette((palette) => palette.filter((entry) => entry.toLowerCase() !== color.toLowerCase())), [updateColorPalette]);
@@ -273,7 +277,6 @@ export default function App() {
     } as CSSProperties;
   }, [theme]);
 
-  const logDebug = useCallback((message: string) => setDebugLogs((logs) => [`${new Date().toISOString()} ${message}`, ...logs].slice(0, 100)), []);
   if (!mutationCoordinator.current) mutationCoordinator.current = createBoardMutationCoordinator({
     save: saveBoard,
     apply: (next) => setBoards((current) => current.some((board) => board.id === next.id) ? current.map((board) => board.id === next.id ? next : board) : [next, ...current]),
@@ -285,6 +288,8 @@ export default function App() {
     const role = OBR.isAvailable ? await OBR.player.getRole() : "GM" as const;
     const id = await getPlayerId();
     const [visible, prefs, win, key] = await Promise.all([loadAllVisibleBoards(role, id), loadPreferences(), loadWindowPreferences(), getSceneKey()]);
+    let palette: string[] | undefined;
+    try { palette = await loadColorPalette(); } catch (reason) { reportPaletteFailure("load", reason); }
     const ordered = role === "GM" ? visible.boards : buildBoardPickerRows({
       privateSceneBoards: visible.privateScene.boards,
       privateRoomBoards: visible.privateRoom.boards,
@@ -294,7 +299,7 @@ export default function App() {
       sceneKey: key,
     }).flatMap((row) => row.kind === "board" ? [row.board] : []);
     ordered.forEach((board) => mutationCoordinator.current?.observe(board));
-    setSceneKey(key); setPlayerId(id); setPreferences((current) => current?.colorPalette !== undefined ? { ...prefs, colorPalette: current.colorPalette } : prefs); setPlayerRole(role); setPreviewDismissed(!!prefs.previewDismissed); setBoards((current) => JSON.stringify(current) === JSON.stringify(ordered) ? current : ordered); setWindowSize(win); await resizeAction(win.width, win.height);
+    setSceneKey(key); setPlayerId(id); setPreferences(prefs); setColorPalette(palette); setPlayerRole(role); setPreviewDismissed(!!prefs.previewDismissed); setBoards((current) => JSON.stringify(current) === JSON.stringify(ordered) ? current : ordered); setWindowSize(win); await resizeAction(win.width, win.height);
     setOpenBoardIds((ids) => ids.filter((id) => ordered.some((board) => board.id === id)));
     setActiveBoardId((current) => {
       const preserved = ordered.find((board) => board.id === current);
@@ -308,7 +313,7 @@ export default function App() {
       return next?.id;
     });
     tabsInitialized.current = true;
-  }, []);
+  }, [reportPaletteFailure]);
   const refreshIfSafe = useCallback(() => {
     if (!focusedItemId && !dragState && !resizeItemState && pendingCounterChanges.current === 0 && !mutationCoordinator.current?.pending()) void refresh();
   }, [dragState, focusedItemId, refresh, resizeItemState]);
@@ -424,19 +429,19 @@ export default function App() {
     };
     const sceneReady = OBR.isAvailable ? await capture(() => OBR.scene.isReady()) : false;
     const readyScene = sceneReady === true;
-    const [playerMetadata, roomMetadata, sceneMetadata, sceneItems, visibleBoards] = OBR.isAvailable
+    const [playerMetadata, paletteStorage, roomMetadata, sceneMetadata, sceneItems, visibleBoards] = OBR.isAvailable
       ? await Promise.all([
-        capture(() => OBR.player.getMetadata()), capture(() => OBR.room.getMetadata()),
+        capture(() => OBR.player.getMetadata()), capture(() => loadColorPalette()), capture(() => OBR.room.getMetadata()),
         readyScene ? capture(() => OBR.scene.getMetadata()) : undefined,
         readyScene ? capture(() => (OBR.scene as unknown as { items: { getItems(): Promise<unknown[]> } }).items.getItems()) : [],
         capture(() => loadAllVisibleBoards(playerRole, playerId)),
       ])
-      : [undefined, undefined, undefined, [], undefined];
+      : [undefined, undefined, undefined, undefined, [], undefined];
     const snapshot = {
       capturedAt: new Date().toISOString(),
       diagnostics: { available: OBR.isAvailable, sceneReady, ready, playerRole, playerId, sceneKey, activeBoardId, saveStatus, error },
       uiBoards: boards,
-      playerMetadata: boardMetadata(playerMetadata), roomMetadata: boardMetadata(roomMetadata), sceneMetadata: boardMetadata(sceneMetadata), sceneItems: boardSceneItems(sceneItems), visibleBoards,
+      playerMetadata: boardMetadata(playerMetadata), paletteStorage, roomMetadata: boardMetadata(roomMetadata), sceneMetadata: boardMetadata(sceneMetadata), sceneItems: boardSceneItems(sceneItems), visibleBoards,
     };
     setDebugSnapshot(snapshot);
     logDebug("Save/load diagnostics collected.");
@@ -739,7 +744,7 @@ export default function App() {
   const showBoardActions = !!activeBoard;
   if (!ready) return <div className="loading">Loading Board...</div>;
 
-  return <ColorPickerPreferences.Provider value={{ paletteColors: paletteForPreferences(preferences), onAddColor: addPaletteColor, onUpdateColor: updatePaletteColor, onDeleteColor: deletePaletteColor }}><main className="app" style={{ width: windowSize.width, height: windowSize.height, ...themeVars }}>
+  return <ColorPickerPreferences.Provider value={{ paletteColors: paletteForSlots(colorPalette), onAddColor: addPaletteColor, onUpdateColor: updatePaletteColor, onDeleteColor: deletePaletteColor }}><main className="app" style={{ width: windowSize.width, height: windowSize.height, ...themeVars }}>
     <header className="toolbar"><div className="boardTitle">{activeBoard && <button className="boardToggle" title="Board settings" onClick={() => { setBoardPanelBoard(undefined); setBoardPanelPosition(undefined); setBoardPanelOpen((value) => !value); }}><Settings size={16} /></button>}<button className={`boardToggle ${manageBoardsOpen ? "active" : ""}`} title="Manage Boards" aria-label="Manage Boards" onClick={() => { setManageBoardsOpen(true); setBoardPanelOpen(false); }}><PanelsTopLeft size={16} /></button><div className="boardTabs" onPointerDown={startTabDrag} onPointerMove={moveTabDrag} onPointerUp={endTabDrag} onPointerCancel={endTabDrag}>{openBoardIds.flatMap((id) => boards.filter((board) => board.id === id)).map((board) => <button key={board.id} className={`boardTab ${board.id === activeBoardId ? "active" : ""}`} onClick={() => void chooseBoard(board)} onContextMenu={(event) => { event.preventDefault(); void chooseBoard(board); setBoardPanelOpen(true); }}>{board.name}<X size={13} onClick={(event) => { event.stopPropagation(); closeBoardTab(board.id); }} /></button>)}</div>{boardPanelOpen && <section className="boardPanel" style={boardPanelPosition ? { left: boardPanelPosition.x, top: boardPanelPosition.y } : undefined}>
       {boardSettings ? <>{!boardSettingsReadOnly && canRenameBoard(boardSettings, playerRole) && <label>Name<input value={boardSettings.name} onChange={(event) => void updateBoardSettings({ name: event.target.value.slice(0, 60) })} /></label>}<div className="boardInlineFields"><label><span>Grid size</span><input disabled={boardSettingsReadOnly} type="number" min={MIN_CELL_SIZE} max={MAX_CELL_SIZE} value={boardSettings.cellSizePx} onChange={(event) => void updateBoardSettings({ cellSizePx: clampNumber(Number(event.target.value), MIN_CELL_SIZE, MAX_CELL_SIZE) })} /></label><label><span>Grid cell gap</span><input disabled={boardSettingsReadOnly} type="number" min={MIN_CELL_GAP} max={MAX_CELL_GAP} value={boardSettings.cellGapPx} onChange={(event) => void updateBoardSettings({ cellGapPx: clampNumber(Number(event.target.value), MIN_CELL_GAP, MAX_CELL_GAP) })} /></label></div>{!boardSettingsReadOnly && boardSettings.visibility === "private" && boardSettings.scope === "room" && <button onClick={() => void movePrivateRoomBoardToScene(boardSettings).then(refresh)}>Move to Scene</button>}{canDeleteBoard(boardSettings, playerRole, playerId) && <button title="Delete board" onClick={() => { if (confirm(`Delete ${boardSettings.name}? This cannot be undone.`)) void deleteBoard(boardSettings).then(async () => { setBoardPanelOpen(false); setBoardPanelBoard(undefined); await refresh(); }); }}><Trash2 size={16} /> Delete Board</button>}</> : <span className="emptyBoardGroup">Open a board or create one from the Boards menu.</span>}
     </section>}{false && boardPickerOpen && <section className="boardPanel boardPicker"><button className="primaryAction" onClick={() => { setCreateOpen(true); setBoardPickerOpen(false); }}><Plus size={16} /> Create Private Board</button><div className="boardGroups"><strong>Shared Boards</strong>{boards.filter((board) => board.visibility === "shared").map((board) => <button key={board.id} onClick={() => void chooseBoard(board)}>{board.name}</button>)}{!boards.some((board) => board.visibility === "shared" && board.scope === "scene") && <button onClick={() => void createShared("scene")}>Shared Scene Board</button>}{!boards.some((board) => board.visibility === "shared" && board.scope === "room") && <button onClick={() => void createShared("room")}>Shared Room Board</button>}<strong>Private Scene Boards</strong>{boards.filter((board) => board.visibility === "private" && board.scope === "scene").map((board) => <button key={board.id} onClick={() => void chooseBoard(board)}>{board.name}</button>)}{!boards.some((board) => board.visibility === "private" && board.scope === "scene") && <span className="emptyBoardGroup">Empty</span>}<strong>Private Room Boards</strong>{boards.filter((board) => board.visibility === "private" && board.scope === "room").map((board) => <button key={board.id} onClick={() => void chooseBoard(board)}>{board.name}</button>)}{!boards.some((board) => board.visibility === "private" && board.scope === "room") && <span className="emptyBoardGroup">Empty</span>}{playerRole === "GM" && <button className="boardGroupButton" onClick={() => { setManageBoardsOpen(true); setBoardPickerOpen(false); }}>Manage Boards</button>}</div></section>}</div><div className="tools">{showBoardActions && <><button disabled={readOnly} title="Save board" onClick={() => void persistBoard(activeBoard!, false, true)}><Save size={16} /> {saveStatus ?? "Save"}</button>{!readOnly && <button title="Add item" onClick={() => { setAddTarget(viewportCenterGrid()); setAddModalOpen(true); }}><Plus size={16} /> Add</button>}</>}<button title="Zoom out" onClick={() => setZoom((value) => clampNumber(value - 0.1, MIN_ZOOM, MAX_ZOOM))}><Minus size={16} /></button><button className="zoom" title="Reset scale" onClick={() => setZoom(DEFAULT_ZOOM)}>{Math.round(zoom * 100)}%</button><button title="Zoom in" onClick={() => setZoom((value) => clampNumber(value + 0.1, MIN_ZOOM, MAX_ZOOM))}><Plus size={16} /></button><button className={debugOpen ? "active" : undefined} title="Open save/load diagnostics" onClick={() => { if (debugOpen) setDebugOpen(false); else void openDebugTab(); }}>Debug</button></div></header>

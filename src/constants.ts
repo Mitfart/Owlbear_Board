@@ -1,5 +1,6 @@
 export const EXTENSION_ID = "com.owlbear-board.grid";
 export const PLAYER_PREFERENCES_KEY = `${EXTENSION_ID}/preferences`;
+export const PALETTE_STORAGE_KEY = `${EXTENSION_ID}/palette`;
 export const ROOM_BOARD_IDS_KEY = `${EXTENSION_ID}/room-board-ids`;
 export const BOARD_STATE_KEY = `${EXTENSION_ID}/board-state`;
 export const ROOM_BOARD_STATE_KEY = `${EXTENSION_ID}/room-board-state`;

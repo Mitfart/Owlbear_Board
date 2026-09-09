@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { BOARD_EVENT_CHANNEL, BOARD_STATE_KEY, ROOM_BOARD_STATE_KEY } from "./constants";
-import { carryRoomBoardsToCurrentScene, clearAllBoardData, deleteBoard, loadAllVisibleBoards, loadPreferences, normalizeBoardState, saveBoard, savePreferences } from "./storage";
+import { BOARD_EVENT_CHANNEL, BOARD_STATE_KEY, PALETTE_STORAGE_KEY, ROOM_BOARD_STATE_KEY } from "./constants";
+import { carryRoomBoardsToCurrentScene, clearAllBoardData, deleteBoard, loadAllVisibleBoards, loadColorPalette, loadPreferences, normalizeBoardState, saveBoard, saveColorPalette, savePreferences } from "./storage";
 
 let playerMetadata: Record<string, unknown>;
 let roomMetadata: Record<string, unknown>;
@@ -28,6 +28,7 @@ describe("board storage", () => {
     playerMetadata = {}; roomMetadata = {}; sceneMetadata = { "com.owlbear-board.grid/scene-key": "scene" }; sceneItems = [];
     obr.player.getMetadata.mockImplementation(async () => playerMetadata);
     obr.player.setMetadata.mockImplementation(async (update) => { playerMetadata = { ...playerMetadata, ...update }; });
+    localStorage.clear();
     obr.player.getId.mockResolvedValue("owner"); obr.player.getRole.mockResolvedValue("GM");
     obr.room.getMetadata.mockImplementation(async () => roomMetadata);
     obr.room.setMetadata.mockImplementation(async (update) => { roomMetadata = { ...roomMetadata, ...update }; });
@@ -96,12 +97,23 @@ describe("board storage", () => {
     await expect(loadPreferences()).resolves.toEqual(expect.objectContaining({ colorPalette: ["#123456"], textAlignment: 2 }));
   });
 
+  it("keeps the personal palette after Owlbear rebuilds player metadata", async () => {
+    await saveColorPalette(["-", "#123456"]);
+    playerMetadata = {};
+
+    expect(localStorage.getItem(PALETTE_STORAGE_KEY)).toBe('["-","#123456"]');
+    await expect(loadColorPalette()).resolves.toEqual(["-", "#123456"]);
+    expect(obr.player.setMetadata).not.toHaveBeenCalled();
+  });
+
   it("removes current and legacy palette data when clearing all data", async () => {
     const preferences = await loadPreferences();
     await savePreferences({ ...preferences, colorPalette: ["-", "#123456"], colorPaletteFormat: 2, customColors: ["#abcdef"] });
+    await saveColorPalette(["-", "#123456"]);
 
     await clearAllBoardData();
 
+    await expect(loadColorPalette()).resolves.toBeUndefined();
     await expect(loadPreferences()).resolves.not.toHaveProperty("colorPalette");
     await expect(loadPreferences()).resolves.not.toHaveProperty("colorPaletteFormat");
     await expect(loadPreferences()).resolves.not.toHaveProperty("customColors");

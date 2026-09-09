@@ -285,6 +285,7 @@ export default function App() {
   if (!mutationCoordinator.current) mutationCoordinator.current = createBoardMutationCoordinator({
     save: saveBoard,
     apply: (next) => setBoards((current) => current.some((board) => board.id === next.id) ? current.map((board) => board.id === next.id ? next : board) : [next, ...current]),
+    discard: (boardId) => setBoards((current) => current.filter((board) => board.id !== boardId)),
     reportError: (reason) => { const message = formatDebugError(reason); setError(message); if (OBR.isAvailable) void OBR.notification.show(message, "ERROR"); },
     reportDebug: logDebug,
   });
@@ -349,7 +350,7 @@ export default function App() {
   useEffect(() => { if (!OBR.isAvailable || !ready) return; return OBR.theme.onChange(setTheme); }, [ready]);
   useEffect(() => { const timer = window.setInterval(() => setPresenceNow(Date.now()), 1000); return () => window.clearInterval(timer); }, []);
   useEffect(() => { if (!OBR.isAvailable || !ready) return; const timer = window.setInterval(() => refreshIfSafe(), 5000); return () => window.clearInterval(timer); }, [ready, refreshIfSafe]);
-  useEffect(() => { if (!OBR.isAvailable || !ready) return; return OBR.broadcast.onMessage(BOARD_EVENT_CHANNEL, (message) => { const value = (message.data ?? {}) as { boardId?: string; itemIds?: string[] }; if (value.boardId === activeBoardId && focusedItemId && value.itemIds?.includes(focusedItemId)) setWarning("This Board Item changed while you were editing; your draft is retained."); else refreshIfSafe(); }); }, [ready, refreshIfSafe, focusedItemId, activeBoardId]);
+  useEffect(() => { if (!OBR.isAvailable || !ready) return; return OBR.broadcast.onMessage(BOARD_EVENT_CHANNEL, (message) => { const value = (message.data ?? {}) as { boardId?: string; itemIds?: string[] }; if (value.boardId === activeBoardId && focusedItemId && (!value.itemIds || value.itemIds.includes(focusedItemId))) setWarning("This Board Item changed while you were editing; your draft is retained."); else refreshIfSafe(); }); }, [ready, refreshIfSafe, focusedItemId, activeBoardId]);
   useEffect(() => { if (!OBR.isAvailable || !ready) return; return OBR.broadcast.onMessage(EDIT_PRESENCE_CHANNEL, (message) => { const value = message.data; if (!value || typeof value !== "object") return; const next = value as EditPresence; if (next.playerId !== playerId && visibleEditPresence(next, activeBoard, playerRole, playerId)) setEditPresence(next); }); }, [ready, playerId, activeBoard, playerRole]);
   useEffect(() => { if (!focusedItemId || !activeBoard) { setEditPresence((current) => current?.playerId === playerId ? undefined : current); return; } void announceEditPresence(focusedItemId); const timer = window.setInterval(() => void announceEditPresence(focusedItemId), 3000); return () => window.clearInterval(timer); }, [focusedItemId, activeBoard?.id, playerId]);
   useEffect(() => { if (!activeBoard || isPreview) return; const id = window.setTimeout(() => void saveViewport(activeBoard.id, { pan, zoom }), 250); return () => window.clearTimeout(id); }, [activeBoard, isPreview, pan, zoom]);
@@ -597,7 +598,7 @@ export default function App() {
     const gridWidth = clampNumber(size.width, 1, 24); const gridHeight = clampNumber(size.height, 1, 24);
     const position = firstFreeNear(activeBoard, target.x, target.y, gridWidth, gridHeight);
     const item: BoardItem = { ...createItemBase(position.x, position.y, gridWidth, gridHeight), type: "text", text: "", textBaselineWidth: autoTextSize("").width, fontSize: 16, textColor: "#ffffff", fillBlock: true, textVerticalAlignment: "top", borderColor: borderColorDraft };
-    await persistBoard({ ...activeBoard, items: [...activeBoard.items, item] });
+    if (!await persistBoard({ ...activeBoard, items: [...activeBoard.items, item] })) return;
     const alignment = preferences?.textAlignment ?? 0;
     setFocusedItemId(item.id); setNewFocusedItemId(item.id); setFocusDraft(alignment ? `^${alignment} ` : ""); setHorizontalAlignmentOpen(false); setVerticalAlignmentOpen(false);
   }
@@ -621,7 +622,7 @@ export default function App() {
     const target = addTarget ?? viewportCenterGrid(); const position = firstFreeNear(activeBoard, target.x, target.y, gridWidth, gridHeight);
     const max = counterMaxDraft.trim() ? normalizeCounterValue(Number(counterMaxDraft)) : undefined;
     const item: BoardItem = { ...createItemBase(position.x, position.y, gridWidth, gridHeight), type: "counter", counterValue: normalizeCounterValue(Number(counterValueDraft), max), counterMax: max, counterLabelPosition: "top-center", counterDimAtZero: true, borderColor: borderColorDraft, counterZeroColor: DEFAULT_COUNTER_ZERO_COLOR, counterMaxColor: DEFAULT_COUNTER_MAX_COLOR };
-    await persistBoard({ ...activeBoard, items: [...activeBoard.items, item] }); setAddModalOpen(false); setAddTarget(undefined); setCounterValueDraft("0"); setCounterMaxDraft("");
+    if (await persistBoard({ ...activeBoard, items: [...activeBoard.items, item] })) { setAddModalOpen(false); setAddTarget(undefined); setCounterValueDraft("0"); setCounterMaxDraft(""); }
   }
 
   async function pickOwlbearImage() { if (!OBR.isAvailable) return; const images = await OBR.assets.downloadImages(false, undefined, "NOTE"); const image = images[0]?.image; if (image?.url) await addImage(image.url, { width: image.width, height: image.height }); }
@@ -673,7 +674,7 @@ export default function App() {
     if (saved && close) { setFocusedItemId(undefined); setNewFocusedItemId(undefined); setHasTextSelection(false); setHorizontalAlignmentOpen(false); setVerticalAlignmentOpen(false); }
     return !!saved;
   }
-  async function cancelFocusedText() { if (newFocusedItemId && activeBoard) await deleteItem(newFocusedItemId); setFocusedItemId(undefined); setNewFocusedItemId(undefined); setFocusDraft(""); setHasTextSelection(false); setVerticalAlignmentOpen(false); }
+  async function cancelFocusedText() { if (newFocusedItemId && activeBoard && !await deleteItem(newFocusedItemId)) return; setFocusedItemId(undefined); setNewFocusedItemId(undefined); setFocusDraft(""); setHasTextSelection(false); setVerticalAlignmentOpen(false); }
 
   async function saveFocusedImage(close = true) {
     if (!activeBoard || !imageEdit) return false;

@@ -12,6 +12,7 @@ export type BoardMutationCoordinator = {
 export type BoardMutationCoordinatorOptions = {
   save(board: Board, changedItemIds: string[]): Promise<Board>;
   apply(board: Board): void;
+  discard(boardId: string): void;
   reportError(error: unknown): void;
   reportDebug(message: string): void;
   maxHistory?: number;
@@ -32,8 +33,8 @@ export function createBoardMutationCoordinator(options: BoardMutationCoordinator
   const mutate = (board: Board, pushHistory = true) => {
     pending += 1;
     const run = queue.then(async () => {
-      const previous = boards.get(board.id) ?? board;
-      if (pushHistory && JSON.stringify(previous) !== JSON.stringify(board)) {
+      const previous = boards.get(board.id);
+      if (pushHistory && previous && JSON.stringify(previous) !== JSON.stringify(board)) {
         const history = histories.get(board.id) ?? { undo: [], redo: [] };
         histories.set(board.id, { undo: [previous, ...history.undo].slice(0, maxHistory), redo: [] });
       }
@@ -43,7 +44,9 @@ export function createBoardMutationCoordinator(options: BoardMutationCoordinator
         boards.set(saved.id, saved); options.apply(saved); options.reportDebug(`Saved board ${saved.id} at revision ${saved.revision}.`);
         return saved;
       } catch (error) {
-        boards.set(previous.id, previous); options.apply(previous); options.reportError(error); options.reportDebug(`Save failed: ${error instanceof Error ? error.message : String(error)}`);
+        if (previous) { boards.set(previous.id, previous); options.apply(previous); }
+        else { boards.delete(board.id); options.discard(board.id); }
+        options.reportError(error); options.reportDebug(`Save failed: ${error instanceof Error ? error.message : String(error)}`);
         return undefined;
       }
     });

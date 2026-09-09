@@ -109,10 +109,10 @@ export function renderMarkdown(markdown: string, taskInputsDisabled = false) {
   return html.join("");
 }
 
-export function MarkdownView({ value, onTaskToggle }: { value: string; onTaskToggle?: (line: number) => void }) {
+export const MarkdownView = React.memo(function MarkdownView({ value, onTaskToggle }: { value: string; onTaskToggle?: (line: number) => void }) {
   const taskToggle = (target: EventTarget | null) => target instanceof Element ? target.closest(".taskToggle") : null;
   return <div className="markdown" onPointerDown={(event) => { if (taskToggle(event.target)) event.stopPropagation(); }} onDoubleClick={(event) => { if (taskToggle(event.target)) event.stopPropagation(); }} onChange={(event) => {
     const target = event.target;
     if (onTaskToggle && target instanceof HTMLInputElement && target.dataset.taskLine) onTaskToggle(Number(target.dataset.taskLine));
   }} dangerouslySetInnerHTML={{ __html: renderMarkdown(value, !onTaskToggle) }} />;
-}
+});

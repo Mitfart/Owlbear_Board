@@ -15,6 +15,6 @@
   - [x] [Implement shared non-modal Color Picker behavior](https://github.com/Mitfart/Owlbear_Board/issues/14)
   - [x] [#19 — Persist personal color palettes with Owlbear-only storage](https://github.com/Mitfart/Owlbear_Board/issues/19)
   - [x] [Add Counter Minimum bounds and clear border terminology](https://github.com/Mitfart/Owlbear_Board/issues/15)
-  - [ ] [Make Board Item editor changes autosave reliably](https://github.com/Mitfart/Owlbear_Board/issues/16)
-  - [ ] [Repair Text Board Item typography and task list rendering](https://github.com/Mitfart/Owlbear_Board/issues/17)
+  - [x] [Make Board Item editor changes autosave reliably](https://github.com/Mitfart/Owlbear_Board/issues/16)
+  - [x] [Repair Text Board Item typography and task list rendering](https://github.com/Mitfart/Owlbear_Board/issues/17)
   - [ ] [Fix Font Size Picker and suppress redundant board refreshes](https://github.com/Mitfart/Owlbear_Board/issues/18)

@@ -50,4 +50,15 @@ describe("board mutation coordinator", () => {
     fail = false;
     await expect(coordinator.redo("existing")).resolves.toMatchObject({ name: "changed" });
   });
+
+  it("serializes rapid undo and redo actions against the latest history", async () => {
+    const coordinator = createBoardMutationCoordinator({ save: vi.fn(async (value: Board) => ({ ...value, revision: value.revision + 1 })), apply: vi.fn(), discard: vi.fn(), reportError: vi.fn(), reportDebug: vi.fn() });
+    coordinator.observe(board("existing"));
+    await coordinator.mutate({ ...board("existing"), name: "first" });
+    await coordinator.mutate({ ...board("existing"), name: "second" });
+    await Promise.all([coordinator.undo("existing"), coordinator.undo("existing")]);
+    expect(coordinator.current("existing")?.name).toBe("existing");
+    await Promise.all([coordinator.redo("existing"), coordinator.redo("existing")]);
+    expect(coordinator.current("existing")?.name).toBe("second");
+  });
 });

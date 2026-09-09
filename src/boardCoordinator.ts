@@ -30,9 +30,14 @@ export function createBoardMutationCoordinator(options: BoardMutationCoordinator
   let queue = Promise.resolve();
   let pending = 0;
   const maxHistory = options.maxHistory ?? 20;
-  const mutate = (board: Board, pushHistory = true) => {
+  const schedule = (work: () => Promise<Board | undefined>) => {
     pending += 1;
-    const run = queue.then(async () => {
+    const run = queue.then(work);
+    const complete = run.then((value) => { pending -= 1; return value; }, (error) => { pending -= 1; throw error; });
+    queue = complete.then(() => undefined, () => undefined);
+    return complete;
+  };
+  const saveMutation = async (board: Board, pushHistory = true) => {
       const previous = boards.get(board.id);
       const changed = !!previous && JSON.stringify(previous) !== JSON.stringify(board);
       boards.set(board.id, board); options.apply(board);
@@ -50,20 +55,16 @@ export function createBoardMutationCoordinator(options: BoardMutationCoordinator
         options.reportError(error); options.reportDebug(`Save failed: ${error instanceof Error ? error.message : String(error)}`);
         return undefined;
       }
-    });
-    const complete = run.then((value) => { pending -= 1; return value; }, (error) => { pending -= 1; throw error; });
-    queue = complete.then(() => undefined, () => undefined);
-    return complete;
   };
-  const restore = (id: string, direction: "undo" | "redo") => {
+  const mutate = (board: Board, pushHistory = true) => schedule(() => saveMutation(board, pushHistory));
+  const restore = (id: string, direction: "undo" | "redo") => schedule(async () => {
     const history = histories.get(id); const target = history?.[direction][0]; const current = boards.get(id);
-    if (!target || !current) return Promise.resolve(undefined);
+    if (!target || !current) return undefined;
     const opposite = direction === "undo" ? "redo" : "undo";
-    return mutate(target, false).then((saved) => {
-      if (saved) histories.set(id, { ...history, [direction]: history[direction].slice(1), [opposite]: [current, ...history[opposite]].slice(0, maxHistory) });
-      return saved;
-    });
-  };
+    const saved = await saveMutation(target, false);
+    if (saved) histories.set(id, { ...history, [direction]: history[direction].slice(1), [opposite]: [current, ...history[opposite]].slice(0, maxHistory) });
+    return saved;
+  });
   return {
     observe(board) { const current = boards.get(board.id); if (!current || board.revision >= current.revision) boards.set(board.id, board); },
     current(id) { return boards.get(id); }, mutate,

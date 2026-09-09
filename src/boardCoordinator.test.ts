@@ -61,4 +61,17 @@ describe("board mutation coordinator", () => {
     await Promise.all([coordinator.redo("existing"), coordinator.redo("existing")]);
     expect(coordinator.current("existing")?.name).toBe("second");
   });
+
+  it("applies queued editor updates to the latest board state", async () => {
+    const item = { id: "item", type: "counter" as const, gridX: 0, gridY: 0, gridWidth: 1, gridHeight: 1, counterLabel: "Old", counterValue: 1, updatedAt: "now" };
+    const coordinator = createBoardMutationCoordinator({ save: vi.fn(async (value: Board) => ({ ...value, revision: value.revision + 1 })), apply: vi.fn(), discard: vi.fn(), reportError: vi.fn(), reportDebug: vi.fn() });
+    coordinator.observe(board("existing", [item]));
+
+    await Promise.all([
+      coordinator.mutate({ boardId: "existing", update: (current) => ({ ...current, items: current.items.map((candidate) => candidate.id === "item" ? { ...candidate, counterLabel: "Initiative" } : candidate) }) }),
+      coordinator.mutate({ boardId: "existing", update: (current) => ({ ...current, items: current.items.map((candidate) => candidate.id === "item" ? { ...candidate, counterValue: 9 } : candidate) }) }),
+    ]);
+
+    expect(coordinator.current("existing")?.items[0]).toMatchObject({ counterLabel: "Initiative", counterValue: 9 });
+  });
 });

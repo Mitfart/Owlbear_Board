@@ -4,7 +4,7 @@ type History = { undo: Board[]; redo: Board[] };
 export type BoardMutationCoordinator = {
   observe(board: Board): void;
   current(id: string): Board | undefined;
-  mutate(board: Board, pushHistory?: boolean): Promise<Board | undefined>;
+  mutate(board: Board | { boardId: string; update: (current: Board) => Board }, pushHistory?: boolean): Promise<Board | undefined>;
   undo(id: string): Promise<Board | undefined>;
   redo(id: string): Promise<Board | undefined>;
   pending(): boolean;
@@ -56,7 +56,18 @@ export function createBoardMutationCoordinator(options: BoardMutationCoordinator
         return undefined;
       }
   };
-  const mutate = (board: Board, pushHistory = true) => schedule(() => saveMutation(board, pushHistory));
+  const mutate = (board: Board | { boardId: string; update: (current: Board) => Board }, pushHistory = true) => schedule(() => {
+    if ("update" in board) {
+      const current = boards.get(board.boardId);
+      if (!current) return Promise.resolve(undefined);
+      try { return saveMutation(board.update(current), pushHistory); }
+      catch (error) {
+        options.reportError(error); options.reportDebug(`Save failed: ${error instanceof Error ? error.message : String(error)}`);
+        return Promise.resolve(undefined);
+      }
+    }
+    return saveMutation(board, pushHistory);
+  });
   const restore = (id: string, direction: "undo" | "redo") => schedule(async () => {
     const history = histories.get(id); const target = history?.[direction][0]; const current = boards.get(id);
     if (!target || !current) return undefined;

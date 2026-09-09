@@ -3,7 +3,11 @@ import { renderMarkdown, toggleTaskMarkdown } from "./markdown";
 
 describe("renderMarkdown", () => {
   it("renders alignment markers and escaped Markdown punctuation", () => {
-    expect(renderMarkdown("^1 **Centered**\n^2 - Right\n\\*literal*")).toContain('<p class="align-1"><strong>Centered</strong></p><ul><li class="align-2">Right</li></ul><p>*literal*</p>');
+    expect(renderMarkdown("^1 **Centered**\n^2 - Right\n\\*literal*")).toContain('<p class="align-1"><strong>Centered</strong></p><ul class="align-2"><li class="align-2">Right</li></ul><p>*literal*</p>');
+  });
+
+  it("aligns list markers with their formatted list content", () => {
+    expect(renderMarkdown("^2 1. Right")).toContain('<ol class="align-2"><li class="align-2">Right</li></ol>');
   });
 
   it("renders visible blocks for headings, lists, and links", () => {

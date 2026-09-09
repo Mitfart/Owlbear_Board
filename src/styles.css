@@ -1281,12 +1281,12 @@ input[type="color"] { width: 34px; min-width: 34px; height: 32px; padding: 2px; 
   text-align: left;
 }
 
-.markdown :is(p, h1, h2, h3, ul, blockquote, pre) {
+.markdown :is(p, h1, h2, h3, ul, ol, blockquote, pre) {
   margin: 0 0 6px;
 }
 
-.markdown ul {
-  padding-left: 18px;
+.markdown :is(ul, ol) {
+  padding-inline-start: 1.25em;
 }
 
 .markdown .taskItem {
@@ -1347,8 +1347,13 @@ input[type="color"] { width: 34px; min-width: 34px; height: 32px; padding: 2px; 
 }
 
 .taskToggleIcon {
-  width: var(--task-toggle-size);
-  height: var(--task-toggle-size);
+  width: 100%;
+  height: 100%;
+}
+
+.counterOption .taskToggle {
+  --task-toggle-size: 16px;
+  margin: 0;
 }
 
 .taskToggleIcon rect {

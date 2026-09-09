@@ -1,6 +1,10 @@
 import React from "react";
 const taskCheckIcon = "<svg class=\"taskToggleIcon\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"1.5\" y=\"1.5\" width=\"21\" height=\"21\" rx=\"5\" ry=\"5\" stroke-width=\"3\"></rect><polyline points=\"7 10 12 16 22 2\" stroke-width=\"4\"></polyline></g></svg>";
 
+export function TaskToggle({ checked, disabled, label, onChange }: { checked: boolean; disabled?: boolean; label: string; onChange: React.ChangeEventHandler<HTMLInputElement> }) {
+  return <label className="taskToggle"><input type="checkbox" checked={checked} disabled={disabled} aria-label={label} onChange={onChange} /><span className="taskToggleVisual" dangerouslySetInnerHTML={{ __html: taskCheckIcon }} /></label>;
+}
+
 function escapeHtml(value: string) {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;").replace(/'/g, "&#39;");
 }
@@ -49,6 +53,7 @@ export function renderMarkdown(markdown: string, taskInputsDisabled = false) {
   const lines = markdown.split(/\r?\n/);
   const html: string[] = [];
   let listType: "ul" | "ol" | undefined;
+  let listAlign: string | undefined;
   let inCode = false;
   let codeAlign: string | undefined;
 
@@ -68,10 +73,11 @@ export function renderMarkdown(markdown: string, taskInputsDisabled = false) {
     const listItem = line.match(/^\s*(?:[-*]|(\d+)\.)\s+(.+)/);
     if (listItem) {
       const nextListType = listItem[1] ? "ol" : "ul";
-      if (listType !== nextListType) {
+      if (listType !== nextListType || listAlign !== align) {
         if (listType) html.push(`</${listType}>`);
-        html.push(`<${nextListType}>`);
+        html.push(`<${nextListType}${className(align)}>`);
         listType = nextListType;
+        listAlign = align;
       }
       const task = listItem[2].match(/^\[([ x])\]\s+(.+)/);
       const complete = task?.[1] !== " ";
@@ -83,6 +89,7 @@ export function renderMarkdown(markdown: string, taskInputsDisabled = false) {
     if (listType) {
       html.push(`</${listType}>`);
       listType = undefined;
+      listAlign = undefined;
     }
 
     const heading = line.match(/^(#{1,3})\s+(.+)/);

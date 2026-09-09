@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { changedBoardItemIds, createBoardMutationCoordinator } from "./boardCoordinator";
+import { changedBoardItemIds, createBoardMutationCoordinator, reconcileRefreshedBoards } from "./boardCoordinator";
 import type { Board } from "./types";
 
 const board = (id: string, items: Board["items"] = []): Board => ({ id, name: id, scope: "scene", visibility: "private", revision: 0, cellSizePx: 72, cellGapPx: 2, items, updatedAt: "2026-01-01T00:00:00.000Z" });
@@ -73,5 +73,14 @@ describe("board mutation coordinator", () => {
     ]);
 
     expect(coordinator.current("existing")?.items[0]).toMatchObject({ counterLabel: "Initiative", counterValue: 9 });
+  });
+
+  it("keeps an optimistic task-text update when a stale board refresh arrives", async () => {
+    const item = { id: "item", type: "text" as const, gridX: 0, gridY: 0, gridWidth: 1, gridHeight: 1, text: "- [ ] Task", updatedAt: "now" };
+    const coordinator = createBoardMutationCoordinator({ save: vi.fn(async (value: Board) => ({ ...value, revision: value.revision + 1 })), apply: vi.fn(), discard: vi.fn(), reportError: vi.fn(), reportDebug: vi.fn() });
+    const stale = board("existing", [item]); coordinator.observe(stale);
+    await coordinator.mutate({ boardId: "existing", update: (current) => ({ ...current, items: current.items.map((candidate) => candidate.id === "item" ? { ...candidate, text: "- [x] Task" } : candidate) }) });
+
+    expect(reconcileRefreshedBoards([stale], coordinator)[0].items[0].text).toBe("- [x] Task");
   });
 });

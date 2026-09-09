@@ -24,6 +24,11 @@ export function changedBoardItemIds(previous: Board | undefined, next: Board) {
   return [...new Set([...before.keys(), ...after.keys()].filter((id) => JSON.stringify(before.get(id)) !== JSON.stringify(after.get(id))))];
 }
 
+export function reconcileRefreshedBoards(refreshed: Board[], coordinator: Pick<BoardMutationCoordinator, "observe" | "current">) {
+  refreshed.forEach((board) => coordinator.observe(board));
+  return refreshed.map((board) => coordinator.current(board.id) ?? board);
+}
+
 export function createBoardMutationCoordinator(options: BoardMutationCoordinatorOptions): BoardMutationCoordinator {
   const boards = new Map<string, Board>();
   const histories = new Map<string, History>();

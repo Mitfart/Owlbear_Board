@@ -1293,6 +1293,9 @@ input[type="color"] { width: 34px; min-width: 34px; height: 32px; padding: 2px; 
 
 .markdown .taskItem {
   list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 5px;
 }
 
 .markdown .taskItem.complete .taskText,

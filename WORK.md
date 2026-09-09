@@ -13,6 +13,7 @@
 
 - [ ] [Wayfinder: Board Item editing and presentation reliability](https://github.com/Mitfart/Owlbear_Board/issues/13)
   - [x] [Implement shared non-modal Color Picker behavior](https://github.com/Mitfart/Owlbear_Board/issues/14)
+  - [ ] [#19 — Persist personal color palettes with Owlbear-only storage](https://github.com/Mitfart/Owlbear_Board/issues/19)
   - [ ] [Add Counter Minimum bounds and clear border terminology](https://github.com/Mitfart/Owlbear_Board/issues/15)
   - [ ] [Make Board Item editor changes autosave reliably](https://github.com/Mitfart/Owlbear_Board/issues/16)
   - [ ] [Repair Text Board Item typography and task list rendering](https://github.com/Mitfart/Owlbear_Board/issues/17)

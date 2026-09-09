@@ -739,11 +739,11 @@ export default function App() {
 
   function toggleTextTask(item: BoardItem, line: number) {
     const board = mutationCoordinator.current?.current(activeBoard?.id ?? ""); if (!board || readOnly || item.type !== "text") return;
-    const current = board.items.find((candidate) => candidate.id === item.id); if (!current) return;
-    const text = toggleTaskMarkdown(current.text ?? "", line);
-    if (text === current.text) return;
-    const next = { ...board, items: board.items.map((candidate) => candidate.id === item.id ? { ...candidate, text, updatedAt: nowIso() } : candidate) };
-    void persistBoard(next);
+    void persistBoard({ boardId: board.id, update: (currentBoard) => {
+      const current = currentBoard.items.find((candidate) => candidate.id === item.id); if (!current) return currentBoard;
+      const text = toggleTaskMarkdown(current.text ?? "", line); if (text === current.text) return currentBoard;
+      return { ...currentBoard, items: currentBoard.items.map((candidate) => candidate.id === item.id ? { ...candidate, text, updatedAt: nowIso() } : candidate) };
+    } });
   }
 
   function restoreTextSelection(start: number, end: number) {

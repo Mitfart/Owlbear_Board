@@ -1278,7 +1278,9 @@ input[type="color"] { width: 34px; min-width: 34px; height: 32px; padding: 2px; 
 
 .markdown {
   width: 100%;
+  line-height: 1.25;
   text-align: left;
+  overflow-wrap: anywhere;
 }
 
 .markdown :is(p, h1, h2, h3, ul, ol, blockquote, pre) {

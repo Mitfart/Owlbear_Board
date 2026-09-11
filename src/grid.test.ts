@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { boardItemAt, boardItemCells, collides, firstFreeNear, makeRectCells, updateBoardItemPosition, updateBoardItemRect } from "./grid";
+import { boardItemAt, boardItemCells, collides, firstFreeNear, makeRectCells, moveAlongFreePath, updateBoardItemPosition, updateBoardItemRect } from "./grid";
 import type { Board, BoardItem } from "./types";
 
 const item = (overrides: Partial<BoardItem>): BoardItem => ({
@@ -64,5 +64,12 @@ describe("grid occupancy", () => {
 
   it("finds the nearest free position when a requested placement is occupied", () => {
     expect(firstFreeNear(board([item({ gridX: 0, gridY: 0, gridWidth: 1, gridHeight: 1 })]), 0, 0, 1, 1)).toEqual({ x: -1, y: -1 });
+  });
+
+  it("stops a drag at the last free position along its movement vector", () => {
+    const moving = item({ id: "moving", gridX: 0, gridY: 0, gridWidth: 1, gridHeight: 1 });
+    const blocker = item({ id: "blocker", gridX: 2, gridY: 0, gridWidth: 1, gridHeight: 1 });
+
+    expect(moveAlongFreePath(board([moving, blocker]), moving, { x: 4, y: 0 })).toEqual({ x: 1, y: 0 });
   });
 });

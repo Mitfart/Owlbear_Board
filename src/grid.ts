@@ -61,6 +61,23 @@ export function firstFreeNear(board: Board, gridX: number, gridY: number, gridWi
   }
 }
 
+export function moveAlongFreePath(board: Board, item: BoardItem, target: { x: number; y: number }) {
+  const deltaX = target.x - item.gridX;
+  const deltaY = target.y - item.gridY;
+  const steps = Math.max(Math.abs(deltaX), Math.abs(deltaY));
+  let position = { x: item.gridX, y: item.gridY };
+  for (let step = 1; step <= steps; step += 1) {
+    const candidate = {
+      x: Math.round(item.gridX + deltaX * step / steps),
+      y: Math.round(item.gridY + deltaY * step / steps),
+    };
+    if (candidate.x === position.x && candidate.y === position.y) continue;
+    if (collides(board, candidate.x, candidate.y, item.gridWidth, item.gridHeight, item.id)) break;
+    position = candidate;
+  }
+  return position;
+}
+
 export function updateBoardItemPosition(
   item: BoardItem,
   gridX: number,

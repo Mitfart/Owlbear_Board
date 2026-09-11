@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { boardClipboardCommand, canHandleBoardShortcut, createPastedBoardItem, loadClipboard, preparePastedBoardItem, saveClipboard } from "./clipboard";
+import { boardClipboardCommand, canHandleBoardShortcut, createPastedBoardItem, centeredPasteTarget, loadClipboard, preparePastedBoardItem, saveClipboard } from "./clipboard";
 import type { Board, BoardItem } from "./types";
 
 const counter: BoardItem = {
@@ -67,5 +67,9 @@ describe("Clipboard", () => {
 
     expect(pasted).toMatchObject({ id: "pasted", gridX: 3, gridY: 2 });
     expect(loadClipboard()).toEqual(counter);
+  });
+
+  it("centers a keyboard paste target around the Board Item", () => {
+    expect(centeredPasteTarget({ ...counter, gridWidth: 4, gridHeight: 3 }, { x: 10, y: 8 })).toEqual({ x: 8, y: 7 });
   });
 });

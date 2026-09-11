@@ -6,8 +6,8 @@ import type { CSSProperties } from "react";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { BOARD_DATA_LIMIT_BYTES, DEFAULT_CELL_GAP, DEFAULT_CELL_SIZE, DEFAULT_COUNTER_MAX_COLOR, DEFAULT_COUNTER_ZERO_COLOR, DEFAULT_ITEM_BORDER_COLOR, DEFAULT_WINDOW, EXTENSION_ID, BOARD_EVENT_CHANNEL, EDIT_PRESENCE_CHANNEL, MAX_CELL_GAP, MAX_CELL_SIZE, MIN_CELL_GAP, MIN_CELL_SIZE } from "./constants";
-import { boardItemAt, collides, firstFreeNear, updateBoardItemRect } from "./grid";
-import { boardClipboardCommand, canHandleBoardShortcut, loadClipboard, preparePastedBoardItem, saveClipboard } from "./clipboard";
+import { boardItemAt, collides, firstFreeNear, moveAlongFreePath, updateBoardItemRect } from "./grid";
+import { boardClipboardCommand, canHandleBoardShortcut, centeredPasteTarget, loadClipboard, preparePastedBoardItem, saveClipboard } from "./clipboard";
 import { clampColorValue, hexToHsv, hsvToHex, type HsvColor } from "./color";
 import { createId, nowIso } from "./ids";
 import { MarkdownView, TaskToggle, toggleTaskMarkdown } from "./markdown";
@@ -684,11 +684,11 @@ export default function App() {
     if (item) copyBoardItem(item);
   }
 
-  async function pasteClipboardAt(target: { x: number; y: number }) {
+  async function pasteClipboardAt(target: { x: number; y: number }, center = false) {
     if (!activeBoard || readOnly) return;
     const clipboard = loadClipboard();
     if (!clipboard) return;
-    const item = preparePastedBoardItem(activeBoard, clipboard, target, createId("board_item"), nowIso());
+    const item = preparePastedBoardItem(activeBoard, clipboard, center ? centeredPasteTarget(clipboard, target) : target, createId("board_item"), nowIso());
     if (await persistBoard({ ...activeBoard, items: [...activeBoard.items, item] })) {
       setSelectedItemId(item.id);
       setContextItem(undefined);
@@ -803,7 +803,7 @@ export default function App() {
       const item = activeBoard.items.find((candidate) => candidate.id === selectedItemId);
       if (item) { event.preventDefault(); copyBoardItem(item); }
     } else if (clipboardCommand === "paste" && activeBoard && !readOnly && loadClipboard()) {
-      event.preventDefault(); void pasteClipboardAt(viewportCenterGrid());
+      event.preventDefault(); void pasteClipboardAt(viewportCenterGrid(), true);
     } else if (command && event.key.toLowerCase() === "z") { event.preventDefault(); void (event.shiftKey ? redo() : undo()); }
     else if (command && event.key.toLowerCase() === "y") { event.preventDefault(); void redo(); }
     else if (event.key === "Delete" && selectedItemId) { void deleteItem(selectedItemId); }
@@ -820,7 +820,7 @@ export default function App() {
   function handleGridPointerMove(event: React.PointerEvent<HTMLDivElement>) {
     if (!activeBoard || readOnly) { if (panning) setPan({ x: event.clientX - panning.x, y: event.clientY - panning.y }); return; }
     if (resizeItemState) { const grid = pointerToGrid(event.clientX, event.clientY); const gridWidth = Math.max(1, grid.x - resizeItemState.gridX + 1); const gridHeight = Math.max(1, grid.y - resizeItemState.gridY + 1); if (!collides(activeBoard, resizeItemState.gridX, resizeItemState.gridY, gridWidth, gridHeight, resizeItemState.itemId)) setResizeItemState({ ...resizeItemState, gridWidth, gridHeight }); return; }
-    if (dragState) { if (!dragState.moved && Math.hypot(event.clientX - dragState.startX, event.clientY - dragState.startY) < 4) return; const moving = dragState.moved ? dragState : { ...dragState, moved: true }; const item = activeBoard.items.find((candidate) => candidate.id === moving.itemId); if (!item) return; const grid = pointerToGrid(event.clientX - moving.offsetX, event.clientY - moving.offsetY); if (!collides(activeBoard, grid.x, grid.y, item.gridWidth, item.gridHeight, item.id)) setDragState({ ...moving, gridX: grid.x, gridY: grid.y }); return; }
+    if (dragState) { if (!dragState.moved && Math.hypot(event.clientX - dragState.startX, event.clientY - dragState.startY) < 4) return; const moving = dragState.moved ? dragState : { ...dragState, moved: true }; const item = activeBoard.items.find((candidate) => candidate.id === moving.itemId); if (!item) return; const grid = pointerToGrid(event.clientX - moving.offsetX, event.clientY - moving.offsetY); const position = moveAlongFreePath(activeBoard, item, grid); if (position.x !== item.gridX || position.y !== item.gridY) setDragState({ ...moving, gridX: position.x, gridY: position.y }); return; }
     if (panning) setPan({ x: event.clientX - panning.x, y: event.clientY - panning.y });
   }
   async function handleGridPointerUp(event: React.PointerEvent<HTMLDivElement>) { if (resizeItemState) await updateItemRect(resizeItemState.itemId, resizeItemState.gridX, resizeItemState.gridY, resizeItemState.gridWidth, resizeItemState.gridHeight); if (dragState?.moved && activeBoard && dragState.gridX !== undefined && dragState.gridY !== undefined) { const item = activeBoard.items.find((candidate) => candidate.id === dragState.itemId); if (item) await updateItemRect(item.id, dragState.gridX, dragState.gridY, item.gridWidth, item.gridHeight); } setDragState(undefined); setResizeItemState(undefined); setPanning(undefined); }

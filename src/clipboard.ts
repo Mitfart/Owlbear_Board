@@ -68,6 +68,10 @@ export function preparePastedBoardItem(board: Board, item: BoardItem, target: { 
   return createPastedBoardItem(item, firstFreeNear(board, target.x, target.y, item.gridWidth, item.gridHeight), id, updatedAt);
 }
 
+export function centeredPasteTarget(item: Pick<BoardItem, "gridWidth" | "gridHeight">, target: { x: number; y: number }) {
+  return { x: target.x - Math.floor(item.gridWidth / 2), y: target.y - Math.floor(item.gridHeight / 2) };
+}
+
 export function canHandleBoardShortcut(event: Pick<KeyboardEvent, "target">, editorOpen: boolean) {
   const target = event.target;
   return !editorOpen && !(target instanceof Element && !!target.closest("input, textarea, select, [contenteditable='true']"));

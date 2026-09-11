@@ -20,6 +20,10 @@ _Avoid_: Sceen board, project board
 An element placed on a board at a grid position. A board item occupies one or more grid cells and is independent from Owlbear scene objects.
 _Avoid_: Kanban item, card, token, note
 
+**Clipboard**:
+A per-user, browser-local persisted copy of one Board Item. It is never stored in Owlbear metadata, exposed to other users, or removed by Clear All Board Data.
+_Avoid_: Shared clipboard, Board clipboard data
+
 **Scene Data Item**:
 A hidden, locked, non-hittable Owlbear scene object that holds one complete Board record in its item metadata. It is the authoritative persisted board data for that scene and is limited to 1 MB.
 _Avoid_: Asset, token, room metadata

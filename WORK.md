@@ -11,10 +11,10 @@
 - [x] [Carry Shared Room Boards across scene transitions](https://github.com/Mitfart/Owlbear_Board/issues/11)
 - [x] [Make Board presentation and editing state reliable](https://github.com/Mitfart/Owlbear_Board/issues/12)
 
-- [ ] [Wayfinder: Board Item editing and presentation reliability](https://github.com/Mitfart/Owlbear_Board/issues/13)
+- [x] [Wayfinder: Board Item editing and presentation reliability](https://github.com/Mitfart/Owlbear_Board/issues/13)
   - [x] [Implement shared non-modal Color Picker behavior](https://github.com/Mitfart/Owlbear_Board/issues/14)
   - [x] [#19 — Persist personal color palettes with Owlbear-only storage](https://github.com/Mitfart/Owlbear_Board/issues/19)
   - [x] [Add Counter Minimum bounds and clear border terminology](https://github.com/Mitfart/Owlbear_Board/issues/15)
   - [x] [Make Board Item editor changes autosave reliably](https://github.com/Mitfart/Owlbear_Board/issues/16)
   - [x] [Repair Text Board Item typography and task list rendering](https://github.com/Mitfart/Owlbear_Board/issues/17)
-  - [ ] [Fix Font Size Picker and suppress redundant board refreshes](https://github.com/Mitfart/Owlbear_Board/issues/18)
+  - [x] [Fix Font Size Picker and suppress redundant board refreshes](https://github.com/Mitfart/Owlbear_Board/issues/18)

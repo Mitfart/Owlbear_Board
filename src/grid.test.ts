@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { boardItemAt, boardItemCells, collides, makeRectCells, updateBoardItemPosition, updateBoardItemRect } from "./grid";
+import { boardItemAt, boardItemCells, collides, firstFreeNear, makeRectCells, updateBoardItemPosition, updateBoardItemRect } from "./grid";
 import type { Board, BoardItem } from "./types";
 
 const item = (overrides: Partial<BoardItem>): BoardItem => ({
@@ -60,5 +60,9 @@ describe("grid occupancy", () => {
   it("uses bounds for selection", () => {
     const candidate = item({ gridX: 5, gridY: 6, gridWidth: 2, gridHeight: 2 });
     expect(boardItemAt(board([candidate]), 6, 7)).toBe(candidate);
+  });
+
+  it("finds the nearest free position when a requested placement is occupied", () => {
+    expect(firstFreeNear(board([item({ gridX: 0, gridY: 0, gridWidth: 1, gridHeight: 1 })]), 0, 0, 1, 1)).toEqual({ x: -1, y: -1 });
   });
 });

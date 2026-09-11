@@ -50,6 +50,17 @@ export function boardItemAt(board: Board, gridX: number, gridY: number) {
   );
 }
 
+export function firstFreeNear(board: Board, gridX: number, gridY: number, gridWidth: number, gridHeight: number) {
+  if (!collides(board, gridX, gridY, gridWidth, gridHeight)) return { x: gridX, y: gridY };
+  for (let radius = 1; ; radius += 1) {
+    for (let y = gridY - radius; y <= gridY + radius; y += 1) {
+      for (let x = gridX - radius; x <= gridX + radius; x += 1) {
+        if (!collides(board, x, y, gridWidth, gridHeight)) return { x, y };
+      }
+    }
+  }
+}
+
 export function updateBoardItemPosition(
   item: BoardItem,
   gridX: number,

@@ -21,12 +21,15 @@
 
 > **Beta project.** Owl-Boards is actively being tested. Please report problems, suggest features, and contribute improvements through [GitHub Issues](https://github.com/Mitfart/Owlbear_Board/issues).
 
-## What’s new in 0.2
+## What’s new in 0.3
 
 - **Reliable board persistence** — Scene Boards are saved with their scene; Room Boards use a room-level registry and follow the table across scene changes.
 - **Clear board access** — private boards can be shared with selected players; GMs can always access them, while only the creator or a GM can delete a board.
 - **Live board lists** — board saves, edits, and deletions refresh the board menu and Manage Boards view across connected clients.
 - **Refined editing** — improved Markdown help and formatting, responsive text items, safer numeric inputs, and stronger board placement and resize handling.
+- **Local Board Item Clipboard** — copy one Board Item, switch Boards, and paste an independent duplicate with its text, image, counter, dimensions, and styling intact.
+- **Faster board work** — use context-menu Copy/Paste or Ctrl/Cmd+C and Ctrl/Cmd+V; keyboard paste appears at the visible Board center.
+- **Clearer item feedback** — improved Board Item selection, collision-safe directional dragging, and polished image-card clipping and borders.
 
 ## Install the beta
 

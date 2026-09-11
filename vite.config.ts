@@ -6,7 +6,7 @@ const commitCount = (() => { try { return execFileSync("git", ["rev-list", "--co
 
 export default defineConfig({
   base: process.env.VITE_BASE ?? "/Owlbear_Board/",
-  define: { __APP_VERSION__: JSON.stringify(`0.2.${commitCount}`) },
+  define: { __APP_VERSION__: JSON.stringify(`0.3.${commitCount}`) },
   plugins: [react()],
   build: {
     outDir: "dist",

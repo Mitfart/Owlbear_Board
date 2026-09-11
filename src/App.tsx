@@ -7,7 +7,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { createPortal } from "react-dom";
 import { BOARD_DATA_LIMIT_BYTES, DEFAULT_CELL_GAP, DEFAULT_CELL_SIZE, DEFAULT_COUNTER_MAX_COLOR, DEFAULT_COUNTER_ZERO_COLOR, DEFAULT_ITEM_BORDER_COLOR, DEFAULT_WINDOW, EXTENSION_ID, BOARD_EVENT_CHANNEL, EDIT_PRESENCE_CHANNEL, MAX_CELL_GAP, MAX_CELL_SIZE, MIN_CELL_GAP, MIN_CELL_SIZE } from "./constants";
 import { boardItemAt, collides, firstFreeNear, updateBoardItemRect } from "./grid";
-import { canHandleBoardShortcut, loadClipboard, preparePastedBoardItem, saveClipboard } from "./clipboard";
+import { boardClipboardCommand, canHandleBoardShortcut, loadClipboard, preparePastedBoardItem, saveClipboard } from "./clipboard";
 import { clampColorValue, hexToHsv, hsvToHex, type HsvColor } from "./color";
 import { createId, nowIso } from "./ids";
 import { MarkdownView, TaskToggle, toggleTaskMarkdown } from "./markdown";
@@ -798,10 +798,11 @@ export default function App() {
   useEffect(() => { const handler = (event: KeyboardEvent) => {
     if (!canHandleBoardShortcut(event, !!focusedItemId || !!imageEdit || !!counterEdit)) return;
     const command = event.ctrlKey || event.metaKey;
-    if (command && event.key.toLowerCase() === "c" && selectedItemId && activeBoard) {
+    const clipboardCommand = boardClipboardCommand(event);
+    if (clipboardCommand === "copy" && selectedItemId && activeBoard) {
       const item = activeBoard.items.find((candidate) => candidate.id === selectedItemId);
       if (item) { event.preventDefault(); copyBoardItem(item); }
-    } else if (command && event.key.toLowerCase() === "v" && activeBoard && !readOnly && loadClipboard()) {
+    } else if (clipboardCommand === "paste" && activeBoard && !readOnly && loadClipboard()) {
       event.preventDefault(); void pasteClipboardAt(viewportCenterGrid());
     } else if (command && event.key.toLowerCase() === "z") { event.preventDefault(); void (event.shiftKey ? redo() : undo()); }
     else if (command && event.key.toLowerCase() === "y") { event.preventDefault(); void redo(); }

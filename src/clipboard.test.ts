@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { canHandleBoardShortcut, createPastedBoardItem, loadClipboard, preparePastedBoardItem, saveClipboard } from "./clipboard";
+import { boardClipboardCommand, canHandleBoardShortcut, createPastedBoardItem, loadClipboard, preparePastedBoardItem, saveClipboard } from "./clipboard";
 import type { Board, BoardItem } from "./types";
 
 const counter: BoardItem = {
@@ -48,6 +48,11 @@ describe("Clipboard", () => {
     expect(canHandleBoardShortcut({ target: document.body }, false)).toBe(true);
     expect(canHandleBoardShortcut({ target: document.body }, true)).toBe(false);
     expect(canHandleBoardShortcut({ target: input }, false)).toBe(false);
+  });
+
+  it("recognizes copy and paste by physical key when the keyboard layout is not Latin", () => {
+    expect(boardClipboardCommand({ ctrlKey: true, metaKey: false, code: "KeyC" })).toBe("copy");
+    expect(boardClipboardCommand({ ctrlKey: false, metaKey: true, code: "KeyV" })).toBe("paste");
   });
 
   it("rejects malformed locally persisted Clipboard data", () => {

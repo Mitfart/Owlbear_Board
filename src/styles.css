@@ -328,8 +328,12 @@ input[type="radio"] {
   user-select: none;
 }
 
-.boardItem.selected {
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.28), 0 10px 22px var(--shadow);
+.boardItem.selected,
+.boardItem.editingPresence {
+  overflow: visible;
+  outline: 5px solid rgba(228, 235, 241, 0.25);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 6px rgba(228, 235, 241, 0.08), 0 10px 22px var(--shadow);
 }
 
 .itemResizeHandle {
@@ -1489,12 +1493,6 @@ input[type="color"] { width: 34px; min-width: 34px; height: 32px; padding: 2px; 
   }
 }
 
-.boardItem.editingPresence {
-  overflow: visible;
-  outline: 5px solid rgba(228, 235, 241, 0.25);
-  outline-offset: 3px;
-  box-shadow: 0 0 0 6px rgba(228, 235, 241, 0.08), 0 10px 22px var(--shadow);
-}
 
 .editPresenceLabel {
   position: absolute;

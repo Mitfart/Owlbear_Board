@@ -72,3 +72,10 @@ export function canHandleBoardShortcut(event: Pick<KeyboardEvent, "target">, edi
   const target = event.target;
   return !editorOpen && !(target instanceof Element && !!target.closest("input, textarea, select, [contenteditable='true']"));
 }
+
+export function boardClipboardCommand(event: Pick<KeyboardEvent, "ctrlKey" | "metaKey" | "code">) {
+  if (!event.ctrlKey && !event.metaKey) return undefined;
+  if (event.code === "KeyC") return "copy";
+  if (event.code === "KeyV") return "paste";
+  return undefined;
+}
